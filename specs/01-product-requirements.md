@@ -1,69 +1,28 @@
 # Product Requirements
 
-## Product Summary
+## Product Thesis
 
-Signal Console is an internal NBA market-intelligence and trader decision-support product for bet365 stakeholders. It compares bet365 book state against external signal sources such as Kalshi, Polymarket, and NBA context data, then surfaces divergence, confidence, freshness, provenance, and recommended next actions.
-
-## Personas
-
-- Trader
-  - needs the fastest honest view of where bet365 may be stale or overexposed
-- Product / leadership reviewer
-  - needs a polished demo that clearly communicates why the product matters
-- Research / quant analyst
-  - needs transparent scoring logic, replay, and backtest-friendly artifacts
-- Platform / data engineer
-  - needs clear adapter boundaries, diagnostics, and portable contracts
-
-## Primary Use Cases
-
-- Scan the slate for the highest-priority divergence opportunities.
-- Open a single matchup and understand what changed, why it matters, and what to inspect next.
-- Compare how disagreement evolved over time across sources.
-- Review source health and freshness before trusting a signal.
-- Maintain an internal watchlist for the markets worth active trader review.
-- Run demo and replay scenarios without depending on live external APIs.
+Signal Console is a research system for live in-game market comparison. It should help an operator understand where book structure, prediction-market prices, and actual game context disagree, with full provenance and no synthetic fallback path.
 
 ## Functional Requirements
 
-- `FR-001` The product shall support `demo`, `replay`, and `live` operating modes.
-- `FR-002` The product shall provide an overview dashboard that ranks events by watchlist priority and divergence severity.
-- `FR-003` The product shall provide an event workspace showing source probabilities, signal score, confidence, narrative reasons, and audit context for a selected NBA event.
-- `FR-004` The product shall provide a divergence explorer with sortable and filterable cross-event scanning.
-- `FR-005` The product shall provide a timeline view showing how divergence changed over time.
-- `FR-006` The product shall provide a watchlist surface with priority, alert reasons, and last-change metadata.
-- `FR-007` The product shall provide a diagnostics/settings surface showing mode, adapter health, last sync times, and fixture selection.
-- `FR-008` The product shall expose deterministic reason codes and readable narrative summaries for each surfaced signal.
-- `FR-009` The product shall label freshness, provenance, and source availability for all surfaced market data.
-- `FR-010` The product shall degrade gracefully when any live source is stale, missing, or unhealthy.
-- `FR-011` The product shall support a command palette and keyboard-first navigation for major operator flows.
-- `FR-012` The product shall persist normalized snapshots, replay frames, watchlist state, and audit events in portable storage.
-- `FR-013` The product shall preserve audit context for important signal events and suggested trader actions.
+- `FR-001` The product shall serve live-only research workflows.
+- `FR-002` The product shall expose tracked games with current game state, coverage, and top divergence summaries.
+- `FR-003` The product shall expose instrument-level views with per-source quotes, raw line terms, implied probabilities, and provenance.
+- `FR-004` The product shall expose append-only quote and game-state timelines for one canonical instrument.
+- `FR-005` The product shall separate line mismatch from like-for-like probability divergence.
+- `FR-006` The product shall expose unmapped markets and allow manual resolution.
+- `FR-007` The product shall expose operator-facing source health and readiness state.
+- `FR-008` The product shall ingest NBA game-state and outcomes through a Python `nba_api` sidecar.
+- `FR-009` The product shall persist enough raw and normalized history to answer what each source showed over time for a completed or live game.
+- `FR-010` The product shall expose a game-level workspace with market-family switching, grouped instruments, and direct navigation into one instrument timeline.
+- `FR-011` The product shall export instrument timeline research artifacts with provenance and timestamps.
+- `FR-012` The product shall ingest live Polymarket NBA game markets through official APIs into canonical instruments, source markets, quote ticks, raw payloads, and adapter runs.
 
 ## Non-Functional Requirements
 
-- `NFR-001` Core scoring logic shall be deterministic and implemented without LLM dependency.
-- `NFR-002` All runtime TypeScript projects shall use strict type checking.
-- `NFR-003` API boundaries shall validate inputs and outputs with Zod.
-- `NFR-004` Demo mode shall run with zero external network dependency.
-- `NFR-005` The product shall remain legible and usable on laptop-sized viewports.
-- `NFR-006` The UI shall emphasize dense readability over decorative excess.
-- `NFR-007` The system shall expose source freshness and health within one API hop of the UI.
-- `NFR-008` Storage choices shall be portable enough to migrate from SQLite to Postgres later.
-- `NFR-009` Logs and server failures shall be structured and operator-readable.
-- `NFR-010` The changed surface shall be covered by automated unit, integration, and end-to-end tests.
-
-## Constraints
-
-- No public sportsbook betting flow.
-- No wallet or execution flow.
-- No pretending stale data is live.
-- No hidden weighting or black-box numeric output.
-- No LLM-driven probability math.
-
-## Success Criteria
-
-- Traders can identify the most important market on the slate within 3 seconds of loading the overview.
-- Event detail answers three questions immediately: what changed, why it matters, and what to do next.
-- Demo mode remains visually compelling and operational even if all live adapters are disabled.
-- Signal scoring, narrative reasons, and freshness states are traceable in tests and inspectable in the UI.
+- `NFR-001` Runtime errors shall use stable typed envelopes.
+- `NFR-002` Health/readiness shall fail honestly when required live dependencies or persisted live data are missing.
+- `NFR-003` Storage shall remain portable through SQLite for v1 while preserving append-only history.
+- `NFR-004` The system shall never silently substitute synthetic data for missing live data.
+- `NFR-005` Node runtime entrypoints shall load repo-local env files without overriding explicit shell exports.

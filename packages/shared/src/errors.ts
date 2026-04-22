@@ -4,11 +4,10 @@ export const appErrorCodes = [
   "ADAPTER_FAILURE",
   "DATABASE_FAILURE",
   "EVENT_NOT_FOUND",
-  "FIXTURE_NOT_FOUND",
+  "GAME_NOT_FOUND",
   "INTERNAL_ERROR",
+  "INSTRUMENT_NOT_FOUND",
   "INVALID_MODE",
-  "REPLAY_FRAME_OUT_OF_RANGE",
-  "REPLAY_SELECTION_INVALID",
   "VALIDATION_ERROR",
 ] as const;
 
@@ -84,8 +83,7 @@ export class InvalidModeError extends AppError {
       code: "INVALID_MODE",
       details,
       message: mode ? `Mode "${mode}" is not supported.` : "Mode is required.",
-      operatorHint:
-        "Use one of the supported operating modes: demo, replay, or live.",
+      operatorHint: "Use the supported operating mode: live.",
       statusCode: 400,
     });
   }
@@ -98,51 +96,34 @@ export class EventNotFoundError extends AppError {
       details,
       message: `Event "${eventId}" was not found.`,
       operatorHint:
-        "Confirm the event exists in the active storyline and the route param uses the canonical event id.",
+        "Confirm the requested canonical event id exists in persisted live research data before retrying this route.",
       statusCode: 404,
     });
   }
 }
 
-export class FixtureNotFoundError extends AppError {
-  constructor(storylineId: string, details?: AppErrorDetails) {
+export class GameNotFoundError extends AppError {
+  constructor(gameId: string, details?: AppErrorDetails) {
     super({
-      code: "FIXTURE_NOT_FOUND",
+      code: "GAME_NOT_FOUND",
       details,
-      message: `Storyline "${storylineId}" was not found.`,
+      message: `Game "${gameId}" was not found.`,
       operatorHint:
-        "Verify the storyline id exists in the seeded fixture catalog before selecting or persisting it.",
+        "Confirm the canonical game id exists in the live research store before retrying this route.",
       statusCode: 404,
     });
   }
 }
 
-export class ReplayFrameOutOfRangeError extends AppError {
-  constructor(storylineId: string, frameIndex: number, maxFrameIndex: number) {
+export class InstrumentNotFoundError extends AppError {
+  constructor(instrumentId: string, details?: AppErrorDetails) {
     super({
-      code: "REPLAY_FRAME_OUT_OF_RANGE",
-      details: {
-        frameIndex,
-        maxFrameIndex,
-        storylineId,
-      },
-      message: `Replay frame ${frameIndex} is outside the available range for storyline "${storylineId}".`,
-      operatorHint:
-        "Clamp replay frame selection to the storyline frame range before persisting app state.",
-      statusCode: 422,
-    });
-  }
-}
-
-export class ReplaySelectionInvalidError extends AppError {
-  constructor(details?: AppErrorDetails) {
-    super({
-      code: "REPLAY_SELECTION_INVALID",
+      code: "INSTRUMENT_NOT_FOUND",
       details,
-      message: "Replay selection is invalid.",
+      message: `Instrument "${instrumentId}" was not found.`,
       operatorHint:
-        "Repair the persisted replay storyline or frame index before relying on replay mode.",
-      statusCode: 422,
+        "Confirm the canonical instrument id exists for the requested game before retrying this route.",
+      statusCode: 404,
     });
   }
 }

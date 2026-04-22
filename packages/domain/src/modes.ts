@@ -1,4 +1,4 @@
-export const operatingModes = ["demo", "replay", "live"] as const;
+export const operatingModes = ["live"] as const;
 
 export type OperatingMode = (typeof operatingModes)[number];
 

@@ -1,16 +1,14 @@
-import {
-  getModeSnapshot,
-  validateDemoStorylineSelection,
-  validateReplaySelection,
-} from "@signal-console/adapters";
-import {
-  operatingModes,
-  type HealthStatus,
-  type OperatingMode,
-} from "@signal-console/domain";
+import { existsSync } from "node:fs";
+
 import { checkDatabaseHealth, createAppLogger } from "@signal-console/shared";
 
-export const appVersion = process.env.SIGNAL_CONSOLE_VERSION ?? "0.1.0";
+function appVersion() {
+  return process.env.SIGNAL_CONSOLE_VERSION ?? "0.1.0";
+}
+
+function getOddsApiKey() {
+  return process.env.ODDS_API_KEY ?? process.env.ODDS_API_IO_KEY;
+}
 
 type HealthLogger = {
   child: (bindings: Record<string, unknown>) => HealthLogger;
@@ -29,39 +27,7 @@ function buildBaseHealthMetadata() {
   return {
     generatedAt: new Date().toISOString(),
     uptimeMs: Math.round(process.uptime() * 1000),
-    version: appVersion,
-  };
-}
-
-function countSourceStatuses(statuses: HealthStatus[]) {
-  return statuses.reduce(
-    (counts, status) => {
-      counts[status] += 1;
-      return counts;
-    },
-    {
-      degraded: 0,
-      healthy: 0,
-      offline: 0,
-    } satisfies Record<HealthStatus, number>
-  );
-}
-
-function buildModeResolution(mode: OperatingMode) {
-  const snapshot = getModeSnapshot(mode);
-  const sourceCounts = countSourceStatuses(
-    snapshot.frame.sourceHealth.map((source) => source.status)
-  );
-
-  return {
-    degradedSourceCount: snapshot.frame.sourceHealth.filter(
-      (source) => source.status !== "healthy"
-    ).length,
-    frameIndex: snapshot.frame.frameIndex,
-    mode,
-    sourceCounts,
-    status: "ok" as const,
-    storylineId: snapshot.storyline.id,
+    version: appVersion(),
   };
 }
 
@@ -98,98 +64,114 @@ export function buildReadinessPayload(context?: { logger?: HealthLogger }) {
     summary: dbHealth.message,
   });
 
-  const storylineCheck =
-    dbHealth.status === "ok" && dbHealth.counts.storylineCount > 0
-      ? ({
-          details: {
-            storylineCount: dbHealth.counts.storylineCount,
-          },
-          name: "fixtures",
-          status: "ok",
-          summary: "Fixture storylines are present in SQLite.",
-        } satisfies HealthCheck)
-      : ({
-          details: {
-            storylineCount: dbHealth.counts.storylineCount,
-          },
-          name: "fixtures",
-          operatorHint:
-            "Seed the fixture catalog before relying on demo, replay, or live snapshot resolution.",
-          status: "error",
-          summary: "No fixture storylines were found.",
-        } satisfies HealthCheck);
-
-  checks.push(storylineCheck);
-
-  const demoSelection = validateDemoStorylineSelection();
+  const nbaSidecarBaseUrl = process.env.NBA_SIDECAR_BASE_URL;
   checks.push({
-    details: demoSelection,
-    name: "demo-selection",
-    operatorHint: demoSelection.valid
+    details: {
+      baseUrl: nbaSidecarBaseUrl ?? null,
+    },
+    name: "nba-sidecar",
+    operatorHint: nbaSidecarBaseUrl
       ? undefined
-      : "Repair the persisted demo storyline id or reseed fixtures before using demo mode.",
-    status: demoSelection.valid ? "ok" : "error",
-    summary: demoSelection.valid
-      ? `Demo mode resolves storyline "${demoSelection.resolvedStorylineId}".`
-      : "Demo mode selection is invalid.",
+      : "Set NBA_SIDECAR_BASE_URL and bring the sidecar up before advertising live readiness.",
+    status: nbaSidecarBaseUrl ? "ok" : "error",
+    summary: nbaSidecarBaseUrl
+      ? "NBA sidecar base URL is configured."
+      : "NBA sidecar base URL is missing.",
   });
 
-  const replaySelection = validateReplaySelection();
+  const oddsApiKey = getOddsApiKey();
+  const bet365SessionStatePath = process.env.BET365_SESSION_STATE_PATH;
+  const bet365SessionConfigured =
+    typeof bet365SessionStatePath === "string" &&
+    bet365SessionStatePath.length > 0 &&
+    existsSync(bet365SessionStatePath);
+  const bet365CaptureReady = Boolean(oddsApiKey);
   checks.push({
-    details: replaySelection,
-    name: "replay-selection",
-    operatorHint: replaySelection.valid
+    details: {
+      directSessionConfigured: bet365SessionConfigured,
+      hasOddsApiKey: Boolean(oddsApiKey),
+      provider: oddsApiKey
+        ? "odds-api.io"
+        : bet365SessionConfigured
+          ? "session-export"
+          : null,
+      sessionStatePath: bet365SessionStatePath ?? null,
+    },
+    name: "bet365-capture",
+    operatorHint: bet365CaptureReady
       ? undefined
-      : "Repair the persisted replay storyline or frame index before relying on replay mode.",
-    status: replaySelection.valid ? "ok" : "error",
-    summary: replaySelection.valid
-      ? `Replay mode resolves storyline "${replaySelection.resolvedStorylineId}" at frame ${replaySelection.frameIndex}.`
-      : "Replay mode selection is invalid.",
+      : bet365SessionConfigured
+        ? "A Bet365 session export is present, but the current worker only runs the Odds-API-backed Bet365 sync path. Set ODDS_API_KEY until direct Bet365 session capture is wired into the worker."
+        : "Set ODDS_API_KEY for the current Bet365 ingestion path, or wire the local session export into the worker before advertising readiness.",
+    status: bet365CaptureReady ? "ok" : "error",
+    summary: bet365CaptureReady
+      ? "Bet365 capture is configured through Odds-API.io."
+      : bet365SessionConfigured
+        ? "A Bet365 session export is configured, but no active ingest path uses it yet."
+        : "Bet365 capture is not configured.",
   });
 
-  const modeResolution = operatingModes.map((mode) => {
-    try {
-      return buildModeResolution(mode);
-    } catch (error) {
-      return {
-        degradedSourceCount: 0,
-        error:
-          error instanceof Error
-            ? {
-                message: error.message,
-                name: error.name,
-              }
-            : { value: String(error) },
-        frameIndex: null,
-        mode,
-        sourceCounts: {
-          degraded: 0,
-          healthy: 0,
-          offline: 0,
-        },
-        status: "error" as const,
-        storylineId: null,
-      };
-    }
+  const kalshiDirectAuthConfigured = Boolean(
+    process.env.KALSHI_API_KEY && process.env.KALSHI_API_SECRET
+  );
+  const kalshiCaptureReady = Boolean(oddsApiKey);
+  checks.push({
+    details: {
+      directAuthConfigured: kalshiDirectAuthConfigured,
+      hasOddsApiKey: Boolean(oddsApiKey),
+      hasApiKey: Boolean(process.env.KALSHI_API_KEY),
+      hasApiSecret: Boolean(process.env.KALSHI_API_SECRET),
+    },
+    name: "kalshi-capture",
+    operatorHint: kalshiCaptureReady
+      ? undefined
+      : kalshiDirectAuthConfigured
+        ? "Direct Kalshi credentials are present, but the current worker only runs the Odds-API-backed Kalshi sync path. Set ODDS_API_KEY until direct Kalshi ingestion is implemented."
+        : "Set ODDS_API_KEY for the current Kalshi ingestion path, or implement direct Kalshi capture before advertising readiness.",
+    status: kalshiCaptureReady ? "ok" : "error",
+    summary: kalshiCaptureReady
+      ? "Kalshi capture is configured through Odds-API.io."
+      : kalshiDirectAuthConfigured
+        ? "Direct Kalshi credentials are configured, but no active ingest path uses them yet."
+        : "Kalshi capture is not configured.",
+  });
+
+  const hasPersistedLiveData =
+    dbHealth.status === "ok" &&
+    (dbHealth.counts.gameCount > 0 || dbHealth.counts.quoteTickCount > 0);
+  checks.push({
+    details: {
+      gameCount: dbHealth.counts.gameCount,
+      quoteTickCount: dbHealth.counts.quoteTickCount,
+      sourceMarketCount: dbHealth.counts.sourceMarketCount,
+    },
+    name: "live-data",
+    operatorHint: hasPersistedLiveData
+      ? undefined
+      : "Start the worker and ingest at least one live capture cycle before treating the system as ready for research use.",
+    status: hasPersistedLiveData ? "ok" : "error",
+    summary: hasPersistedLiveData
+      ? "Persisted live research data is present."
+      : "No persisted live research data is present yet.",
   });
 
   checks.push({
     details: {
-      modes: modeResolution,
+      dbPath: dbHealth.path,
+      dbStatus: dbHealth.status,
     },
-    name: "mode-resolution",
-    operatorHint: modeResolution.some((item) => item.status === "error")
-      ? "Inspect the failing mode snapshot path before serving operator traffic."
-      : undefined,
-    status: modeResolution.every((item) => item.status === "ok")
-      ? "ok"
-      : "error",
-    summary: modeResolution.every((item) => item.status === "ok")
-      ? "Demo, replay, and live mode snapshots all resolved."
-      : "One or more mode snapshots failed to resolve.",
+    name: "capture-persistence",
+    operatorHint:
+      dbHealth.status === "ok"
+        ? undefined
+        : "Repair SQLite persistence before trusting live capture or research reads.",
+    status: dbHealth.status === "ok" ? "ok" : "error",
+    summary:
+      dbHealth.status === "ok"
+        ? "Capture persistence is available."
+        : "Capture persistence is unavailable.",
   });
 
-  const liveResolution = modeResolution.find((item) => item.mode === "live");
   const payload = {
     ...buildBaseHealthMetadata(),
     checks,
@@ -204,17 +186,11 @@ export function buildReadinessPayload(context?: { logger?: HealthLogger }) {
         schemaVersion: dbHealth.schemaVersion,
         status: dbHealth.status,
       },
-      liveSources: liveResolution?.sourceCounts ?? {
-        degraded: 0,
-        healthy: 0,
-        offline: 0,
+      ingest: {
+        games: dbHealth.counts.gameCount,
+        quoteTicks: dbHealth.counts.quoteTickCount,
+        sourceMarkets: dbHealth.counts.sourceMarketCount,
       },
-      modes: modeResolution,
-      selections: {
-        demo: demoSelection,
-        replay: replaySelection,
-      },
-      storylineCount: dbHealth.counts.storylineCount,
     },
   };
 

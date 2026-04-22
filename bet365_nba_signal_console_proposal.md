@@ -596,7 +596,7 @@ This idea gets much stronger when it is framed with adult supervision.
 - event and market taxonomy should be versioned
 - every price snapshot needs a timestamp and source ID
 - NBA data ingestion should be cached and monitored
-- all source transforms should be testable and replayable
+- all source transforms should be testable and reconstructable from persisted history
 
 ---
 

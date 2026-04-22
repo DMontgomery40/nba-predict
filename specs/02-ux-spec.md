@@ -1,76 +1,23 @@
 # UX Spec
 
-## Information Architecture
+## Primary Surfaces
 
-- `UX-001` Left rail navigation shall group operator destinations into Trading, Analysis, and System sections.
-- `UX-002` The center pane shall be the primary workspace for active event analysis.
-- `UX-003` The right pane shall contain recommended action, confidence explanation, source trust, and audit context.
-- `UX-004` Global mode state shall always be visible from the shell header or control rail.
+- `UX-001` Games index with score, status, source coverage, and a direct path into the top ranked instrument.
+- `UX-002` Divergence explorer with instrument-first rows and filters for family, severity, freshness, and mapping state.
+- `UX-003` Instrument workspace with current per-source state, timeline, and raw-source inspection.
+- `UX-004` Operations page with live health, readiness, source auth/config status, research mismatch visibility, and coverage summary.
+- `UX-009` Game workspace with market-family switching, grouped instrument rows, per-source comparison cells, and direct links into instrument detail.
+- `UX-010` Instrument workspace shall expose a downloadable timeline export and a second capture-health visual alongside the main quote chart.
+- `UX-011` Operations shall expose real capture-run history, persisted storage coverage, and unmapped-market backlog visibility.
+- `UX-012` Instrument workspace shall expose the dedicated per-source diagnostics route so mapping status, latest quote lag, and latest raw payload references are visible without leaving the page.
+- `UX-013` Operations shall expose frontend controls for the admin restart, backfill, timeline rebuild, and manual mapping endpoints, even when those actions currently queue backend work rather than execute it immediately.
+- `UX-014` History shall be a first-class route that surfaces persisted capture runs, storage coverage, research coverage, and signal mismatches even when no games are currently visible on the live slate.
+- `UX-015` Exports shall be a first-class route that exposes downloadable persisted dataset exports and obvious timeline CSV shortcuts without requiring the user to drill into an instrument first.
+- `UX-016` The games index shall not dead-end on an empty slate; it shall point the user toward history, exports, and settings when no canonical games are currently visible.
 
-## Primary Screens
+## Interaction Rules
 
-### Overview Dashboard
-
-- `UX-005` Show top divergence cards with severity, confidence, tipoff urgency, and freshness.
-- `UX-006` Show quick stats for alert volume, source health, and watchlist changes.
-- `UX-007` Show a ranked watchlist table with sticky headers and numeric alignment.
-
-### Event Detail Workspace
-
-- `UX-008` Show a prominent event header with teams, tipoff, market type, and source badges.
-- `UX-009` Show a comparison strip for bet365, Kalshi, Polymarket, internal baseline, and consensus.
-- `UX-010` Show reason-code-backed narrative cards and confidence factors.
-- `UX-011` Support replay controls and raw-source inspection without leaving the workspace.
-
-### Divergence Explorer
-
-- `UX-012` Provide sortable columns for divergence, confidence, freshness, liquidity, and exposure urgency.
-- `UX-013` Provide faceted filters for source health, severity, freshness, and team search.
-
-### Timeline
-
-- `UX-014` Show time-series overlays for source movement and consensus evolution.
-- `UX-015` Support point inspection with source values, annotations, and reason changes.
-
-### Watchlist / Alerts
-
-- `UX-016` Show priority, alert reason badges, last change time, and source-health context.
-- `UX-017` Support add/remove or queue-review actions from both cards and rows.
-
-### Settings / Diagnostics
-
-- `UX-018` Show operating mode, fixture selection, adapter health, environment readiness, and sync lag.
-
-## Interaction Model
-
-- `UX-019` Selecting an overview card or table row shall update the center pane without a full page reload.
-- `UX-020` Filters and sorting shall round-trip through the URL for shareable views.
-- `UX-021` The command palette shall expose event search, mode switching, and common filter shortcuts.
-- `UX-022` Secondary drawers shall be used for raw-source detail and audit history so the primary workspace stays focused.
-
-## Design Language
-
-- `UX-023` The UI shall use a dark command-center visual language with restrained green and steel-blue accents.
-- `UX-024` Primary typography shall favor an operator-grade sans face with strong numerics; mono typography shall be used for timestamps, probabilities, IDs, and raw data.
-- `UX-025` Numbers shall be visually aligned and easy to compare across sources.
-- `UX-026` Charts shall be minimal and comparison-oriented, with no chartjunk or ornamental gradients.
-
-## Empty, Loading, and Error States
-
-- `UX-027` Empty states shall explain what the user can do next, such as selecting a fixture pack or clearing filters.
-- `UX-028` Loading states shall use restrained skeletons that preserve final layout structure.
-- `UX-029` Error states shall explain whether the issue is source-specific, mode-specific, or systemic.
-- `UX-030` Stale sources shall be visibly labeled without blocking access to healthy sources.
-
-## Accessibility
-
-- `UX-031` The shell shall be navigable with keyboard only.
-- `UX-032` Contrast shall remain readable in the default dark theme.
-- `UX-033` Tables, controls, and drawers shall expose accessible labels and focus states.
-
-## Keyboard and Power-User Flows
-
-- `UX-034` `Cmd/Ctrl+K` opens the command palette.
-- `UX-035` `G O`, `G E`, `G D`, `G W`, and `G S` navigate to Overview, Event, Divergence, Watchlist, and Settings.
-- `UX-036` `[` and `]` step replay frames when replay mode is active.
-- `UX-037` `F` focuses the filter bar in explorer-style surfaces.
+- `UX-005` Every visible quote or comparison should carry enough provenance to inspect the underlying source state.
+- `UX-006` Line mismatch should be called out explicitly rather than hidden under a generic severity label.
+- `UX-007` Empty and error states should tell the operator whether the issue is missing data, failed ingest, or failed configuration.
+- `UX-008` Route state should remain shareable through URLs for the main explorer workflows.

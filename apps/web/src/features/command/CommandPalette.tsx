@@ -3,15 +3,15 @@ import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAppStore } from "../../app/store";
-import { getOverview } from "../../data/api";
+import { getGames } from "../../data/api";
 
 export function CommandPalette() {
   const navigate = useNavigate();
-  const { mode, commandInput, setCommandInput, commandOpen, closeCommand } =
+  const { commandInput, setCommandInput, commandOpen, closeCommand } =
     useAppStore();
-  const overview = useQuery({
-    queryKey: ["overview", mode],
-    queryFn: () => getOverview(mode),
+  const games = useQuery({
+    queryKey: ["games"],
+    queryFn: getGames,
   });
 
   useEffect(() => {
@@ -35,27 +35,42 @@ export function CommandPalette() {
 
   const actions = useMemo(() => {
     const routeActions = [
-      { id: "go-overview", label: "Go to overview", path: "/" },
+      { id: "go-games", label: "Go to tracked games", path: "/" },
       {
         id: "go-divergence",
         label: "Go to divergence explorer",
         path: "/divergence",
       },
-      { id: "go-watchlist", label: "Go to watchlist", path: "/watchlist" },
+      {
+        id: "go-history",
+        label: "Go to persisted history",
+        path: "/history",
+      },
+      {
+        id: "go-exports",
+        label: "Go to exports",
+        path: "/exports",
+      },
       { id: "go-settings", label: "Go to settings", path: "/settings" },
     ];
 
-    const eventActions =
-      overview.data?.data.cards.map((card) => ({
-        id: card.eventId,
-        label: `Open ${card.label}`,
-        path: `/events/${card.eventId}`,
-      })) ?? [];
+    const gameActions =
+      games.data?.data
+        .map((entry) => {
+          return {
+            id: entry.game.id,
+            label: `Open ${entry.game.awayParticipant.shortName} at ${entry.game.homeParticipant.shortName}`,
+            path: `/games/${entry.game.id}`,
+          };
+        })
+        .filter(
+          (action): action is NonNullable<typeof action> => action !== null
+        ) ?? [];
 
-    return [...routeActions, ...eventActions].filter((item) =>
+    return [...routeActions, ...gameActions].filter((item) =>
       item.label.toLowerCase().includes(commandInput.toLowerCase())
     );
-  }, [commandInput, overview.data?.data.cards]);
+  }, [commandInput, games.data?.data]);
 
   if (!commandOpen) {
     return null;
@@ -70,7 +85,7 @@ export function CommandPalette() {
         <input
           autoFocus
           className="command-input"
-          placeholder="Search screens, matchups, and actions"
+          placeholder="Search routes, games, and instruments"
           value={commandInput}
           onChange={(event) => setCommandInput(event.target.value)}
         />

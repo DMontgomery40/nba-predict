@@ -10,3 +10,11 @@ data/*.sqlite-shm
 data/*.sqlite-wal
 *.log
 .DS_Store
+.env
+.codex
+PLAN.md
+*.docx
+*.pdf
+**/__pycache__/
+.pytest_cache
+.venv

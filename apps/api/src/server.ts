@@ -3,25 +3,24 @@ import { randomUUID } from "node:crypto";
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 
-import { ensureFixturesLoaded } from "@signal-console/adapters";
-import { createAppLogger, serializeErrorForLog } from "@signal-console/shared";
+import {
+  createAppLogger,
+  loadRuntimeEnv,
+  serializeErrorForLog,
+} from "@signal-console/shared";
 
 import { normalizeApiError } from "./lib/http";
-import { registerDiagnosticsRoutes } from "./routes/diagnostics";
+import { registerAdminRoutes } from "./routes/admin";
 import { registerDivergenceRoutes } from "./routes/divergence";
-import { registerEventRoutes } from "./routes/events";
-import { registerModesRoutes } from "./routes/modes";
-import { registerOverviewRoutes } from "./routes/overview";
-import { registerReplayRoutes } from "./routes/replay";
-import { registerTimelineRoutes } from "./routes/timeline";
-import { registerWatchlistRoutes } from "./routes/watchlist";
+import { registerGamesRoutes } from "./routes/games";
+import { registerResearchRoutes } from "./routes/research";
 import {
   buildLivenessPayload,
   buildReadinessPayload,
 } from "./services/health-service";
 
 export function buildApiServer() {
-  ensureFixturesLoaded();
+  loadRuntimeEnv();
   const logger = createAppLogger({ component: "api" });
 
   const app = Fastify({
@@ -97,19 +96,16 @@ export function buildApiServer() {
     });
   });
 
-  app.register(registerModesRoutes);
-  app.register(registerOverviewRoutes);
-  app.register(registerEventRoutes);
-  app.register(registerTimelineRoutes);
   app.register(registerDivergenceRoutes);
-  app.register(registerWatchlistRoutes);
-  app.register(registerDiagnosticsRoutes);
-  app.register(registerReplayRoutes);
+  app.register(registerGamesRoutes);
+  app.register(registerResearchRoutes);
+  app.register(registerAdminRoutes);
 
   return app;
 }
 
 async function start() {
+  loadRuntimeEnv();
   const app = buildApiServer();
   const port = Number(process.env.PORT ?? 8787);
   await app.listen({ host: "0.0.0.0", port });
