@@ -1,0 +1,21 @@
+{
+  "name": "@signal-console/ui",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --out-dir dist",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests --config ../../vitest.config.ts"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.503.0",
+    "react": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.2"
+  }
+}
