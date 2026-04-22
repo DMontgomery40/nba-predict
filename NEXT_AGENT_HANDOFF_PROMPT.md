@@ -71,7 +71,7 @@ Runtime sanity was also checked:
 
 - API served `/api/v1/overview?mode=demo`
 - API served `/api/v1/events/knicks-celtics?mode=demo`
-- web served `http://127.0.0.1:4173/`
+- web served `http://127.0.0.1:4120/`
 
 ## Where Things Are
 
