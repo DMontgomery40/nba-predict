@@ -10,7 +10,7 @@ export default defineConfig({
   testDir: "./tests",
   timeout: 30_000,
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: "http://127.0.0.1:4120",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",
@@ -33,7 +33,7 @@ export default defineConfig({
       url: "http://127.0.0.1:8787/health/live",
     },
     {
-      command: "pnpm exec vite --host 127.0.0.1 --port 4173 --strictPort",
+      command: "pnpm exec vite --host 127.0.0.1 --port 4120 --strictPort",
       cwd: appDir,
       env: {
         ...process.env,
@@ -43,7 +43,7 @@ export default defineConfig({
       stderr: "pipe",
       stdout: "pipe",
       timeout: 120_000,
-      url: "http://127.0.0.1:4173",
+      url: "http://127.0.0.1:4120",
     },
   ],
 });

@@ -16,7 +16,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 4173,
+    port: 4120,
     proxy: {
       "/api": "http://127.0.0.1:8787",
       "/health": "http://127.0.0.1:8787",

@@ -32,7 +32,7 @@ pnpm dev
 
 Default local ports:
 
-- web: `http://127.0.0.1:4173`
+- web: `http://127.0.0.1:4120`
 - api: `http://127.0.0.1:8787`
 
 SQLite state is stored at `data/signal-console.sqlite` by default.

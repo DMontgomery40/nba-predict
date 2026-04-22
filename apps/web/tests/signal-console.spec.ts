@@ -11,10 +11,10 @@ test("demo mode overview opens the event workspace", async ({ page }) => {
     .first()
     .click();
 
+  await expect(page).toHaveURL(/\/events\/knicks-celtics$/);
   await expect(
-    page.getByRole("heading", { name: "New York @ Boston" })
+    page.getByRole("button", { name: "Queue on watchlist" })
   ).toBeVisible();
-  await expect(page.getByText("Event Workspace")).toBeVisible();
 });
 
 test("settings supports replay mode selection and fixture mutation", async ({

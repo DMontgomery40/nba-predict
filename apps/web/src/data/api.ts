@@ -15,7 +15,7 @@ type ApiErrorResponse = {
 };
 
 type RequestOptions = {
-  allowErrorStatus?: boolean;
+  allowStatuses?: number[];
 };
 
 export class ApiRequestError extends Error {
@@ -119,7 +119,10 @@ async function request<T>(
     | ApiErrorResponse
     | null;
 
-  if (!response.ok && !options?.allowErrorStatus) {
+  const allowStatus =
+    options?.allowStatuses?.includes(response.status) ?? false;
+
+  if (!response.ok && !allowStatus) {
     const apiError = new ApiRequestError({
       code: (payload as ApiErrorResponse | null)?.error?.code ?? "HTTP_ERROR",
       details: (payload as ApiErrorResponse | null)?.error?.details,
@@ -527,7 +530,7 @@ export function getLiveHealth() {
 
 export function getReadyHealth() {
   return request<ReadinessPayload>("/health/ready", undefined, {
-    allowErrorStatus: true,
+    allowStatuses: [503],
   });
 }
 

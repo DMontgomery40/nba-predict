@@ -46,6 +46,13 @@ export function TimelinePage() {
     [event.data]
   );
 
+  if (
+    !eventId &&
+    (overview.isLoading || (!overview.data && !overview.isError))
+  ) {
+    return <LoadingState message="Loading timeline..." />;
+  }
+
   if (!resolvedEventId && overview.isError) {
     return (
       <PageFrame
@@ -81,7 +88,7 @@ export function TimelinePage() {
         }
       >
         <ErrorState
-          description="Timeline mode needs an event id in the route or an overview card to select one."
+          description="Timeline mode needs an event id in the route or a fallback event from the current overview."
           title="Timeline has no event to render"
         />
       </PageFrame>
