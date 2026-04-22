@@ -94,21 +94,3 @@ export const eventFrameSchema = z.object({
   audit: z.array(auditEntrySchema),
   suggestedActions: z.array(suggestedActionSchema),
 });
-
-export const storylineFrameSchema = z.object({
-  storylineId: z.string(),
-  frameIndex: z.number().int().nonnegative(),
-  capturedAt: z.string(),
-  summary: z.string(),
-  sourceHealth: z.array(sourceHealthSchema),
-  events: z.array(eventFrameSchema),
-});
-
-export const storylineSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string(),
-  fixturePack: z.string(),
-  defaultFrameIndex: z.number().int().nonnegative(),
-  frames: z.array(storylineFrameSchema),
-});

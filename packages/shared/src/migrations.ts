@@ -1,0 +1,254 @@
+import { DatabaseFailureError } from "./errors";
+
+import type Database from "better-sqlite3";
+
+export const currentSchemaVersion = 3;
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function ensureSchemaMigrationsTable(db: Database.Database) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      applied_at TEXT NOT NULL
+    );
+  `);
+}
+
+function getAppliedVersion(db: Database.Database) {
+  const row = db
+    .prepare(
+      "SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations"
+    )
+    .get() as { version: number } | undefined;
+
+  return row?.version ?? 0;
+}
+
+function insertMigration(db: Database.Database, version: number, name: string) {
+  db.prepare(
+    "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)"
+  ).run(version, name, nowIso());
+}
+
+function applyInitialRuntimeSchema(db: Database.Database) {
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS watchlist (
+        event_id TEXT PRIMARY KEY,
+        priority REAL,
+        status TEXT NOT NULL,
+        note TEXT,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS app_state (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    `);
+
+    insertMigration(db, 1, "initial-runtime-schema");
+  })();
+}
+
+function applyLiveResearchSchema(db: Database.Database) {
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS games (
+        id TEXT PRIMARY KEY,
+        sport TEXT NOT NULL,
+        league TEXT NOT NULL,
+        source_game_key_nba TEXT,
+        home_participant_json TEXT NOT NULL,
+        away_participant_json TEXT NOT NULL,
+        scheduled_start TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS game_states (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id TEXT NOT NULL,
+        captured_at TEXT NOT NULL,
+        status TEXT NOT NULL,
+        period INTEGER,
+        clock TEXT,
+        home_score INTEGER,
+        away_score INTEGER,
+        is_final INTEGER NOT NULL DEFAULT 0,
+        started_at TEXT,
+        final_at TEXT,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS market_instruments (
+        id TEXT PRIMARY KEY,
+        game_id TEXT NOT NULL,
+        family TEXT NOT NULL,
+        selection TEXT NOT NULL,
+        line REAL,
+        participant_key TEXT,
+        in_play INTEGER NOT NULL DEFAULT 0,
+        display_label TEXT NOT NULL,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS source_markets (
+        id TEXT PRIMARY KEY,
+        source TEXT NOT NULL,
+        source_market_key TEXT NOT NULL,
+        source_selection_key TEXT,
+        game_id TEXT NOT NULL,
+        instrument_id TEXT,
+        raw_family TEXT,
+        raw_label TEXT,
+        mapping_status TEXT NOT NULL,
+        raw_metadata_json TEXT,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+        FOREIGN KEY (instrument_id) REFERENCES market_instruments(id) ON DELETE SET NULL,
+        UNIQUE (source, source_market_key, source_selection_key)
+      );
+
+      CREATE TABLE IF NOT EXISTS quote_ticks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_market_id TEXT NOT NULL,
+        captured_at TEXT NOT NULL,
+        price_raw REAL,
+        odds_raw TEXT,
+        line_raw REAL,
+        implied_probability REAL,
+        best_bid REAL,
+        best_ask REAL,
+        volume REAL,
+        depth_score REAL,
+        is_heartbeat INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (source_market_id) REFERENCES source_markets(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS raw_payloads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL,
+        captured_at TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        content_hash TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS adapter_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        finished_at TEXT,
+        status TEXT NOT NULL,
+        error_code TEXT,
+        error_message TEXT,
+        records_seen INTEGER NOT NULL DEFAULT 0,
+        records_written INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS mapping_resolutions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_market_id TEXT NOT NULL,
+        instrument_id TEXT NOT NULL,
+        resolved_by TEXT NOT NULL,
+        resolved_at TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        FOREIGN KEY (source_market_id) REFERENCES source_markets(id) ON DELETE CASCADE,
+        FOREIGN KEY (instrument_id) REFERENCES market_instruments(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS game_outcomes (
+        game_id TEXT PRIMARY KEY,
+        final_home_score INTEGER NOT NULL,
+        final_away_score INTEGER NOT NULL,
+        winner_key TEXT,
+        captured_at TEXT NOT NULL,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS admin_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action_type TEXT NOT NULL,
+        scope TEXT NOT NULL,
+        requested_at TEXT NOT NULL,
+        requested_by TEXT NOT NULL,
+        status TEXT NOT NULL,
+        payload_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_game_states_game_captured
+        ON game_states(game_id, captured_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_quote_ticks_source_market_captured
+        ON quote_ticks(source_market_id, captured_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_source_markets_source_key
+        ON source_markets(source, source_market_key);
+      CREATE INDEX IF NOT EXISTS idx_market_instruments_game_family_inplay
+        ON market_instruments(game_id, family, in_play);
+      CREATE INDEX IF NOT EXISTS idx_raw_payloads_source_entity
+        ON raw_payloads(source, entity_type, entity_id, captured_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_adapter_runs_source_started
+        ON adapter_runs(source, started_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_mapping_resolutions_source_market
+        ON mapping_resolutions(source_market_id, resolved_at DESC);
+    `);
+
+    insertMigration(db, 2, "live-research-schema");
+  })();
+}
+
+function applyLegacyRuntimeCleanup(db: Database.Database) {
+  db.transaction(() => {
+    db.exec(`
+      DROP TABLE IF EXISTS storyline_frames;
+      DROP TABLE IF EXISTS storylines;
+    `);
+
+    db.prepare(
+      `
+        DELETE FROM app_state
+        WHERE key IN (
+          'demo_storyline_id',
+          'replay_frame_index',
+          'replay_storyline_id'
+        )
+      `
+    ).run();
+
+    insertMigration(db, 3, "legacy-runtime-cleanup");
+  })();
+}
+
+export function applyMigrations(db: Database.Database, dbPath: string) {
+  ensureSchemaMigrationsTable(db);
+  const appliedVersion = getAppliedVersion(db);
+
+  if (appliedVersion > currentSchemaVersion) {
+    throw new DatabaseFailureError(
+      "Database schema version is newer than this runtime supports.",
+      {
+        details: {
+          appliedVersion,
+          currentSchemaVersion,
+          path: dbPath,
+        },
+        operatorHint:
+          "Use a compatible runtime or recreate the local SQLite database with the current schema.",
+      }
+    );
+  }
+
+  if (appliedVersion < 1) {
+    applyInitialRuntimeSchema(db);
+  }
+
+  if (getAppliedVersion(db) < 2) {
+    applyLiveResearchSchema(db);
+  }
+
+  if (getAppliedVersion(db) < 3) {
+    applyLegacyRuntimeCleanup(db);
+  }
+}

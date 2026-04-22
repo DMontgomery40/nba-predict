@@ -68,7 +68,7 @@ export function ProbabilityPill({
   highlight,
 }: {
   label: string;
-  value: number;
+  value?: number | null;
   highlight?: boolean;
 }) {
   return (
@@ -79,7 +79,7 @@ export function ProbabilityPill({
       )}
     >
       <span>{label}</span>
-      <strong>{(value * 100).toFixed(1)}%</strong>
+      <strong>{value == null ? "n/a" : `${(value * 100).toFixed(1)}%`}</strong>
     </div>
   );
 }

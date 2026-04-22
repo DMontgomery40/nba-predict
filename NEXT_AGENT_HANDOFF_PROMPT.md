@@ -2,536 +2,602 @@
 
 You are taking over `Signal Console` in `/Users/davidmontgomery/nba-predict`.
 
-Your job is **not** to redesign the product from scratch and **not** to pivot away from the current spec-driven direction. The product shell, core demo/replay mode concept, deterministic signal engine, API routes, and operator-console UI are already in place. The next step is to turn this from a polished-but-thin internal prototype into a **more legitimate internal application** by filling in the missing engineering basics that can no longer be skipped:
-
-- structured logging
-- real error handling
-- observability and health surfaces
-- stronger test coverage
-- stronger linting / verification
-- robust internal CI
-- operational hygiene around the worker, API, and frontend
-
-You should assume the user wants you to **implement the next hardening slice**, not merely describe it.
+This repo is only a few sessions old. Do not mythologize it. Do not act like the current gap is a mysterious research frontier. The product intent is clear. The implementation is incomplete. Your job is to bridge that gap with direct, repo-grounded work.
 
 ## Read This First
 
-1. `PLAN.md`
-2. `README.md`
-3. `specs/00-repo-audit.md`
-4. `specs/01-product-requirements.md`
-5. `specs/03-architecture-spec.md`
-6. `specs/04-data-contracts.md`
-7. `specs/06-signal-engine-spec.md`
-8. `specs/07-test-plan.md`
-9. `docs/traceability-matrix.md`
-10. `docs/adr/ADR-001-monorepo-and-package-boundaries.md`
-11. `docs/adr/ADR-002-demo-replay-live-source-strategy.md`
-12. `docs/adr/ADR-003-deterministic-signal-engine-and-explainability-boundary.md`
+1. `AGENTS.md`
+2. `PLAN.md`
+3. `README.md`
+4. `bet365_nba_signal_console_proposal.md`
+5. `specs/01-product-requirements.md`
+6. `specs/02-ux-spec.md`
+7. `specs/03-architecture-spec.md`
+8. `specs/04-data-contracts.md`
+9. `specs/05-api-spec.md`
+10. `specs/08-delivery-plan.md`
+11. `specs/09-assumptions-and-open-questions.md`
+12. `docs/adr/ADR-002-live-only-research-runtime.md`
+13. `docs/traceability-matrix.md`
 
-These docs are not optional context. If you materially change contracts, validation behavior, runtime architecture, or acceptance scope, update the relevant spec docs and the traceability matrix.
+Do not use global cross-project memory. Project-local memory for this repo is effectively empty, so the durable truth is the repo itself plus git history.
 
-## Current Repo State
+## What This Product Is Supposed To Be
 
-This is a `pnpm` monorepo with these live surfaces:
+Signal Console is supposed to be a live research system for in-game market comparison.
 
-- `apps/web`
-  - React + Vite operator console
-  - overview, event workspace, divergence explorer, timeline, watchlist, settings
-- `apps/api`
-  - Fastify API serving demo / replay / live-mode read models
-- `apps/worker`
-  - very thin worker / heartbeat scaffold
-- `packages/domain`
-  - canonical types, storylines, deterministic signal engine
-- `packages/shared`
-  - SQLite-backed storage and app state
-- `packages/adapters`
-  - mode snapshot selection and light live degradation shaping
-- `packages/ui`
-  - tiny shared UI helper
+The intended product is:
 
-Current top-level commands:
+- an internal operator research console, not a customer sportsbook UI
+- live-only, not a demo shell
+- instrument-first, not one-row-per-game trivia
+- built around real captured source history, not synthetic storylines
+- able to compare:
+  - bet365 in-game offers captured via scrape-only authenticated browser/session state
+  - Kalshi market data via official API or WebSocket access
+  - Polymarket market data via official APIs
+  - NBA game truth via a Python `nba_api` sidecar
+- able to answer, for a live or completed game:
+  - final score and final state
+  - what each source showed over time
+  - when prices moved relative to game-state changes
+  - whether disagreement is like-for-like probability divergence or merely a line mismatch
 
-```bash
-pnpm dev
-pnpm build
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm verify
-```
+The canonical comparison unit is:
 
-As of handoff, these passed:
+- raw line or offer terms
+- plus derived implied probability
 
-- `pnpm verify`
-- `pnpm build`
+The UI is supposed to feel like a serious research console:
 
-Runtime sanity was also checked:
+- game list with real coverage and top divergence signals
+- game detail with market family switching and grouped active instruments
+- instrument workspace with meaningful source comparison
+- usable live charting and timeline overlays
+- raw-source inspection
+- honest operator visibility into capture gaps and unmapped markets
+- exportable research artifacts
 
-- API served `/api/v1/overview?mode=demo`
-- API served `/api/v1/events/knicks-celtics?mode=demo`
-- web served `http://127.0.0.1:4120/`
+This is a research product. No betting execution. No fixture fallback. No presentation-only pretend data path.
 
-## Where Things Are
+## Three-Session Reconstruction
 
-### Product and Specs
+This repo has three meaningful states:
 
-- Product brief / direction:
-  - `PLAN.md`
-  - `bet365_nba_signal_console_proposal.md`
-  - `docs/source-materials/bet365_nba_signal_console_memo.md`
-- Specs:
-  - `specs/*.md`
-- Architecture decisions:
-  - `docs/adr/*.md`
-- requirement mapping:
-  - `docs/traceability-matrix.md`
+### Session 1: initial foundation commit
 
-### Backend
+`b888c00 feat: harden signal console foundation @codex review (#1)`
 
-- Fastify bootstrap:
-  - `apps/api/src/server.ts`
-- route registration:
-  - `apps/api/src/routes/*.ts`
-- API service layer:
-  - `apps/api/src/services/console-service.ts`
-- validation helper:
-  - `apps/api/src/lib/http.ts`
-- API tests:
-  - `apps/api/src/__tests__/routes.test.ts`
+What happened:
 
-### Domain / Data / Scoring
+- a polished monorepo shell was created quickly
+- it included demo, replay, and live modes
+- it centered a deterministic signal engine and authored storylines
+- it built a lot of UI and API shape fast
+- it produced a plausible operator console shell
 
-- domain exports:
-  - `packages/domain/src/index.ts`
-- types:
-  - `packages/domain/src/types.ts`
-- enums / modes:
-  - `packages/domain/src/modes.ts`
-- schemas:
-  - `packages/domain/src/schemas/core.ts`
-- storylines / fixtures:
-  - `packages/domain/src/fixtures/storylines.ts`
-- scoring:
-  - `packages/domain/src/signal-engine/index.ts`
-- domain tests:
-  - `packages/domain/src/__tests__/signal-engine.test.ts`
+What that really was:
 
-### Persistence
+- a strong shell
+- a lot of scaffolding
+- a large amount of synthetic runtime
+- not the live research product the user actually wanted
 
-- SQLite access and schema bootstrap:
-  - `packages/shared/src/db.ts`
-- persistence tests:
-  - `packages/shared/src/__tests__/db.test.ts`
-- current DB artifact:
-  - `data/signal-console.sqlite`
+### Session 2: minor post-merge cleanup
 
-### Adapters
+`4e6afcb fix: stabilize post-merge e2e smoke @codex review (#2)`
 
-- mode and storyline selection:
-  - `packages/adapters/src/index.ts`
+What happened:
 
-### Frontend
+- tiny smoke-test and handoff adjustments
+- no real product-lane correction
 
-- app root:
-  - `apps/web/src/app/App.tsx`
-- shell:
-  - `apps/web/src/app/ShellLayout.tsx`
-- local state:
-  - `apps/web/src/app/store.ts`
-- API client:
-  - `apps/web/src/data/api.ts`
-- major pages:
-  - `apps/web/src/features/overview/OverviewPage.tsx`
-  - `apps/web/src/features/event/EventWorkspacePage.tsx`
-  - `apps/web/src/features/divergence/DivergenceExplorerPage.tsx`
-  - `apps/web/src/features/timeline/TimelinePage.tsx`
-  - `apps/web/src/features/watchlist/WatchlistPage.tsx`
-  - `apps/web/src/features/settings/SettingsPage.tsx`
-  - `apps/web/src/features/command/CommandPalette.tsx`
-- shared web components:
-  - `apps/web/src/components/*.tsx`
-- styling:
-  - `apps/web/src/styles/app.css`
+### Session 3: current branch live-only rewrite
 
-### Worker
+This is the current branch state headed for PR review.
 
-- worker entry:
+What happened:
+
+- demo, replay, fixture, and storyline language was removed from source/docs/specs
+- live-only research tables and repositories were added
+- a Python NBA sidecar scaffold was added
+- the API surface was rewritten around games, instruments, research, and admin
+- the frontend was partially rewritten around live-only routes
+- the old handoff prompt was deleted because it described the wrong product
+
+What did not happen:
+
+- real bet365 capture
+- real Kalshi ingestion
+- real Polymarket ingestion
+- env-to-runtime wiring that actually uses the credentials already present on disk
+- meaningful operator UX completion
+- export workflows
+- real live charts beyond a single simple line chart
+
+## Current Repo Reality
+
+### What now exists for real
+
+- live-only contracts:
+  - `packages/domain/src/live-types.ts`
+  - `packages/domain/src/schemas/live.ts`
+  - `packages/domain/src/schemas/research.ts`
+- live SQLite schema and repositories:
+  - `packages/shared/src/migrations.ts`
+  - `packages/shared/src/db-core.ts`
+  - `packages/shared/src/live-repository.ts`
+- live API routes:
+  - `apps/api/src/routes/games.ts`
+  - `apps/api/src/routes/divergence.ts`
+  - `apps/api/src/routes/research.ts`
+  - `apps/api/src/routes/admin.ts`
+- live-oriented API service layer:
+  - `apps/api/src/services/research-service.ts`
+  - `apps/api/src/services/health-service.ts`
+- Python NBA sidecar scaffold using `nba_api`:
+  - `apps/nba-sidecar/src/nba_sidecar/main.py`
+  - `apps/nba-sidecar/src/nba_sidecar/service.py`
+  - `apps/nba-sidecar/src/nba_sidecar/normalizers.py`
+- worker ingest seam for NBA scoreboard polling:
   - `apps/worker/src/index.ts`
+  - `apps/worker/src/nba-sidecar.ts`
+- rewritten web shell:
+  - `apps/web/src/features/games/GamesPage.tsx`
+  - `apps/web/src/features/divergence/DivergenceExplorerPage.tsx`
+  - `apps/web/src/features/event/EventWorkspacePage.tsx`
+  - `apps/web/src/features/settings/SettingsPage.tsx`
 
-## What Is Good Enough Already
+### What is only partially real
 
-Do **not** waste the turn rebuilding these from zero:
+- readiness and admin surfaces are real in shape, but many checks are config- and queue-oriented rather than dependency-reachability and ingest-success oriented
+- the NBA sidecar is real, but the worker only ingests scoreboard-shaped state, not the full game-detail or play-by-play product loop
+- the frontend is live-only in wording and route shape, but it is still a thin read-only shell
 
-- monorepo structure
-- demo/replay/live mode concept
-- current UI visual direction
-- deterministic signal engine as the product center
-- Fastify route topology
-- SQLite-backed local state as the current portable storage layer
+### What does not exist yet
 
-Keep and harden. Do not replace with a brand new stack just because it feels cleaner.
+- no bet365 adapter implementation
+- no Kalshi adapter implementation
+- no Polymarket adapter implementation
+- no capture orchestration for those sources
+- no real quote ingestion from any external market
+- no order book capture loops
+- no historical backfill workers
+- no live chart/export workflow worth calling useful
 
-## What Is Obviously Thin / Cracked Right Now
+## The Critical Findings
 
-This is the important section.
+These are the main reasons the product still feels hopelessly non-functional.
 
-### 1. Logging is still barely there
+### 1. The runtime does not actually use the env surface the repo pretends to support
 
-Current state:
+Facts:
 
-- API uses Fastify logger with `pino-pretty` in dev inside `apps/api/src/server.ts`
-- errors are just passed through a minimal error handler
-- worker uses raw `console.log` in `apps/worker/src/index.ts`
-- frontend has no structured client-side logging or error reporting path
+- The root `.env` contains source credentials.
+- The Node API and worker do not load `.env` themselves.
+- There is no `dotenv`-style bootstrap in `apps/api` or `apps/worker`.
+- `pnpm dev` runs `tsx watch ...` directly from root scripts.
+- The frontend does not use these source creds.
 
-What is missing:
+What this means:
 
-- consistent structured logger abstraction
-- child loggers with context
-- request IDs / correlation IDs
-- per-route/service logging
-- DB-operation logging
-- worker job-step logging
-- operator-friendly error hints
-- production-safe log shape
+- A credential sitting in `.env` is not enough.
+- Unless the user exported those vars into the shell before `pnpm dev`, API and worker code never see them.
+- Even if they were exported, most of the source adapter code that should consume them does not exist yet.
 
-### 2. Error handling is too primitive
+Additional important detail:
 
-Current state:
+- `.env` currently contains Kalshi and Polymarket keys.
+- `.env` does not contain the full live runtime surface described in `README.md`.
+- There is no `BET365_SESSION_STATE_PATH` configured in `.env`.
+- There is no `NBA_SIDECAR_BASE_URL` configured in `.env`.
+- The readiness code requires `KALSHI_API_KEY` and `KALSHI_API_SECRET`, but the on-disk `.env` only surfaced the key when this audit was run. Do not assume readiness will pass just because there is a Kalshi-related entry in the file.
+- Polymarket credentials exist on disk, but there is effectively no runtime code path that uses them.
 
-- API throws generic `Error`
-- ad hoc `statusCode` mutation on errors
-- no typed domain / transport error taxonomy
-- no frontend error boundary
-- no query-level retry / fallback strategy beyond TanStack defaults
-- no safe normalization of unexpected DB / JSON / route errors
+### 2. The product has no real external market capture
 
-What is missing:
+Facts:
 
-- typed app error classes with codes
-- route-safe error envelopes
-- Zod validation failures normalized consistently
-- “not found”, “invalid mode”, “fixture missing”, “db failure”, “adapter failure” classes
-- frontend error boundary and page-level failure states
-- clear operator-facing failure copy
+- `packages/adapters/src/index.ts` is effectively empty.
+- Searches for bet365, Kalshi, and Polymarket mostly hit schemas, tests, read-model shaping, and readiness/config code.
+- There are no real adapter loops for quote capture.
+- There is no browser/session bootstrap flow for bet365 scraping.
+- There is no Kalshi API/WebSocket ingestion loop.
+- There is no Polymarket discovery/quote/orderbook ingestion loop.
 
-### 3. Observability is shallow
+What this means:
 
-Current state:
+- The core product signal does not exist yet.
+- The app cannot answer the main research question because it never records the external market data it was built to compare.
 
-- `/health` only returns status/version/uptime
-- diagnostics page is product-facing, but not a real operational health/readiness surface
-- no readiness vs liveness distinction
-- no metrics-ish counters
-- no health breakdown for DB/storyline availability/replay selection validity
+### 3. The database is live-only in schema intent but not in actual contents
 
-What is missing:
+Facts from `data/signal-console.sqlite` during this audit:
 
-- readiness endpoint
-- structured health checks
-- DB connectivity check
-- storyline hydration check
-- watchlist store / app_state integrity checks
-- degraded-source counts emitted in a consistent health payload
-- optional simple internal metrics surface
+- `games`, `game_states`, `market_instruments`, `source_markets`, `quote_ticks`, `raw_payloads`, `adapter_runs`, `mapping_resolutions`, and `game_outcomes` were all empty
+- the SQLite file still contains legacy tables:
+  - `storylines`
+  - `storyline_frames`
+- `app_state` still contains stale legacy keys:
+  - `demo_storyline_id`
+  - `replay_frame_index`
+  - `replay_storyline_id`
 
-### 4. Testing is too thin
+What this means:
 
-Current state:
+- source code says live-only
+- docs say live-only
+- the persisted default database artifact is still contaminated by the old runtime era
+- the actual live tables are empty, so the UI has little or nothing meaningful to show
 
-- domain tests exist
-- shared DB tests exist
-- API route tests exist
-- web has no real tests
-- worker has no tests
-- no e2e coverage even though `test:e2e` script exists
-- no Playwright config or authored scenarios
+The next agent must not ignore this. Either:
 
-What is missing:
+- migrate forward cleanly and remove legacy tables and stale app state keys, or
+- recreate the default DB artifact and stop shipping a misleading local database
 
-- frontend component / route tests
-- API integration tests for failure paths
-- worker tests
-- end-to-end demo-mode smoke tests
-- replay-mode behavior tests
-- stronger contract tests
-- broader bug-family coverage, not just narrow happy path
+### 4. The admin/ops surface is partly real and partly a facade
 
-### 5. CI and verification are still beginner-grade
+Facts:
 
-Current state:
+- `POST /api/v1/admin/capture/restart`
+- `POST /api/v1/admin/backfill/games`
+- `POST /api/v1/admin/backfill/markets`
+- `POST /api/v1/admin/timeline-materializations/rebuild`
 
-- local scripts exist
-- no GitHub Actions or other internal CI config in repo
-- no split verify pipeline
-- no coverage reporting
-- no artifact or test result publishing
-- lint is basic ESLint only
+These currently enqueue rows in `admin_actions` through repository helpers.
 
-What is missing:
+What they do not currently do:
 
-- `.github/workflows/ci.yml` or equivalent internal CI
-- separate jobs for lint / typecheck / unit / build / e2e
-- caching for pnpm
-- deterministic Playwright install/run
-- coverage threshold enforcement where realistic
-- format check and perhaps markdown/json validation
-- stronger linting for imports, dead code, maybe dependency boundaries
+- restart adapters
+- run backfills
+- rebuild materializations
+- trigger any actual operational worker behavior
 
-### 6. Worker is not a real worker yet
+What this means:
 
-Current state:
+- the admin API shape exists
+- the operational system behind it mostly does not
 
-- `apps/worker/src/index.ts` is a heartbeat logger over mode snapshots
+### 5. The frontend only exposes a narrow slice of the backend surface
 
-What is missing:
+What the frontend currently has:
 
-- job wrapper with lifecycle logging
-- graceful shutdown
-- interval control abstraction
-- exception isolation around polling cycles
-- backoff / retry behavior
-- persistence-aware tasks
-- meaningful replay/demo hydration checks
+- tracked games page
+- divergence page
+- instrument page
+- settings page
+- command palette
 
-### 7. DB and persistence need operational hardening
+What the backend has that the frontend barely or never uses:
 
-Current state:
+- `/api/v1/games/:gameId/markets`
+- `/api/v1/games/:gameId/markets/:instrumentId/sources`
+- `/api/v1/admin/capture/runs`
+- `/api/v1/admin/storage/coverage`
+- `/api/v1/admin/unmapped-markets`
+- `/api/v1/admin/mappings/resolve`
 
-- `packages/shared/src/db.ts` bootstraps schema inline
-- no migration system
-- no explicit schema versioning
-- no DB health abstraction
-- singleton database handle only
+What is missing in the web app:
 
-What is missing:
+- game-level market family workspace using `getGameMarkets`
+- full grouped instrument table per game
+- dedicated per-source detail view backed by `/sources`
+- unmapped-market review/resolution UI
+- capture-run history UI
+- storage coverage UI
+- admin action queue visibility
+- export actions
 
-- schema version strategy
-- migration mechanism, even lightweight
-- integrity / readiness checks
-- better error wrapping
-- cleanup / close hooks for tests and worker
-- stronger test coverage around corrupted / missing state
+### 6. There is one chart library and one real chart, but not a useful visual analytics surface
 
-### 8. Frontend robustness still has holes
+Facts:
 
-Current state:
-
-- app is functional and visually coherent
-- command palette and shell work
-- data hooks are lightweight fetch wrappers
+- `apps/web/package.json` includes `recharts`
+- `apps/web/src/features/event/EventWorkspacePage.tsx` renders one simple line chart
 
 What is missing:
 
-- React error boundary
-- better loading and failure states
-- no reusable query hook layer with invalidation discipline
-- no mutation error feedback
-- no retry/backoff policy documentation
-- no frontend tests
-- no route guards for missing IDs / invalid state
+- no game-state overlays on the chart
+- no clear annotation rendering for score/status transitions
+- no orderbook or depth visualization
+- no market-family comparison visuals
+- no divergence trend summary visuals
+- no chart export
+- no snapshot or report export
 
-### 9. Artifact hygiene is sloppy
+What this means:
 
-Current state:
+- the repo is not missing the ability to render charts in React
+- it is missing product implementation of useful charts
+- if `recharts` proves limiting, add stronger libs intentionally, but do not use “we need a chart library” as an excuse for the current UX state
 
-- `dist/` artifacts exist in repo
-- `data/signal-console.sqlite`, `-wal`, and `-shm` exist
+### 7. There is no export workflow at all
 
-You should decide carefully whether these should remain committed / present. If you change artifact strategy, do it intentionally and update `.gitignore`, docs, and workflows accordingly.
+Searches across docs and web code show no real export/download/report path.
 
-## The Next Step You Should Actually Build
+That means:
 
-Do **not** try to solve every missing thing in one giant chaotic pass.
+- no CSV export
+- no JSON export from the UI
+- no chart export
+- no “copy research artifact” workflow
+- no downloadable operator snapshot
 
-Build the next slice as **“production hardening foundation”** with these concrete deliverables:
+This is not just a missing button. It is a missing requirement and a missing implementation path. The next agent should add the requirement to specs if they build it, not just slip in a button with no contract.
 
-### A. Introduce a real app-level logging and error system
+### 8. The test story is better than before, but still not validating the real product
 
-Minimum expected outcomes:
+What is good:
 
-- shared logger utility package or module
-- typed app error classes
-- standardized API error envelope with stable code + message + details + optional operator hint
-- request ID support in API
-- service-layer log calls in `console-service.ts`
-- worker logs moved off raw console printing into the shared logger abstraction
+- repository and API tests exist for live read models
+- sidecar normalizer tests exist
+- worker tests exist
+- `pnpm verify` can pass
 
-Strongly consider using the `operator-hint-logging` skill guidance if it helps shape this cleanly.
+What is still weak:
 
-### B. Strengthen backend operational endpoints
+- API tests seed the DB directly with synthetic rows
+- they validate read-model composition, not real capture loops
+- Playwright e2e tests only verify that headings render
+- there is no end-to-end proof that env -> adapter -> DB -> API -> UI works for a live source
 
-Add:
+This is the exact kind of false confidence the user is angry about.
 
-- `/health/live`
-- `/health/ready`
-- or a similarly clear liveness/readiness split
+## Answers To The User’s Direct Complaints
 
-Those endpoints should meaningfully validate:
+### “Why has no one needed my env loaded and all those keys?”
 
-- DB openability
-- fixture/storyline presence
-- replay selection validity
-- current mode snapshot resolution
+Because the repo does not yet have the runtime paths that would meaningfully use most of them, and the Node services do not appear to load `.env` automatically. The code mostly checks for config presence and shapes admin/readiness output. It does not yet turn those credentials into live capture.
 
-Do not make health endpoints fake.
+### “Why is there not a god damn export button?”
 
-### C. Build real frontend failure handling
+Because export was never implemented and barely exists as a product requirement. There is no export route, no export UI, and no report artifact workflow.
+
+### “Why is there not a single usable visual chart?”
+
+Because the current web app only renders one basic `recharts` line chart for the instrument timeline. It is not paired with the richer overlays, depth views, or operator workflows the product actually needs.
+
+### “Why are there no libraries to do fancy live data render stuff in react?”
+
+There is already `recharts`, and that is enough to prove charts are possible. The deeper problem is not lack of a library. The deeper problem is that there is almost no captured live data and almost no implemented operator visualization layer.
+
+### “Why is this so entirely completely hopelessly non functional?”
+
+Because the repo currently has:
+
+- almost no real live market ingestion
+- empty live research tables in the default DB
+- readiness that should stay red
+- a frontend that mostly reads empty data
+- admin actions that mostly queue rows rather than do work
+- env/config that is not actually turning into source capture
+
+In other words:
+
+- the shell exists
+- the core product loop does not
+
+## Your Mission
+
+Do not just clean up docs. Do not just write another handoff. Do not just tweak the existing shell.
+
+Your mission is to make the product materially more real by wiring actual live data into the existing live-only architecture and by making the UI show it in a way that is actually useful.
+
+## Highest-Priority Bridge Plan
+
+Follow this order unless live evidence forces a better one.
+
+### 1. Make env/config real
+
+Before anything else:
+
+- inspect `.env` without echoing secret values back to the user
+- verify which vars exist by name only
+- wire API and worker startup so they can actually consume local env/config intentionally
+- document the exact loading model in `README.md`
+- do not assume “the shell had vars in its environment already”
+
+Minimum acceptable outcome:
+
+- one documented and working local startup path where API, worker, and sidecar read the intended config
+
+### 2. Clean the default DB artifact and runtime assumptions
+
+You must address the mismatch between source and persisted state.
+
+Do one of these honestly:
+
+- add a migration that removes legacy storyline tables and clears stale demo-era `app_state` keys, or
+- recreate the default DB artifact from the current schema and stop carrying legacy state forward
+
+Also:
+
+- verify counts in the live research tables after reset
+- verify readiness/error behavior after reset
+
+### 3. Implement at least one real non-NBA external source end-to-end
+
+The repo already has Kalshi and Polymarket credential clues on disk. Use that.
+
+The first meaningful proof should be:
+
+- env/config recognized
+- adapter reaches real source
+- worker writes `source_markets`, `quote_ticks`, `raw_payloads`, and `adapter_runs`
+- API returns those rows
+- web shows those rows
+
+The product anchor is still bet365, but if bet365 auth/session state is unavailable right now, do not block the whole repo on that. Prove the pipeline with the source that can be made real first, then layer bet365 in.
+
+What not to do:
+
+- do not fake source rows
+- do not seed the DB and call that “live”
+- do not write a demo adapter
+
+### 4. Build the real bet365 capture seam
+
+This is core to the product, so even if not completed in the same slice, the next agent must leave it materially closer to real.
+
+Needed shape:
+
+- persistent authenticated browser/session bootstrap
+- scrape/network capture of active in-game offers
+- raw offer text persisted
+- parsed line/price persisted
+- derived implied probability persisted
+- `source_markets`, `quote_ticks`, and `raw_payloads` written per observed change
+
+If blocked:
+
+- say exactly what artifact is missing
+- likely `BET365_SESSION_STATE_PATH`
+- likely proxy/bootstrap details
+- do not hide that behind generic “future work”
+
+### 5. Finish the game-level operator workflow in the frontend
+
+The API already exposes game-level markets. The frontend does not use them.
+
+Build:
+
+- a game detail view using `GET /api/v1/games/:gameId/markets`
+- market family switching
+- grouped instrument table
+- source comparison rows with timestamps and mapping state
+- direct jump into instrument detail
+
+This is the missing middle layer between “Games” and “one instrument.”
+
+### 6. Make the visual layer actually useful
 
 At minimum:
 
-- top-level React error boundary
-- page-level error states for query failures
-- retry affordance on failing surfaces
-- mutation failure messaging for watchlist / replay / demo selection actions
+- make the existing instrument chart show real game-state transitions clearly
+- render annotations and line mismatch windows meaningfully
+- improve color/system semantics for bet365 vs Kalshi vs Polymarket
+- add a second useful visual, not just a prettier version of the same line chart
 
-### D. Add the first real frontend + e2e tests
+Good candidates:
 
-At minimum:
+- divergence-over-time panel
+- source freshness and capture cadence panel
+- best bid / ask or depth panel where available
+- market family summary visual on the game page
 
-- component or route test for overview render
-- route test for event workspace failure or fallback path
-- Playwright smoke test for demo mode
-- Playwright flow for opening an event from overview
-- replay or settings mode selection smoke
+If `recharts` becomes limiting:
 
-If a broader shared suite makes sense, use it. Do not drop hyper-specific one-off tests if a matrix or integration style is more honest.
+- add a stronger library intentionally
+- explain why
+- keep the scope narrow
 
-### E. Add internal CI
+### 7. Add exportable research artifacts
 
-Add a robust CI workflow with:
+The user explicitly asked about this. Treat it as a real product gap.
 
-- checkout
-- pnpm install
-- lint
-- typecheck
-- unit/integration tests
-- build
-- e2e smoke if feasible in headless mode
+Implement at least one useful export path:
 
-If e2e is too heavy for every job, split it into a separate workflow or job. But don’t skip CI entirely.
+- CSV export for game/instrument timeline data, or
+- JSON export for instrument/source history, or
+- downloadable chart snapshot/report artifact
 
-### F. Improve lint / verification beyond the basics
+If you add an export:
 
-Add only what is worth the complexity, but do add more than the current baseline. Good candidates:
+- update the relevant spec docs
+- make the route or client contract explicit
+- verify the exported output contains provenance and timestamps
 
-- `eslint-plugin-import` or equivalent
-- no-cycle / import-order / dependency-boundary rules
-- prettier check script
-- maybe markdown/json/yaml validation if a lightweight tool fits
-- coverage reporting or at least coverage generation hooks
+### 8. Expose real ops workflows in the UI
 
-## Recommended Order of Work
+The settings page is too thin.
 
-Do the work in this order unless inspection shows a better local truth:
+Add at least some of:
 
-1. Audit current scripts/configs and locate the exact missing infra files.
-2. Add shared logger + error abstraction.
-3. Refactor API to use typed errors and route-safe envelopes.
-4. Harden worker logging + lifecycle.
-5. Add readiness/liveness checks and richer diagnostics integration.
-6. Add frontend error boundary and mutation/query failure UX.
-7. Add frontend tests and Playwright config/tests.
-8. Add CI workflow and stronger verify scripts.
-9. Update specs / traceability / README for any changed contracts or validation gates.
-10. Run the full changed-surface tests plus repo-standard verify/build.
+- capture run history
+- storage coverage
+- unmapped market review
+- manual mapping resolution
+- visibility into queued admin actions
 
-## Concrete Files You Will Probably Touch
+Do not leave important operational routes API-only if the product is supposed to be operator-facing.
 
-Very likely:
+## Specific Code Truths To Keep In Mind
 
-- `package.json`
-- `eslint.config.js`
-- `vitest.config.ts`
-- `.gitignore`
-- `README.md`
-- `apps/api/src/server.ts`
-- `apps/api/src/lib/http.ts`
-- `apps/api/src/services/console-service.ts`
 - `apps/worker/src/index.ts`
-- `packages/shared/src/db.ts`
-- `apps/web/src/app/App.tsx`
-- `apps/web/src/app/ShellLayout.tsx`
-- `apps/web/src/data/api.ts`
-- `apps/web/src/features/settings/SettingsPage.tsx`
+  - currently only runs the NBA sidecar sync loop
+- `apps/worker/src/nba-sidecar.ts`
+  - ingests scoreboard output only
+- `packages/adapters/src/index.ts`
+  - currently empty placeholder
+- `apps/api/src/services/research-service.ts`
+  - admin POSTs mostly enqueue actions, not execute them
+- `apps/web/src/features/games/GamesPage.tsx`
+  - lists games but jumps directly to a single top instrument
 - `apps/web/src/features/event/EventWorkspacePage.tsx`
-
-Likely new files:
-
-- `packages/shared/src/logger.ts` or similar
-- `packages/shared/src/errors.ts` or similar
-- `apps/web/src/app/ErrorBoundary.tsx`
-- `apps/web/src/**/*.test.tsx`
-- `apps/web/playwright.config.ts`
-- `apps/web/tests/*.spec.ts`
-- `.github/workflows/ci.yml`
-
-Possibly:
-
-- a more formal DB migration file or folder
-- a health-check helper module
-- docs/ADR if you materially change logging/error architecture
-
-## Guardrails
-
-- Do not replace SQLite right now.
-- Do not replace Fastify right now.
-- Do not replace Vite/React right now.
-- Do not “solve” observability by pasting in a giant enterprise framework.
-- Do not invent fake live behavior and call it production readiness.
-- Do not turn the product into a public sportsbook UI.
-- Do not break the current demo/replay flows in pursuit of infra purity.
-
-## Acceptance Criteria For Your Turn
-
-Your turn is successful if all of the following are true:
-
-- logging is materially better and more structured across API and worker
-- API error handling is standardized and typed
-- frontend has real failure handling beyond default crashes
-- there are real frontend and/or e2e tests, not only backend/domain tests
-- CI exists in-repo and runs meaningful gates
-- verify/build/test still pass
-- specs/docs are updated where the hardening work changed contracts or quality gates
-
-## Commands To Run Before You Stop
-
-At minimum:
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm verify
-```
-
-If you add e2e:
-
-```bash
-pnpm test:e2e
-```
-
-If any of these fail, do not handwave it. Say exactly what failed, what you fixed, what remains, and whether the blocker is environmental or code-related.
-
-## Suggested Opening Move
-
-Start by reading:
-
-- `apps/api/src/server.ts`
-- `apps/api/src/services/console-service.ts`
-- `apps/worker/src/index.ts`
-- `packages/shared/src/db.ts`
-- `apps/web/src/app/App.tsx`
+  - has one basic chart and a raw payload drawer
+- `apps/web/src/features/settings/SettingsPage.tsx`
+  - does not expose most operator/admin routes
 - `apps/web/src/data/api.ts`
-- `package.json`
-- `eslint.config.js`
-- `vitest.config.ts`
+  - defines `getGameMarkets`, but the app does not currently use it in a dedicated game page
+- `Bet365SignalConsole.tsx`
+  - exists at repo root and appears unused; decide whether it is valuable reference material or stale artifact, but do not ignore it forever
 
-Then make a short implementation plan focused on **hardening foundation**, not on new product features.
+## Non-Negotiables
 
-The right mindset for this turn is:
+- Do not reintroduce demo, replay, fixtures, or storylines into the runtime.
+- Do not invent fallback data for missing live capture.
+- Do not claim env is “wired” if the code still does not consume it at runtime.
+- Do not call seeded test data “live validation.”
+- Do not leave export as a vague future idea if you touch that lane.
+- Do not leave the default DB artifact carrying legacy runtime state without explicitly deciding how it is handled.
+- Do not print secret values into logs, tests, docs, or user-facing responses.
 
-“Keep the current app shape, make it much more legitimate, and close the engineering cracks that are currently too basic to ignore.”
+## Recommended First Commands
+
+Use these to orient quickly:
+
+```bash
+git log --oneline --decorate --graph -n 20
+git diff --stat HEAD
+sqlite3 data/signal-console.sqlite ".tables"
+sqlite3 data/signal-console.sqlite "select key, value from app_state order by key;"
+sqlite3 data/signal-console.sqlite "select 'games', count(*) from games union all select 'quote_ticks', count(*) from quote_ticks union all select 'source_markets', count(*) from source_markets;"
+pnpm verify
+cd apps/nba-sidecar && uv run pytest
+```
+
+Also inspect env variable names without echoing values.
+
+## Definition Of A Good Next Slice
+
+The next slice is good if it produces all of these:
+
+- source code still live-only
+- env/config is actually consumed
+- at least one real external market source is ingested end-to-end
+- the DB contains real live rows
+- the API serves those rows
+- the UI shows those rows in a workflow that is actually useful
+- readiness/admin surfaces reflect reality honestly
+- at least one export workflow exists
+- verification covers the changed surface honestly
+
+## Definition Of Failure
+
+The next slice fails if it does any of these:
+
+- spends the whole turn on docs without moving the product
+- adds another layer of shell around empty data
+- adds tests against seeded rows only and calls it done
+- leaves env handling inert
+- ignores the user’s explicit export and chart complaints
+- ignores the stale DB / legacy state contamination
+- punts real source integration again
+
+## Final Instruction
+
+Do the work in the lane the user actually cares about:
+
+- make the live research system real
+- make the operator console actually useful
+- stop building convincing shells around missing capture
