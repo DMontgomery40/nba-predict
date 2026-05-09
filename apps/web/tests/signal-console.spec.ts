@@ -23,7 +23,7 @@ test("tracked games page opens the top signal", async ({ page }) => {
     page.getByRole("heading", { name: "Live NBA research slate" })
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "Signal" }).first().click();
+  await page.getByRole("link", { exact: true, name: "Signal" }).first().click();
   await expect(page).toHaveURL(
     /\/games\/nba-bos-nyk-2026-04-21\/markets\/bos-moneyline$/
   );
@@ -38,7 +38,7 @@ test("tracked games page opens the top signal", async ({ page }) => {
 test("top instrument flow opens raw source inspection", async ({ page }) => {
   await page.goto("/games");
 
-  await page.getByRole("link", { name: "Signal" }).first().click();
+  await page.getByRole("link", { exact: true, name: "Signal" }).first().click();
   await expect(page).toHaveURL(
     /\/games\/nba-bos-nyk-2026-04-21\/markets\/bos-moneyline$/
   );
