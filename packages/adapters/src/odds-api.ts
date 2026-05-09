@@ -59,7 +59,7 @@ type OddsApiSelectionRecord = {
   capturedAt: string;
   depthScore: number | null;
   displayLabel: string;
-  family: "moneyline" | "spread" | "total";
+  family: "moneyline" | "player-prop" | "spread" | "total";
   gameId: string;
   impliedProbability: number | null;
   inPlay: boolean;
@@ -288,6 +288,7 @@ function extractLine(row: OddsApiMarketOddsRow) {
 
 function normalizeMarketName(name: string) {
   const normalized = normalizeToken(name);
+  const playerPropMetric = normalizePlayerPropMetric(name);
   const hasUnsupportedWindow =
     normalized.includes("q1") ||
     normalized.includes("q2") ||
@@ -302,9 +303,15 @@ function normalizeMarketName(name: string) {
     normalized.includes("halftime");
 
   const hasUnsupportedScope =
-    normalized.includes("team-total") ||
-    normalized.includes("player-total") ||
-    normalized.includes("race-to");
+    normalized.includes("team-total") || normalized.includes("race-to");
+
+  if (playerPropMetric) {
+    return {
+      autoMap: !hasUnsupportedWindow,
+      family: "player-prop" as const,
+      playerPropMetric,
+    };
+  }
 
   if (
     normalized === "ml" ||
@@ -338,6 +345,48 @@ function normalizeMarketName(name: string) {
   return null;
 }
 
+function normalizePlayerPropMetric(name: string) {
+  const normalized = normalizeToken(name);
+
+  if (normalized.includes("player-first-basket")) return "first-basket";
+  if (normalized.includes("player-first-assist")) return "first-assist";
+  if (normalized.includes("player-first-rebound")) return "first-rebound";
+  if (normalized.includes("triple-double")) return "triple-double";
+  if (normalized.includes("double-double")) return "double-double";
+  if (normalized.includes("points-assists-rebounds")) {
+    return "points-assists-rebounds";
+  }
+  if (normalized.includes("points-rebounds")) return "points-rebounds";
+  if (normalized.includes("points-assists")) return "points-assists";
+  if (normalized.includes("assists-rebounds")) return "assists-rebounds";
+  if (normalized.includes("steals-blocks")) return "steals-blocks";
+  if (normalized.includes("field-goals-made")) return "field-goals-made";
+  if (normalized.includes("threes-made")) return "threes";
+  if (normalized.includes("player-threes-milestones")) {
+    return "threes-milestone";
+  }
+  if (normalized.includes("player-points-milestones")) {
+    return "points-milestone";
+  }
+  if (normalized.includes("player-rebounds-milestones")) {
+    return "rebounds-milestone";
+  }
+  if (normalized.includes("player-assists-milestones")) {
+    return "assists-milestone";
+  }
+  if (normalized.includes("points-o-u")) return "points";
+  if (normalized.includes("rebounds-o-u")) return "rebounds";
+  if (normalized.includes("assists-o-u")) return "assists";
+  if (normalized.includes("blocks-o-u")) return "blocks";
+  if (normalized.includes("steals-o-u")) return "steals";
+
+  return null;
+}
+
+function formatPlayerPropMetric(metric: string) {
+  return metric.split("-").join(" ");
+}
+
 function selectionLabelForParticipant(
   game: ResearchGameCard,
   side: "home" | "away"
@@ -368,7 +417,7 @@ function makeSelectionRecord(options: {
   rawSelection: Record<string, unknown>;
   selection: string;
   source: OddsApiSourceId;
-  sourceFamily: "moneyline" | "spread" | "total";
+  sourceFamily: "moneyline" | "player-prop" | "spread" | "total";
   sourceMarketKey: string;
   sourceSelectionKey: string;
   depthValue?: number | string | null | undefined;
@@ -428,6 +477,152 @@ function makeSelectionRecord(options: {
     sourceSelectionKey: options.sourceSelectionKey,
     volume: toNumber(options.depthValue),
   } satisfies Omit<OddsApiSelectionRecord, "instrumentId">;
+}
+
+function parsePlayerPropLabel(rawLabel: unknown) {
+  const label = String(rawLabel ?? "").trim();
+  const parentheticals = [...label.matchAll(/\(([^)]*)\)/g)].map((match) =>
+    match[1].trim()
+  );
+  const player = label.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+  const labelSelection =
+    parentheticals
+      .map((value) => normalizeToken(value))
+      .find((value) => value === "yes" || value === "no") ?? null;
+  const numericLine = [...parentheticals]
+    .reverse()
+    .map((value) => toNumber(value))
+    .find((value): value is number => value != null);
+
+  return {
+    label,
+    labelSelection,
+    line: numericLine ?? null,
+    player,
+    playerKey: normalizeToken(player),
+  };
+}
+
+function buildPlayerPropRecords(
+  bookmaker: OddsApiBookmakerName,
+  event: OddsApiEventOdds,
+  game: ResearchGameCard,
+  market: OddsApiMarket,
+  autoMap: boolean,
+  source: OddsApiSourceId,
+  capturedAt: string,
+  playerPropMetric: string
+) {
+  const bookmakerId = event.bookmakerIds?.[bookmaker] ?? null;
+
+  return (market.odds ?? [])
+    .flatMap((row) => {
+      const parsedLabel = parsePlayerPropLabel(row.label);
+      if (!parsedLabel.player || !parsedLabel.playerKey) {
+        return [];
+      }
+
+      const line = extractLine(row) ?? parsedLabel.line;
+      const selections: Array<{
+        oddsValue: number | string | null | undefined;
+        rawSelection: Record<string, unknown>;
+        selection: string;
+      }> = [];
+
+      if (row.over != null) {
+        selections.push({
+          oddsValue: row.over,
+          rawSelection: {
+            label: parsedLabel.label,
+            line,
+            odds: row.over,
+            player: parsedLabel.player,
+            selection: "over",
+          },
+          selection: "over",
+        });
+      }
+
+      if (row.under != null && row.over != null) {
+        selections.push({
+          oddsValue: row.under,
+          rawSelection: {
+            label: parsedLabel.label,
+            line,
+            odds: row.under,
+            player: parsedLabel.player,
+            selection: "under",
+          },
+          selection: "under",
+        });
+      } else if (row.under != null) {
+        const selection = parsedLabel.labelSelection ?? "under";
+        selections.push({
+          oddsValue: row.under,
+          rawSelection: {
+            label: parsedLabel.label,
+            line,
+            odds: row.under,
+            player: parsedLabel.player,
+            selection,
+          },
+          selection,
+        });
+      }
+
+      return selections.map(({ oddsValue, rawSelection, selection }) => {
+        const metricLabel = formatPlayerPropMetric(playerPropMetric);
+        const lineLabel = line == null ? "" : ` ${line}`;
+        const displayLabel =
+          `${parsedLabel.player} ${metricLabel} ${selection}${lineLabel}`.trim();
+        const sourceSelectionKey = buildStableId([
+          parsedLabel.playerKey,
+          selection,
+        ]);
+        const sourceMarketKey = buildStableId([
+          event.id,
+          market.name,
+          parsedLabel.playerKey,
+          line,
+        ]);
+
+        return {
+          ...makeSelectionRecord({
+            bookmaker,
+            bookmakerId,
+            capturedAt,
+            displayLabel,
+            event,
+            game,
+            line,
+            market,
+            oddsValue,
+            participantKey: parsedLabel.playerKey,
+            rawLabel: parsedLabel.label,
+            rawSelection: {
+              ...rawSelection,
+              metric: playerPropMetric,
+            },
+            selection,
+            source,
+            sourceFamily: "player-prop",
+            sourceMarketKey,
+            sourceSelectionKey,
+          }),
+          instrumentId: autoMap
+            ? buildStableId([
+                game.game.id,
+                "player-prop",
+                playerPropMetric,
+                parsedLabel.playerKey,
+                selection,
+                line,
+              ])
+            : null,
+        };
+      });
+    })
+    .filter((record) => record.priceRaw != null);
 }
 
 function buildMoneylineRecords(
@@ -773,6 +968,17 @@ export function buildOddsApiSelectionRecords(
           normalizedMarket.autoMap,
           source,
           capturedAt
+        );
+      case "player-prop":
+        return buildPlayerPropRecords(
+          bookmaker,
+          event,
+          game,
+          market,
+          normalizedMarket.autoMap,
+          source,
+          capturedAt,
+          normalizedMarket.playerPropMetric
         );
       default:
         return [];

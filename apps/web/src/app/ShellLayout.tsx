@@ -12,8 +12,10 @@ import { useAppStore } from "./store";
 import { getGames } from "../data/api";
 
 const navItems = [
-  { label: "Games", to: "/" },
+  { label: "Desk", to: "/" },
+  { label: "Slate", to: "/games" },
   { label: "Divergence", to: "/divergence" },
+  { label: "Research", to: "/research" },
   { label: "History", to: "/history" },
   { label: "Exports", to: "/exports" },
   { label: "Settings", to: "/settings" },
@@ -21,16 +23,22 @@ const navItems = [
 
 function workspaceStatus(pathname: string, activeGameCount: number) {
   if (pathname === "/") {
+    return "Ranked trader work queue";
+  }
+  if (pathname === "/games") {
     return `${activeGameCount} tracked game${activeGameCount === 1 ? "" : "s"}`;
   }
   if (pathname.startsWith("/divergence")) {
     return "Instrument-first disagreement";
   }
+  if (pathname.startsWith("/research")) {
+    return "Signal quality of prediction markets vs book";
+  }
   if (pathname.startsWith("/history")) {
     return "Persisted market history";
   }
   if (pathname.startsWith("/exports")) {
-    return "Dataset and timeline exports";
+    return "Data engineering exports";
   }
   if (pathname.startsWith("/settings")) {
     return "Operator controls and ingest state";
@@ -57,6 +65,7 @@ export function ShellLayout() {
   const commandOpen = useAppStore((state) => state.commandOpen);
   const openCommand = useAppStore((state) => state.openCommand);
   const games = useQuery({
+    enabled: location.pathname === "/games",
     queryKey: ["games"],
     queryFn: getGames,
   });
@@ -96,10 +105,12 @@ export function ShellLayout() {
           }
 
           const map: Record<string, string> = {
+            b: "/",
             d: "/divergence",
             e: "/exports",
-            g: "/",
+            g: "/games",
             h: "/history",
+            r: "/research",
             s: "/settings",
           };
           const route = map[nextEvent.key.toLowerCase()];
@@ -118,6 +129,7 @@ export function ShellLayout() {
   }, [commandOpen, navigate, openCommand]);
 
   const activeGameCount = games.data?.data.length ?? 0;
+  const showWorkspaceHeader = location.pathname !== "/";
 
   return (
     <div className="shell">
@@ -151,15 +163,17 @@ export function ShellLayout() {
       </aside>
 
       <div className="shell-main">
-        <header className="topbar">
-          <div>
-            <div className="eyebrow">Current workspace</div>
-            <strong>Live research console</strong>
-            <span className="muted">
-              {workspaceStatus(location.pathname, activeGameCount)}
-            </span>
-          </div>
-        </header>
+        {showWorkspaceHeader ? (
+          <header className="topbar">
+            <div>
+              <div className="eyebrow">Current workspace</div>
+              <strong>Live research console</strong>
+              <span className="muted">
+                {workspaceStatus(location.pathname, activeGameCount)}
+              </span>
+            </div>
+          </header>
+        ) : null}
 
         <main className="workspace">
           <Outlet />

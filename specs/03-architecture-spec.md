@@ -14,6 +14,7 @@ Signal Console is composed of:
 
 - persist append-only live game and quote history
 - compose research read models from persisted history
+- stream data-engineering exports from the persisted SQLite store without requiring browser-side staging
 - expose operator/admin routes for health, coverage, unmapped markets, and source state
 - emit structured errors and logs
 
@@ -21,9 +22,10 @@ Signal Console is composed of:
 
 - ingest normalized NBA sidecar payloads across a recent-plus-lookahead date window
 - ingest Polymarket NBA game markets through the official Gamma API
-- ingest Bet365 and Kalshi NBA markets through the backend-only Odds-API.io backup provider when `ODDS_API_KEY` is present
+- ingest Bet365 NBA markets through the backend-only Odds-API.io backup provider when `ODDS_API_KEY` is present
+- ingest direct Kalshi NBA market data through `KALSHI_API_KEY`, including milestone-related game, spread, total, team-prop, player-prop, period, overtime, and related event families
 - log adapter runs and ingest outcomes
-- keep direct public Bet365 capture and direct Kalshi work behind the same storage model when those paths mature
+- keep direct public Bet365 capture behind the same storage model as it matures
 - back off cleanly on failure
 
 ## Storage

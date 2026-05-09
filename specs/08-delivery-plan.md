@@ -9,11 +9,13 @@
 5. Removal of presentation-only runtime paths from source, docs, and regenerated build output
 6. Repo-root env loading and SQLite cleanup migration for the live-only runtime
 7. Polymarket NBA game-market ingestion plus the missing game-level workspace and CSV export
-8. Bet365 and Kalshi backup ingestion through Odds-API.io, persisted under the native live source model
+8. Bet365 backup ingestion through Odds-API.io, persisted under the native live source model
+9. Direct Kalshi NBA market-data ingestion through `KALSHI_API_KEY`, including player props and broader game-related event families
+10. Package-first exports route with a full SQLite handoff plus streamed CSV/JSONL table and quote-slice downloads for data engineering
 
 ## Next Slices
 
 1. Direct public Bet365 capture
-2. Broader live validation of the new backup provider path
+2. Broader live validation of the direct Kalshi and Bet365 backup provider paths
 3. Broader live end-to-end validation
 4. Deeper charting and executable admin workflows

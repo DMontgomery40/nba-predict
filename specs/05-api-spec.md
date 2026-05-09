@@ -22,6 +22,11 @@
 - `GET /api/v1/games/:gameId/markets/:instrumentId/timeline`
 - `GET /api/v1/games/:gameId/markets/:instrumentId/raw/:sourceId`
 - `GET /api/v1/games/:gameId/markets/:instrumentId/export.csv`
+- `GET /api/v1/exports`
+- `GET /api/v1/exports/:dataset.csv`
+- `GET /api/v1/exports/:dataset.jsonl`
+- `GET /api/v1/exports/sqlite`
+- `GET /api/v1/exports/full-package.sqlite`
 - `GET /api/v1/divergence`
 - `GET /api/v1/research/coverage`
 - `GET /api/v1/research/signal-mismatches`

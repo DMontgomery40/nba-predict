@@ -205,6 +205,11 @@ export function closeDatabase() {
   activeDatabasePath = null;
 }
 
+export async function backupDatabase(destinationPath: string) {
+  const db = getDatabase();
+  await db.backup(destinationPath);
+}
+
 export function removeDatabaseArtifacts(dbPath = getDatabasePath()) {
   closeDatabase();
   rmSync(dbPath, { force: true });

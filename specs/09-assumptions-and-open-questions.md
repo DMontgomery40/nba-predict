@@ -4,7 +4,8 @@
 
 - `ASSUMP-001` SQLite remains sufficient for local v1 live research work.
 - `ASSUMP-002` NBA is the first live league, but contracts stay sport/league aware.
-- `ASSUMP-003` `ODDS_API_KEY` is an acceptable backend-only backup provider for Bet365 and Kalshi capture while direct source paths mature.
+- `ASSUMP-003` `ODDS_API_KEY` is an acceptable backend-only backup provider for Bet365 capture while the direct Bet365 source path matures.
+- `ASSUMP-004` `KALSHI_API_KEY` is sufficient for direct Kalshi market-data capture of NBA game-related event families.
 
 ## Open Questions
 

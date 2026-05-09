@@ -1,12 +1,17 @@
 import { cx } from "@signal-console/ui";
 
-import type { PropsWithChildren } from "react";
+import type { HTMLAttributes, PropsWithChildren } from "react";
 
 export function Panel({
   className,
   children,
-}: PropsWithChildren<{ className?: string }>) {
-  return <section className={cx("panel", className)}>{children}</section>;
+  ...props
+}: PropsWithChildren<HTMLAttributes<HTMLElement>>) {
+  return (
+    <section className={cx("panel", className)} {...props}>
+      {children}
+    </section>
+  );
 }
 
 export function Badge({

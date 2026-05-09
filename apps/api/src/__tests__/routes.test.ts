@@ -432,11 +432,92 @@ describe("api routes", () => {
     expect(exportResponse.body).toContain('"record_type","game_id"');
     expect(exportResponse.body).toContain('"quote","nba-bos-nyk-2026-04-21"');
 
+    const catalogResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/exports",
+    });
+    expect(catalogResponse.statusCode).toBe(200);
+    expect(catalogResponse.json()).toMatchObject({
+      data: {
+        datasets: expect.arrayContaining([
+          expect.objectContaining({
+            id: "market-quotes",
+            title: "Market quote ticks",
+          }),
+        ]),
+      },
+    });
+
+    const fullPackageResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/exports/full-package.sqlite",
+    });
+    expect(fullPackageResponse.statusCode).toBe(200);
+    expect(fullPackageResponse.headers["content-type"]).toContain(
+      "application/vnd.sqlite3"
+    );
+
+    const datasetExportResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/exports/market-quotes.csv?source=bet365&family=moneyline",
+    });
+    expect(datasetExportResponse.statusCode).toBe(200);
+    expect(datasetExportResponse.headers["content-type"]).toContain("text/csv");
+    expect(datasetExportResponse.body).toContain('"quote_tick_id","source"');
+    expect(datasetExportResponse.body).toContain('"sm-bet365-bos-moneyline"');
+
+    const playerPropQuoteResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/exports/market-quotes.csv?family=player-prop",
+    });
+    expect(playerPropQuoteResponse.statusCode).toBe(200);
+    expect(playerPropQuoteResponse.body).toContain('"sm-poly-brunson-points"');
+    expect(playerPropQuoteResponse.body).toContain('"player-prop"');
+    expect(playerPropQuoteResponse.body).toContain(
+      '"Jalen Brunson over 29.5 points"'
+    );
+
+    const playerPropSourceMarketResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/exports/source-markets.csv?family=player-prop",
+    });
+    expect(playerPropSourceMarketResponse.statusCode).toBe(200);
+    expect(playerPropSourceMarketResponse.body).toContain(
+      '"sm-poly-brunson-points"'
+    );
+    expect(playerPropSourceMarketResponse.body).toContain('"unmapped"');
+
     await app.close();
   });
 
   it("returns instrument-first divergence, research coverage, and source/admin summaries", async () => {
     seedResearchBackend();
+    recordQuoteObservation({
+      bestAsk: 0.49,
+      bestBid: 0.48,
+      capturedAt: "2026-04-21T23:56:05.000Z",
+      depthScore: 84,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.48,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.48,
+      sourceMarketId: "sm-kalshi-bos-moneyline",
+      volume: 60,
+    });
+    recordQuoteObservation({
+      bestAsk: 0.47,
+      bestBid: 0.46,
+      capturedAt: "2026-04-21T23:56:08.000Z",
+      depthScore: 75,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.46,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.46,
+      sourceMarketId: "sm-polymarket-bos-moneyline",
+      volume: 46,
+    });
     process.env.NBA_SIDECAR_BASE_URL = "http://127.0.0.1:9393";
     process.env.ODDS_API_KEY = "odds-key";
     const app = buildApiServer();
@@ -463,6 +544,23 @@ describe("api routes", () => {
     });
     expect(coverageResponse.statusCode).toBe(200);
     expect(coverageResponse.json().data.length).toBeGreaterThan(0);
+
+    const mismatchResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/signal-mismatches",
+    });
+    expect(mismatchResponse.statusCode).toBe(200);
+    expect(mismatchResponse.json()).toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          displayLabel: "Boston moneyline",
+          finalAwayScore: 110,
+          finalHomeScore: 118,
+          gameLabel: "Knicks at Celtics",
+          gameStatus: "final",
+        }),
+      ]),
+    });
 
     const sourcesResponse = await app.inject({
       method: "GET",
@@ -596,9 +694,8 @@ describe("api routes", () => {
     await app.close();
   });
 
-  it("keeps kalshi readiness red when only direct Kalshi creds are present", async () => {
+  it("marks kalshi capture ready when direct Kalshi API key is present", async () => {
     process.env.KALSHI_API_KEY = "kalshi-key";
-    process.env.KALSHI_API_SECRET = "kalshi-secret";
     const app = buildApiServer();
 
     const response = await app.inject({
@@ -611,9 +708,9 @@ describe("api routes", () => {
       checks: expect.arrayContaining([
         expect.objectContaining({
           name: "kalshi-capture",
-          status: "error",
+          status: "ok",
           summary:
-            "Direct Kalshi credentials are configured, but no active ingest path uses them yet.",
+            "Kalshi capture is configured through the direct Kalshi API.",
         }),
       ]),
     });

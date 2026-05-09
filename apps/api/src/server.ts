@@ -12,6 +12,7 @@ import {
 import { normalizeApiError } from "./lib/http";
 import { registerAdminRoutes } from "./routes/admin";
 import { registerDivergenceRoutes } from "./routes/divergence";
+import { registerExportRoutes } from "./routes/exports";
 import { registerGamesRoutes } from "./routes/games";
 import { registerResearchRoutes } from "./routes/research";
 import {
@@ -97,6 +98,7 @@ export function buildApiServer() {
   });
 
   app.register(registerDivergenceRoutes);
+  app.register(registerExportRoutes);
   app.register(registerGamesRoutes);
   app.register(registerResearchRoutes);
   app.register(registerAdminRoutes);

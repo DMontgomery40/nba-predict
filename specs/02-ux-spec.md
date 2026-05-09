@@ -12,7 +12,7 @@
 - `UX-012` Instrument workspace shall expose the dedicated per-source diagnostics route so mapping status, latest quote lag, and latest raw payload references are visible without leaving the page.
 - `UX-013` Operations shall expose frontend controls for the admin restart, backfill, timeline rebuild, and manual mapping endpoints, even when those actions currently queue backend work rather than execute it immediately.
 - `UX-014` History shall be a first-class route that surfaces persisted capture runs, storage coverage, research coverage, and signal mismatches even when no games are currently visible on the live slate.
-- `UX-015` Exports shall be a first-class route that exposes downloadable persisted dataset exports and obvious timeline CSV shortcuts without requiring the user to drill into an instrument first.
+- `UX-015` Exports shall be a first-class, data-engineering-friendly route with a package-first layout: the first control downloads the complete persisted SQLite store, while secondary controls expose API-backed CSV/JSONL tables and provider/family quote slices such as all player props or one provider's prop market family.
 - `UX-016` The games index shall not dead-end on an empty slate; it shall point the user toward history, exports, and settings when no canonical games are currently visible.
 
 ## Interaction Rules

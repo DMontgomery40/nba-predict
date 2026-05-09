@@ -7,21 +7,27 @@ import {
   enqueueTimelineMaterializationRebuild,
   GameNotFoundError,
   getInstrumentComparison,
+  getInstrumentDeltaSeries,
   getInstrumentRawSource,
   getInstrumentSources,
   getInstrumentTimeline,
+  getLeadLagSeries,
   getResearchCoverage,
   getResearchGame,
+  getSignalQualityReport,
+  getSourceLeadLagReport,
   getStorageCoverage,
   InstrumentNotFoundError,
   listAdapterRuns,
   listAdminSources,
+  listClosedGameSummaries,
   listGameMarkets,
   listResearchDivergence,
   listResearchGames,
   listSignalMismatches,
   listUnmappedMarkets,
   resolveSourceMarketMapping,
+  type ClosingCutoff,
 } from "@signal-console/shared";
 
 type GamesQuery = Parameters<typeof listResearchGames>[0];
@@ -577,4 +583,129 @@ export function getStorageCoveragePayload(context?: ServiceContext) {
     data,
     meta: generatedMeta(),
   };
+}
+
+export function getSignalQualityReportPayload(
+  query: {
+    closingCutoff?: ClosingCutoff;
+    league?: string;
+    since?: string;
+    until?: string;
+  },
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getSignalQualityReportPayload");
+  const data = getSignalQualityReport(query);
+  logger.debug(
+    { query, sampleCount: data.sampleCount },
+    "Built signal quality report."
+  );
+  return { data, meta: generatedMeta() };
+}
+
+export function getClosedGameSummariesPayload(
+  query: {
+    closingCutoff?: ClosingCutoff;
+    league?: string;
+    limit?: number;
+    since?: string;
+    until?: string;
+  },
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getClosedGameSummariesPayload");
+  const data = listClosedGameSummaries(query);
+  logger.debug({ count: data.length, query }, "Built closed-game summaries.");
+  return { data, meta: generatedMeta() };
+}
+
+export function getInstrumentDeltaSeriesPayload(
+  gameId: string,
+  instrumentId: string,
+  query: { bucketSeconds?: number },
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getInstrumentDeltaSeriesPayload");
+  const game = getResearchGame(gameId);
+  if (!game) {
+    logger.warn({ gameId, instrumentId }, "Delta series game not found.");
+    throw new GameNotFoundError(gameId);
+  }
+  const instrument = getInstrumentComparison(gameId, instrumentId);
+  if (!instrument) {
+    logger.warn({ gameId, instrumentId }, "Delta series instrument not found.");
+    throw new InstrumentNotFoundError(instrumentId, { gameId });
+  }
+  const data = getInstrumentDeltaSeries({
+    bucketSeconds: query.bucketSeconds,
+    instrumentId,
+  });
+  logger.debug(
+    { count: data.length, gameId, instrumentId, query },
+    "Built delta series."
+  );
+  return { data, meta: generatedMeta() };
+}
+
+export function getInstrumentLeadLagPayload(
+  gameId: string,
+  instrumentId: string,
+  query: { bucketSeconds?: number; maxLagBuckets?: number },
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getInstrumentLeadLagPayload");
+  const game = getResearchGame(gameId);
+  if (!game) {
+    logger.warn({ gameId, instrumentId }, "Lead-lag game not found.");
+    throw new GameNotFoundError(gameId);
+  }
+  const instrument = getInstrumentComparison(gameId, instrumentId);
+  if (!instrument) {
+    logger.warn({ gameId, instrumentId }, "Lead-lag instrument not found.");
+    throw new InstrumentNotFoundError(instrumentId, { gameId });
+  }
+  const data = getSourceLeadLagReport({
+    bucketSeconds: query.bucketSeconds,
+    instrumentId,
+    maxLagBuckets: query.maxLagBuckets,
+  });
+  logger.debug({ gameId, instrumentId, query }, "Built lead-lag report.");
+  return { data, meta: generatedMeta() };
+}
+
+export function getInstrumentLeadLagSeriesPayload(
+  gameId: string,
+  instrumentId: string,
+  query: {
+    bucketSeconds?: number;
+    maxLagBuckets?: number;
+    windowBuckets?: number;
+  },
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getInstrumentLeadLagSeriesPayload");
+  const game = getResearchGame(gameId);
+  if (!game) {
+    logger.warn({ gameId, instrumentId }, "Lead-lag series game not found.");
+    throw new GameNotFoundError(gameId);
+  }
+  const instrument = getInstrumentComparison(gameId, instrumentId);
+  if (!instrument) {
+    logger.warn(
+      { gameId, instrumentId },
+      "Lead-lag series instrument not found."
+    );
+    throw new InstrumentNotFoundError(instrumentId, { gameId });
+  }
+  const data = getLeadLagSeries({
+    bucketSeconds: query.bucketSeconds,
+    instrumentId,
+    maxLagBuckets: query.maxLagBuckets,
+    windowBuckets: query.windowBuckets,
+  });
+  logger.debug(
+    { gameId, instrumentId, query },
+    "Built lead-lag rolling series."
+  );
+  return { data, meta: generatedMeta() };
 }

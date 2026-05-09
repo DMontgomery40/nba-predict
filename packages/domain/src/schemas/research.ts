@@ -10,6 +10,7 @@ import {
   mappingStatusSchema,
   quoteTickSchema,
   rawPayloadAttachmentSchema,
+  researchGameStatusSchema,
   researchSourceIdSchema,
   sourceMarketSchema,
 } from "./live";
@@ -186,6 +187,11 @@ export const divergenceRowSchema = z.object({
 });
 
 export const signalMismatchRowSchema = divergenceRowSchema.extend({
+  gameLabel: z.string(),
+  scheduledStart: z.string(),
+  gameStatus: researchGameStatusSchema,
+  finalAwayScore: z.number().int().nullable().optional(),
+  finalHomeScore: z.number().int().nullable().optional(),
   bet365ImpliedProbability: z.number().min(0).max(1).nullable().optional(),
   kalshiImpliedProbability: z.number().min(0).max(1).nullable().optional(),
   polymarketImpliedProbability: z.number().min(0).max(1).nullable().optional(),

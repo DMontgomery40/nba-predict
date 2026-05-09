@@ -3,11 +3,15 @@ import { Link } from "react-router-dom";
 
 import { ErrorState, LoadingState } from "../../components/ErrorState";
 import { PageFrame } from "../../components/PageFrame";
-import { Badge, Panel, SectionTitle } from "../../components/Primitives";
+import { Panel, SectionTitle } from "../../components/Primitives";
 import { getGames } from "../../data/api";
 import {
+  buildGameTriage,
+  getMarketSources,
+  type GameRow,
+} from "../../lib/game-triage";
+import {
   formatMarketSourceList,
-  formatMarketSourceSummary,
   hasNbaStateSource,
 } from "../../lib/source-coverage";
 
@@ -23,6 +27,22 @@ function scoreLine(
   }
 
   return `${gameState.awayScore ?? "-"} - ${gameState.homeScore ?? "-"} · ${gameState.status}`;
+}
+
+function formatDate(value: string) {
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    return "date n/a";
+  }
+
+  return parsed.toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function formatGameName(entry: GameRow) {
+  return `${entry.game.awayParticipant.shortName} at ${entry.game.homeParticipant.shortName}`;
 }
 
 export function GamesPage() {
@@ -54,30 +74,51 @@ export function GamesPage() {
     );
   }
 
+  const triage = buildGameTriage(games.data.data);
+  const visibleRows = triage.actionableRows.slice(0, 80);
+
   return (
-    <PageFrame
-      aside={
-        <Panel>
-          <SectionTitle
-            eyebrow="Coverage"
-            title={`${games.data.data.length} tracked games`}
-            body="Each card is backed by persisted live game state, source coverage, and instrument-level divergence summaries."
-          />
-        </Panel>
-      }
-    >
+    <PageFrame>
       <section className="hero-strip">
         <div>
           <div className="eyebrow">Tracked Games</div>
           <h1>Live NBA research slate</h1>
           <p>
-            Browse active and recent games, then jump directly into the most
-            meaningful instrument on each board.
+            Actionable boards first. NBA-state-only and placeholder backfill
+            rows are counted below, not repeated forever.
           </p>
         </div>
       </section>
 
-      <div className="stack">
+      <div className="slate-triage-grid">
+        <div className="triage-tile triage-live">
+          <span>Actionable games</span>
+          <strong>{triage.actionableRows.length.toLocaleString()}</strong>
+          <em>market feed, instrument, divergence, or unmapped work</em>
+        </div>
+        <div className="triage-tile">
+          <span>NBA-state only</span>
+          <strong>{triage.nbaStateOnlyRows.length.toLocaleString()}</strong>
+          <em>truth context exists, no market board yet</em>
+        </div>
+        <div className="triage-tile">
+          <span>Placeholder names</span>
+          <strong>{triage.placeholderRows.length.toLocaleString()}</strong>
+          <em>suppressed from trader navigation</em>
+        </div>
+        <div className="triage-tile">
+          <span>Showing</span>
+          <strong>{visibleRows.length.toLocaleString()}</strong>
+          <em>ranked by divergence, source coverage, instruments</em>
+        </div>
+      </div>
+
+      <Panel className="slate-workbench">
+        <SectionTitle
+          eyebrow="Actionable Slate"
+          title="Boards with market work"
+          body="No empty Away/Home cards. Rows below have market feeds, instruments, ranked divergence, or unresolved mapping work."
+        />
         {games.data.data.length === 0 ? (
           <Panel>
             <SectionTitle
@@ -97,73 +138,97 @@ export function GamesPage() {
               </Link>
             </div>
           </Panel>
-        ) : null}
-        {games.data.data.map((entry) => {
-          const topInstrument = entry.topDivergences[0];
-          const hasNbaState = hasNbaStateSource(
-            entry.coverage.availableSources
-          );
-
-          return (
-            <Panel key={entry.game.id}>
-              <SectionTitle
-                eyebrow={`${entry.game.league} · ${entry.game.sport}`}
-                title={`${entry.game.awayParticipant.shortName} at ${entry.game.homeParticipant.shortName}`}
-                body={scoreLine(entry.gameState)}
-              />
-              <div className="tag-row">
-                <Badge tone="neutral">
-                  {entry.activeInstrumentCount} instruments
-                </Badge>
-                <Badge
-                  tone={
-                    entry.coverage.availableSources.length > 0
-                      ? "positive"
-                      : "warning"
-                  }
-                >
-                  {formatMarketSourceSummary(entry.coverage.availableSources)}
-                </Badge>
-                {hasNbaState ? <Badge tone="neutral">NBA state</Badge> : null}
-                {entry.hasUnmappedMarkets ? (
-                  <Badge tone="warning">Unmapped markets present</Badge>
-                ) : null}
-              </div>
-              <p className="muted">
-                Market feeds:{" "}
-                {formatMarketSourceList(entry.coverage.availableSources)}
-              </p>
-
-              {topInstrument ? (
-                <div className="note-card">
-                  <h3>Top divergence</h3>
-                  <p>
-                    {topInstrument.displayLabel} ·{" "}
-                    {(topInstrument.impliedProbabilityGap * 100).toFixed(1)}%
-                    gap · {topInstrument.severity}
-                  </p>
-                  <div className="hero-actions">
-                    <Link
-                      className="primary-button"
-                      to={`/games/${entry.game.id}`}
-                    >
-                      Open game workspace
-                    </Link>
-                    <Link
-                      className="ghost-button"
-                      to={`/games/${entry.game.id}/markets/${topInstrument.instrumentId}`}
-                    >
-                      Jump to top instrument
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                <p className="muted">No ranked divergence yet for this game.</p>
-              )}
-            </Panel>
-          );
-        })}
-      </div>
+        ) : visibleRows.length === 0 ? (
+          <div className="empty-row">
+            No actionable market boards yet. The database currently contains
+            state-only or placeholder game rows; use History, Research, or
+            Settings while capture/backfill mapping catches up.
+          </div>
+        ) : (
+          <div className="table-shell slate-table-shell">
+            <table className="desk-table slate-table">
+              <thead>
+                <tr>
+                  <th>Board</th>
+                  <th>State</th>
+                  <th>Market feeds</th>
+                  <th>Instruments</th>
+                  <th>Top signal</th>
+                  <th>Open</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleRows.map((entry) => {
+                  const topInstrument = entry.topDivergences[0];
+                  const marketSources = getMarketSources(entry);
+                  const hasNbaState = hasNbaStateSource(
+                    entry.coverage.availableSources
+                  );
+                  return (
+                    <tr key={entry.game.id}>
+                      <td>
+                        <strong>{formatGameName(entry)}</strong>
+                        <span>
+                          {entry.game.league} -{" "}
+                          {formatDate(entry.game.scheduledStart)}
+                        </span>
+                      </td>
+                      <td>{scoreLine(entry.gameState)}</td>
+                      <td>
+                        <span className="slate-feed-line">
+                          {marketSources.length > 0
+                            ? formatMarketSourceList(marketSources)
+                            : "mapping work only"}
+                          {hasNbaState ? " + NBA" : ""}
+                        </span>
+                      </td>
+                      <td className="desk-number">
+                        {entry.activeInstrumentCount}
+                      </td>
+                      <td>
+                        {topInstrument ? (
+                          <>
+                            <strong>{topInstrument.displayLabel}</strong>
+                            <span>
+                              {(
+                                topInstrument.impliedProbabilityGap * 100
+                              ).toFixed(1)}
+                              % gap - {topInstrument.severity}
+                            </span>
+                          </>
+                        ) : entry.hasUnmappedMarkets ? (
+                          <span className="status-text status-warm">
+                            unmapped markets
+                          </span>
+                        ) : (
+                          <span className="muted">coverage only</span>
+                        )}
+                      </td>
+                      <td>
+                        {topInstrument ? (
+                          <Link
+                            className="desk-link"
+                            to={`/games/${entry.game.id}/markets/${topInstrument.instrumentId}`}
+                          >
+                            Signal
+                          </Link>
+                        ) : (
+                          <Link
+                            className="desk-link"
+                            to={`/games/${entry.game.id}`}
+                          >
+                            Game
+                          </Link>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
     </PageFrame>
   );
 }

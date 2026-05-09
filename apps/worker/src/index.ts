@@ -1,6 +1,6 @@
 import {
+  syncKalshiNbaDirect,
   syncOddsApiBet365NbaMarkets,
-  syncOddsApiKalshiNbaMarkets,
   syncPolymarketNbaMarkets,
 } from "@signal-console/adapters";
 import {
@@ -95,7 +95,7 @@ export async function runWorkerCycle(options?: {
   now?: () => Date;
   onHeartbeat?: (summary: WorkerHeartbeatSummary) => Promise<void> | void;
   syncBet365?: typeof syncOddsApiBet365NbaMarkets;
-  syncKalshi?: typeof syncOddsApiKalshiNbaMarkets;
+  syncKalshi?: typeof syncKalshiNbaDirect;
   syncNbaSidecar?: typeof syncNbaSidecarWindow;
   syncPolymarket?: typeof syncPolymarketNbaMarkets;
 }) {
@@ -106,7 +106,7 @@ export async function runWorkerCycle(options?: {
     options?.maxBackoffMs ?? getDefaultMaxBackoffMs(intervalMs);
   const consecutiveFailures = options?.consecutiveFailures ?? 0;
   const syncBet365 = options?.syncBet365 ?? syncOddsApiBet365NbaMarkets;
-  const syncKalshi = options?.syncKalshi ?? syncOddsApiKalshiNbaMarkets;
+  const syncKalshi = options?.syncKalshi ?? syncKalshiNbaDirect;
   const syncNbaSidecar = options?.syncNbaSidecar ?? syncNbaSidecarWindow;
   const syncPolymarket = options?.syncPolymarket ?? syncPolymarketNbaMarkets;
 
@@ -122,6 +122,7 @@ export async function runWorkerCycle(options?: {
     const oddsApiConfigured = Boolean(
       process.env.ODDS_API_KEY ?? process.env.ODDS_API_IO_KEY
     );
+    const kalshiDirectConfigured = Boolean(process.env.KALSHI_API_KEY);
 
     if (nbaSidecarConfigured) {
       const syncResult = await syncNbaSidecar({
@@ -140,7 +141,9 @@ export async function runWorkerCycle(options?: {
       bet365GamesMatched = bet365Result.gamesMatched;
       bet365SourceMarketsObserved = bet365Result.sourceMarketsObserved;
       logger.info(bet365Result, "Bet365 sync completed.");
+    }
 
+    if (kalshiDirectConfigured) {
       const kalshiResult = await syncKalshi({
         now: options?.now,
       });
