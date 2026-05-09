@@ -2,7 +2,7 @@ import { DatabaseFailureError } from "./errors";
 
 import type Database from "better-sqlite3";
 
-export const currentSchemaVersion = 3;
+export const currentSchemaVersion = 5;
 
 function nowIso() {
   return new Date().toISOString();
@@ -221,6 +221,42 @@ function applyLegacyRuntimeCleanup(db: Database.Database) {
   })();
 }
 
+function applyHistoricalIngestionSupport(db: Database.Database) {
+  db.transaction(() => {
+    db.exec(`
+      DELETE FROM quote_ticks
+      WHERE id NOT IN (
+        SELECT MIN(id)
+        FROM quote_ticks
+        GROUP BY source_market_id, captured_at
+      );
+    `);
+
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_quote_ticks_unique_observation
+        ON quote_ticks(source_market_id, captured_at);
+    `);
+
+    const adapterRunColumns = db
+      .prepare(`PRAGMA table_info('adapter_runs')`)
+      .all() as Array<{ name: string }>;
+
+    if (!adapterRunColumns.some((column) => column.name === "capture_mode")) {
+      db.exec(`
+        ALTER TABLE adapter_runs
+          ADD COLUMN capture_mode TEXT NOT NULL DEFAULT 'live';
+      `);
+    }
+
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_adapter_runs_source_mode_started
+        ON adapter_runs(source, capture_mode, started_at DESC);
+    `);
+
+    insertMigration(db, 4, "historical-ingestion-support");
+  })();
+}
+
 export function applyMigrations(db: Database.Database, dbPath: string) {
   ensureSchemaMigrationsTable(db);
   const appliedVersion = getAppliedVersion(db);
@@ -251,4 +287,50 @@ export function applyMigrations(db: Database.Database, dbPath: string) {
   if (getAppliedVersion(db) < 3) {
     applyLegacyRuntimeCleanup(db);
   }
+
+  if (getAppliedVersion(db) < 4) {
+    applyHistoricalIngestionSupport(db);
+  }
+
+  if (getAppliedVersion(db) < 5) {
+    applyCanonicalInstrumentConsolidation(db);
+  }
+}
+
+function applyCanonicalInstrumentConsolidation(db: Database.Database) {
+  db.transaction(() => {
+    db.exec(`
+      INSERT OR IGNORE INTO market_instruments (
+        id, game_id, family, selection, line, participant_key, in_play, display_label
+      )
+      SELECT
+        REPLACE(
+          REPLACE(mi.id, '-polymarket-historical', ''),
+          '-kalshi', ''
+        ) AS canonical_id,
+        mi.game_id, mi.family, mi.selection, mi.line,
+        mi.participant_key, mi.in_play, mi.display_label
+      FROM market_instruments mi
+      WHERE mi.id LIKE '%-kalshi'
+         OR mi.id LIKE '%-polymarket-historical';
+    `);
+
+    db.exec(`
+      UPDATE source_markets
+      SET instrument_id = REPLACE(
+        REPLACE(instrument_id, '-polymarket-historical', ''),
+        '-kalshi', ''
+      )
+      WHERE instrument_id LIKE '%-kalshi'
+         OR instrument_id LIKE '%-polymarket-historical';
+    `);
+
+    db.exec(`
+      DELETE FROM market_instruments
+      WHERE id LIKE '%-kalshi'
+         OR id LIKE '%-polymarket-historical';
+    `);
+
+    insertMigration(db, 5, "canonical-instrument-consolidation");
+  })();
 }

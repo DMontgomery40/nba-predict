@@ -14,6 +14,7 @@ import {
 } from "recharts";
 
 import { RawSourceDrawer } from "./RawSourceDrawer";
+import { SignalQualityStrip } from "./SignalQualityStrip";
 import {
   formatTimelineChartData,
   formatTimelineTimestamp,
@@ -409,6 +410,8 @@ export function EventWorkspacePage() {
             </button>
           </div>
         </section>
+
+        <SignalQualityStrip gameId={gameId} instrumentId={instrumentId} />
 
         <Panel>
           <SectionTitle

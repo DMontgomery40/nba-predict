@@ -57,6 +57,7 @@ type FetchLike = typeof fetch;
 
 export type NbaSidecarWindowSummary = {
   datesSynced: string[];
+  dateErrors: Array<{ date: string; error: string }>;
   finishedAt: string;
   gamesSeen: number;
   ok: true;
@@ -235,17 +236,26 @@ export async function syncNbaSidecarWindow(options?: {
     let gamesSeen = 0;
     let outcomesWritten = 0;
     let statesWritten = 0;
+    const dateErrors: Array<{ date: string; error: string }> = [];
 
     for (const date of dates) {
-      const payload = await fetchNbaSidecarScoreboard({
-        baseUrl: options?.baseUrl,
-        date,
-        fetchImpl: options?.fetchImpl,
-      });
-      const summary = ingestNbaSidecarScoreboard(payload);
-      gamesSeen += summary.gamesSeen;
-      outcomesWritten += summary.outcomesWritten;
-      statesWritten += summary.statesWritten;
+      try {
+        const payload = await fetchNbaSidecarScoreboard({
+          baseUrl: options?.baseUrl,
+          date,
+          fetchImpl: options?.fetchImpl,
+        });
+        const summary = ingestNbaSidecarScoreboard(payload);
+        gamesSeen += summary.gamesSeen;
+        outcomesWritten += summary.outcomesWritten;
+        statesWritten += summary.statesWritten;
+      } catch (dateError) {
+        dateErrors.push({
+          date,
+          error:
+            dateError instanceof Error ? dateError.message : String(dateError),
+        });
+      }
     }
 
     const finishedAt = now().toISOString();
@@ -259,6 +269,7 @@ export async function syncNbaSidecarWindow(options?: {
     });
 
     return {
+      dateErrors,
       datesSynced: dates,
       finishedAt,
       gamesSeen,

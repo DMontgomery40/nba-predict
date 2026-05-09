@@ -118,6 +118,43 @@ const bet365OddsPayload = [
           ],
           updatedAt: "2026-04-22T07:25:20.000Z",
         },
+        {
+          name: "Points O/U",
+          odds: [
+            {
+              hdp: 28.5,
+              label: "LeBron James (1) (28.5)",
+              over: "1.90",
+              under: "1.90",
+            },
+          ],
+          updatedAt: "2026-04-22T07:25:30.000Z",
+        },
+        {
+          name: "Player Points Milestones",
+          odds: [
+            {
+              hdp: 30,
+              label: "LeBron James",
+              over: "2.50",
+            },
+          ],
+          updatedAt: "2026-04-22T07:25:40.000Z",
+        },
+        {
+          name: "Double Double",
+          odds: [
+            {
+              label: "LeBron James (Yes) (1)",
+              under: "3.25",
+            },
+            {
+              label: "LeBron James (No) (1)",
+              under: "1.30",
+            },
+          ],
+          updatedAt: "2026-04-22T07:25:50.000Z",
+        },
       ],
     },
     urls: {
@@ -296,6 +333,27 @@ describe("odds-api adapter", () => {
           selection: "over",
           source: "bet365",
         }),
+        expect.objectContaining({
+          displayLabel: "LeBron James points over 28.5",
+          family: "player-prop",
+          line: 28.5,
+          participantKey: "lebron-james",
+          selection: "over",
+          source: "bet365",
+        }),
+        expect.objectContaining({
+          displayLabel: "LeBron James points milestone over 30",
+          family: "player-prop",
+          line: 30,
+          selection: "over",
+          source: "bet365",
+        }),
+        expect.objectContaining({
+          displayLabel: "LeBron James double double yes 1",
+          family: "player-prop",
+          selection: "yes",
+          source: "bet365",
+        }),
       ])
     );
 
@@ -336,7 +394,7 @@ describe("odds-api adapter", () => {
 
     expect(bet365Result.ok).toBe(true);
     expect(bet365Result.gamesMatched).toBe(1);
-    expect(bet365Result.sourceMarketsObserved).toBe(6);
+    expect(bet365Result.sourceMarketsObserved).toBe(11);
 
     expect(kalshiResult.ok).toBe(true);
     expect(kalshiResult.gamesMatched).toBe(1);
@@ -357,6 +415,12 @@ describe("odds-api adapter", () => {
         expect.objectContaining({
           instrument: expect.objectContaining({
             displayLabel: "Over 221.5 total",
+          }),
+        }),
+        expect.objectContaining({
+          instrument: expect.objectContaining({
+            displayLabel: "LeBron James points over 28.5",
+            family: "player-prop",
           }),
         }),
       ])
@@ -387,7 +451,7 @@ describe("odds-api adapter", () => {
     expect(listAdapterRuns(5)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          recordsSeen: 6,
+          recordsSeen: 11,
           source: "bet365",
           status: "ok",
         }),
@@ -470,7 +534,7 @@ describe("odds-api adapter", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(result.sourceMarketsObserved).toBe(10);
+    expect(result.sourceMarketsObserved).toBe(15);
 
     const comparison = getInstrumentComparison(
       "nba-0042500173",

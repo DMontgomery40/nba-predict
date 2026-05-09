@@ -5,12 +5,14 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { ShellLayout } from "./ShellLayout";
 import { queryClient } from "../data/api";
 import { CommandPalette } from "../features/command/CommandPalette";
+import { TraderDeskPage } from "../features/desk/TraderDeskPage";
 import { DivergenceExplorerPage } from "../features/divergence/DivergenceExplorerPage";
 import { EventWorkspacePage } from "../features/event/EventWorkspacePage";
 import { ExportsPage } from "../features/exports/ExportsPage";
 import { GamesPage } from "../features/games/GamesPage";
 import { GameWorkspacePage } from "../features/games/GameWorkspacePage";
 import { HistoryPage } from "../features/history/HistoryPage";
+import { ResearchPage } from "../features/research/ResearchPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 
 export function App() {
@@ -21,8 +23,10 @@ export function App() {
           <CommandPalette />
           <Routes>
             <Route element={<ShellLayout />} path="/">
-              <Route element={<GamesPage />} index />
+              <Route element={<TraderDeskPage />} index />
+              <Route element={<GamesPage />} path="games" />
               <Route element={<DivergenceExplorerPage />} path="divergence" />
+              <Route element={<ResearchPage />} path="research" />
               <Route element={<HistoryPage />} path="history" />
               <Route element={<ExportsPage />} path="exports" />
               <Route element={<GameWorkspacePage />} path="games/:gameId" />

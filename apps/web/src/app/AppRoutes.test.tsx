@@ -2,11 +2,13 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
+import { queryClient } from "../data/api";
 
 const fetchMock = vi.fn<typeof fetch>();
 
 beforeEach(() => {
   fetchMock.mockReset();
+  queryClient.clear();
   vi.stubGlobal("fetch", fetchMock);
   window.history.replaceState({}, "", "/");
 });
@@ -26,6 +28,42 @@ function mockJsonResponse(payload: unknown) {
 }
 
 function createSettingsFetchImplementation(options?: {
+  divergenceRows?: Array<{
+    captureRecencyMs?: number | null;
+    comparableState: string;
+    displayLabel: string;
+    family: string;
+    gameId: string;
+    impliedProbabilityGap?: number | null;
+    inPlay: boolean;
+    instrumentId: string;
+    lineMismatch: boolean;
+    mappingStatus: string;
+    severity: string;
+    signalPriority: number;
+  }>;
+  signalMismatchRows?: Array<{
+    bet365ImpliedProbability?: number | null;
+    captureRecencyMs?: number | null;
+    comparableState: string;
+    directionalDisagreement: boolean;
+    displayLabel: string;
+    family: string;
+    finalAwayScore?: number | null;
+    finalHomeScore?: number | null;
+    gameLabel: string;
+    gameId: string;
+    gameStatus: string;
+    impliedProbabilityGap?: number | null;
+    instrumentId: string;
+    kalshiImpliedProbability?: number | null;
+    lineMismatch: boolean;
+    mappingStatus: string;
+    polymarketImpliedProbability?: number | null;
+    scheduledStart: string;
+    severity: string;
+    signalPriority: number;
+  }>;
   games?: Array<{
     activeInstrumentCount: number;
     coverage: {
@@ -83,6 +121,46 @@ function createSettingsFetchImplementation(options?: {
   }>;
 }) {
   const games = options?.games ?? [];
+  const divergenceRows = options?.divergenceRows ?? [
+    {
+      captureRecencyMs: 15000,
+      comparableState: "comparable",
+      displayLabel: "Boston moneyline",
+      family: "moneyline",
+      gameId: "nba-bos-nyk-2026-04-21",
+      impliedProbabilityGap: 0.12,
+      inPlay: true,
+      instrumentId: "bos-moneyline",
+      lineMismatch: false,
+      mappingStatus: "auto",
+      severity: "high",
+      signalPriority: 91,
+    },
+  ];
+  const signalMismatchRows = options?.signalMismatchRows ?? [
+    {
+      bet365ImpliedProbability: 0.61,
+      captureRecencyMs: 15000,
+      comparableState: "comparable",
+      directionalDisagreement: true,
+      displayLabel: "Boston moneyline",
+      family: "moneyline",
+      finalAwayScore: 110,
+      finalHomeScore: 118,
+      gameLabel: "Knicks at Celtics",
+      gameId: "nba-bos-nyk-2026-04-21",
+      gameStatus: "final",
+      impliedProbabilityGap: 0.12,
+      instrumentId: "bos-moneyline",
+      kalshiImpliedProbability: 0.49,
+      lineMismatch: false,
+      mappingStatus: "auto",
+      polymarketImpliedProbability: 0.52,
+      scheduledStart: "2026-04-21T23:00:00.000Z",
+      severity: "high",
+      signalPriority: 91,
+    },
+  ];
   const unmappedMarkets = options?.unmappedMarkets ?? [];
 
   return async (input: string | URL | Request) => {
@@ -90,6 +168,40 @@ function createSettingsFetchImplementation(options?: {
     if (url === "/api/v1/games") {
       return mockJsonResponse({
         data: games,
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url === "/api/v1/exports") {
+      return mockJsonResponse({
+        data: {
+          datasets: [
+            {
+              formats: ["csv", "jsonl"],
+              id: "market-quotes",
+              rowCount: 8,
+              title: "Market quote ticks",
+            },
+            {
+              formats: ["csv", "jsonl"],
+              id: "source-markets",
+              rowCount: 2,
+              title: "Source markets",
+            },
+            {
+              formats: ["sqlite"],
+              id: "sqlite",
+              rowCount: null,
+              title: "SQLite database snapshot",
+            },
+          ],
+          filters: {},
+        },
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/divergence")) {
+      return mockJsonResponse({
+        data: divergenceRows,
         meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
       });
     }
@@ -103,6 +215,76 @@ function createSettingsFetchImplementation(options?: {
             status: "ok",
           },
         ],
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url === "/api/v1/admin/runtime-audit") {
+      return mockJsonResponse({
+        data: {
+          database: {
+            basename: "signal-console.sqlite",
+            path: "/tmp/test-live.sqlite",
+            schemaVersion: 3,
+            wal: {
+              mainExists: true,
+              shmExists: true,
+              walExists: true,
+            },
+          },
+          generatedAt: "2026-04-22T06:00:00.000Z",
+          productReadiness: {
+            checklist: [
+              {
+                detail: "Test fixture has enough persisted quote history.",
+                id: "persisted-live-data",
+                label: "Persisted live data",
+                status: "pass",
+              },
+              {
+                detail: "Bet365 is represented in source coverage.",
+                id: "book-leg",
+                label: "Book leg",
+                status: "warn",
+              },
+            ],
+            dataState: "persisted-live",
+            status: "usable-with-warnings",
+            warnings: ["Runtime audit is using test fixture counts."],
+          },
+          sourceBreakdown: [
+            {
+              captureModes: ["historical"],
+              gameCount: 1,
+              latestQuoteAgeMs: 10_000,
+              latestQuoteAt: "2026-04-22T06:00:00.000Z",
+              latestRawPayloadAgeMs: 10_000,
+              latestRawPayloadAt: "2026-04-22T06:00:00.000Z",
+              latestRun: {
+                captureMode: "historical",
+                finishedAt: "2026-04-22T06:00:05.000Z",
+                recordsSeen: 8,
+                recordsWritten: 8,
+                startedAt: "2026-04-22T06:00:00.000Z",
+                status: "ok",
+              },
+              quoteTickCount: 8,
+              rawPayloadCount: 8,
+              source: "polymarket",
+              sourceMarketCount: 2,
+            },
+          ],
+          tableCounts: {
+            adapterRunCount: 1,
+            adminActionCount: 0,
+            gameCount: 1,
+            gameStateCount: 1,
+            marketInstrumentCount: 1,
+            outcomeCount: 1,
+            quoteTickCount: 8,
+            rawPayloadCount: 8,
+            sourceMarketCount: 2,
+          },
+        },
         meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
       });
     }
@@ -160,25 +342,170 @@ function createSettingsFetchImplementation(options?: {
     }
     if (url === "/api/v1/research/signal-mismatches") {
       return mockJsonResponse({
+        data: signalMismatchRows,
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/research/signal-quality")) {
+      return mockJsonResponse({
+        data: {
+          perSource: [
+            {
+              brier: 0.152,
+              closingWinnerAccuracy: 0.71,
+              logLoss: 0.48,
+              sampleCount: 28,
+              source: "bet365",
+            },
+            {
+              brier: 0.146,
+              closingWinnerAccuracy: 0.74,
+              logLoss: 0.45,
+              sampleCount: 28,
+              source: "kalshi",
+            },
+            {
+              brier: 0.158,
+              closingWinnerAccuracy: 0.68,
+              logLoss: 0.51,
+              sampleCount: 28,
+              source: "polymarket",
+            },
+          ],
+          sampleCount: 84,
+        },
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/research/closed-games")) {
+      return mockJsonResponse({
         data: [
           {
-            bet365ImpliedProbability: 0.61,
-            captureRecencyMs: 15000,
-            comparableState: "comparable",
-            directionalDisagreement: true,
-            displayLabel: "Boston moneyline",
-            family: "moneyline",
+            awayParticipantKey: "nyk",
+            finalAt: "2026-04-22T02:15:00.000Z",
+            finalAwayScore: 110,
+            finalHomeScore: 118,
             gameId: "nba-bos-nyk-2026-04-21",
-            impliedProbabilityGap: 0.12,
-            instrumentId: "bos-moneyline",
-            kalshiImpliedProbability: 0.49,
-            lineMismatch: false,
-            mappingStatus: "auto",
-            polymarketImpliedProbability: 0.52,
-            severity: "high",
-            signalPriority: 91,
+            homeParticipantKey: "bos",
+            league: "NBA",
+            matchup: "Knicks @ Celtics",
+            moneylineByParticipant: [
+              {
+                displayLabel: "Boston moneyline",
+                family: "moneyline",
+                finalAt: "2026-04-22T02:15:00.000Z",
+                gameId: "nba-bos-nyk-2026-04-21",
+                instrumentId: "bos-moneyline",
+                outcome: {
+                  winnerKey: "bos",
+                  winnerProbability: 1,
+                },
+                participantKey: "bos",
+                selection: "bos",
+                sources: [
+                  {
+                    capturedAt: "2026-04-21T23:55:00.000Z",
+                    freshnessMs: 8_400_000,
+                    impliedProbability: 0.61,
+                    source: "bet365",
+                  },
+                  {
+                    capturedAt: "2026-04-21T23:55:05.000Z",
+                    freshnessMs: 8_395_000,
+                    impliedProbability: 0.67,
+                    source: "kalshi",
+                  },
+                ],
+              },
+            ],
+            scheduledStart: "2026-04-21T23:00:00.000Z",
+            sport: "basketball",
+            winnerKey: "bos",
           },
         ],
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.endsWith("/timeline")) {
+      return mockJsonResponse({
+        data: {
+          annotations: [],
+          gameStateSeries: [
+            {
+              awayScore: 110,
+              capturedAt: "2026-04-22T02:15:00.000Z",
+              clock: "00:00",
+              homeScore: 118,
+              period: 4,
+              status: "final",
+            },
+          ],
+          lineMismatchWindows: [],
+          quoteSeriesBySource: {
+            bet365: [
+              {
+                capturedAt: "2026-04-21T23:00:00.000Z",
+                impliedProbability: 0.61,
+                isHeartbeat: false,
+                source: "bet365",
+              },
+            ],
+            kalshi: [
+              {
+                capturedAt: "2026-04-21T23:00:05.000Z",
+                impliedProbability: 0.49,
+                isHeartbeat: false,
+                source: "kalshi",
+              },
+            ],
+            polymarket: [
+              {
+                capturedAt: "2026-04-21T23:00:10.000Z",
+                impliedProbability: 0.52,
+                isHeartbeat: false,
+                source: "polymarket",
+              },
+            ],
+          },
+        },
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.includes("/delta-series")) {
+      return mockJsonResponse({
+        data: [
+          {
+            absoluteDelta: 0.12,
+            bet365Probability: 0.61,
+            bucketAt: "2026-04-21T23:00:00.000Z",
+            externalAverage: 0.505,
+            perSource: {
+              bet365: 0.61,
+              kalshi: 0.49,
+              polymarket: 0.52,
+            },
+            signedDelta: 0.105,
+          },
+        ],
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.includes("/lead-lag")) {
+      return mockJsonResponse({
+        data: {
+          bucketSeconds: 60,
+          insufficientData: false,
+          pairs: [
+            {
+              bestCorrelation: 0.83,
+              bestLagBuckets: 1,
+              lagSource: "bet365",
+              leadSource: "kalshi",
+              pair: ["kalshi", "bet365"],
+              sampleCount: 18,
+            },
+          ],
+        },
         meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
       });
     }
@@ -256,7 +583,154 @@ function createSettingsFetchImplementation(options?: {
 }
 
 describe("App routes", () => {
+  it("renders the trader desk from persisted research surfaces", async () => {
+    fetchMock.mockImplementation(createSettingsFetchImplementation());
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "What the markets actually knew.",
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("How predictive each source was at close.")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Persisted source depth")).toBeInTheDocument();
+    expect(
+      screen.getByText("Most recent moneyline calls by source")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Which venue is moving first on the top-ranked instrument."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Boston moneyline").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("b365 61.0%").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Open" })[0]).toHaveAttribute(
+      "href",
+      "/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"
+    );
+  });
+
+  it("demotes external-only pressure when Bet365 has not populated", async () => {
+    fetchMock.mockImplementation(
+      createSettingsFetchImplementation({
+        signalMismatchRows: [
+          {
+            bet365ImpliedProbability: null,
+            captureRecencyMs: 15000,
+            comparableState: "comparable",
+            directionalDisagreement: true,
+            displayLabel: "Boston moneyline",
+            family: "moneyline",
+            finalAwayScore: 110,
+            finalHomeScore: 118,
+            gameLabel: "Knicks at Celtics",
+            gameId: "nba-bos-nyk-2026-04-21",
+            gameStatus: "final",
+            impliedProbabilityGap: 0.12,
+            instrumentId: "bos-moneyline",
+            kalshiImpliedProbability: 0.49,
+            lineMismatch: false,
+            mappingStatus: "auto",
+            polymarketImpliedProbability: 0.52,
+            scheduledStart: "2026-04-21T23:00:00.000Z",
+            severity: "high",
+            signalPriority: 91,
+          },
+        ],
+      })
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByText(/No Bet365-backed trading signal is populated/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "Diagnostics only: Boston moneyline",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText("not Bet365-backed")).toBeInTheDocument();
+    expect(screen.getAllByText("b365 n/a").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("link", { name: "Open diagnostic instrument" })
+    ).toHaveAttribute(
+      "href",
+      "/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"
+    );
+  });
+
+  it("demotes stale Bet365-backed rows instead of calling them live action", async () => {
+    fetchMock.mockImplementation(
+      createSettingsFetchImplementation({
+        divergenceRows: [
+          {
+            captureRecencyMs: 45 * 60 * 60_000,
+            comparableState: "comparable",
+            displayLabel: "Boston moneyline",
+            family: "moneyline",
+            gameId: "nba-bos-nyk-2026-04-21",
+            impliedProbabilityGap: 0.12,
+            inPlay: false,
+            instrumentId: "bos-moneyline",
+            lineMismatch: false,
+            mappingStatus: "auto",
+            severity: "high",
+            signalPriority: 91,
+          },
+        ],
+        signalMismatchRows: [
+          {
+            bet365ImpliedProbability: 0.61,
+            captureRecencyMs: 45 * 60 * 60_000,
+            comparableState: "comparable",
+            directionalDisagreement: true,
+            displayLabel: "Boston moneyline",
+            family: "moneyline",
+            finalAwayScore: 110,
+            finalHomeScore: 118,
+            gameLabel: "Knicks at Celtics",
+            gameId: "nba-bos-nyk-2026-04-21",
+            gameStatus: "final",
+            impliedProbabilityGap: 0.12,
+            instrumentId: "bos-moneyline",
+            kalshiImpliedProbability: 0.49,
+            lineMismatch: false,
+            mappingStatus: "auto",
+            polymarketImpliedProbability: 0.52,
+            scheduledStart: "2026-04-21T23:00:00.000Z",
+            severity: "high",
+            signalPriority: 91,
+          },
+        ],
+      })
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByText(
+        /No fresh Bet365-backed trading signal is populated/i
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "Stale diagnostics: Boston moneyline",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText("stale Bet365 signal")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Bet365-backed read-first/i)
+    ).not.toBeInTheDocument();
+  });
+
   it("renders the tracked games landing page from live game payloads", async () => {
+    window.history.replaceState({}, "", "/games");
+
     fetchMock.mockImplementation(async (input) => {
       const url = String(input);
       if (url === "/api/v1/games") {
@@ -303,6 +777,66 @@ describe("App routes", () => {
                 },
               ],
             },
+            {
+              activeInstrumentCount: 0,
+              coverage: {
+                activeSourceCount: 1,
+                availableSources: ["nba"],
+                missingSources: ["bet365", "kalshi", "polymarket"],
+                unmappedSourceMarketCount: 0,
+              },
+              game: {
+                awayParticipant: {
+                  key: "lal",
+                  name: "Los Angeles Lakers",
+                  shortName: "Lakers",
+                },
+                homeParticipant: {
+                  key: "den",
+                  name: "Denver Nuggets",
+                  shortName: "Nuggets",
+                },
+                id: "nba-den-lal-2026-04-21",
+                league: "NBA",
+                scheduledStart: "2026-04-21T01:30:00.000Z",
+                sport: "basketball",
+              },
+              gameState: {
+                status: "scheduled",
+              },
+              hasUnmappedMarkets: false,
+              topDivergences: [],
+            },
+            {
+              activeInstrumentCount: 0,
+              coverage: {
+                activeSourceCount: 1,
+                availableSources: ["nba"],
+                missingSources: ["bet365", "kalshi", "polymarket"],
+                unmappedSourceMarketCount: 0,
+              },
+              game: {
+                awayParticipant: {
+                  key: "away",
+                  name: "Away",
+                  shortName: "Away",
+                },
+                homeParticipant: {
+                  key: "home",
+                  name: "Home",
+                  shortName: "Home",
+                },
+                id: "nba-placeholder-2026-04-21",
+                league: "NBA",
+                scheduledStart: "2026-04-21T02:00:00.000Z",
+                sport: "basketball",
+              },
+              gameState: {
+                status: "scheduled",
+              },
+              hasUnmappedMarkets: false,
+              topDivergences: [],
+            },
           ],
           meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
         });
@@ -316,25 +850,42 @@ describe("App routes", () => {
     expect(
       await screen.findByRole("heading", { name: "Live NBA research slate" })
     ).toBeInTheDocument();
+    expect(screen.getByText("Actionable games")).toBeInTheDocument();
+    expect(screen.getByText("NBA-state only")).toBeInTheDocument();
+    expect(screen.getByText("Placeholder names")).toBeInTheDocument();
+    expect(screen.getByText("Boards with market work")).toBeInTheDocument();
     expect(screen.getByText("Knicks at Celtics")).toBeInTheDocument();
+    expect(screen.queryByText("Lakers at Nuggets")).not.toBeInTheDocument();
+    expect(screen.queryByText("Away at Home")).not.toBeInTheDocument();
     expect(
-      screen.getByText("3 market sources + NBA state")
+      screen.getByText("bet365, kalshi, polymarket + NBA")
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("Market feeds: bet365, kalshi, polymarket")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Open game workspace" })
-    ).toHaveAttribute("href", "/games/nba-bos-nyk-2026-04-21");
-    expect(
-      screen.getByRole("link", { name: "Jump to top instrument" })
-    ).toHaveAttribute(
+    expect(screen.getByText("Boston moneyline")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Signal" })).toHaveAttribute(
       "href",
       "/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"
     );
   });
 
+  it("renders the research page from closed-game signal-quality payloads", async () => {
+    window.history.replaceState({}, "", "/research");
+    fetchMock.mockImplementation(createSettingsFetchImplementation());
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "How much signal is in prediction markets vs the book?",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Per-source signal quality")).toBeInTheDocument();
+    expect(await screen.findByText("Knicks @ Celtics")).toBeInTheDocument();
+    expect(screen.getByText("84 predictions graded")).toBeInTheDocument();
+  });
+
   it("offers history and export paths when no games are currently visible", async () => {
+    window.history.replaceState({}, "", "/games");
+
     fetchMock.mockImplementation(createSettingsFetchImplementation());
 
     render(<App />);
@@ -659,6 +1210,50 @@ describe("App routes", () => {
       }
       if (
         url ===
+        "/api/v1/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline/delta-series?bucketSeconds=60"
+      ) {
+        return mockJsonResponse({
+          data: [
+            {
+              absoluteDelta: 0.06,
+              bet365Probability: 0.61,
+              bucketAt: "2026-04-22T05:55:00.000Z",
+              externalAverage: 0.67,
+              perSource: {
+                bet365: 0.61,
+                kalshi: 0.67,
+                polymarket: null,
+              },
+              signedDelta: -0.06,
+            },
+          ],
+          meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+        });
+      }
+      if (
+        url ===
+        "/api/v1/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline/lead-lag?bucketSeconds=60&maxLagBuckets=20"
+      ) {
+        return mockJsonResponse({
+          data: {
+            bucketSeconds: 60,
+            insufficientData: false,
+            pairs: [
+              {
+                bestCorrelation: 0.72,
+                bestLagBuckets: 0,
+                lagSource: "kalshi",
+                leadSource: "bet365",
+                pair: ["bet365", "kalshi"],
+                sampleCount: 8,
+              },
+            ],
+          },
+          meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+        });
+      }
+      if (
+        url ===
         "/api/v1/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline/sources"
       ) {
         return mockJsonResponse({
@@ -749,6 +1344,8 @@ describe("App routes", () => {
       "/api/v1/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline/export.csv"
     );
     expect(screen.getByText("Celtics to win outright")).toBeInTheDocument();
+    expect(await screen.findByText("peak |Δ| bet365↔ext")).toBeInTheDocument();
+    expect(screen.getByText(/bet365 → kalshi/)).toBeInTheDocument();
     expect(
       screen.getByText("Comparative signal is live on this market.")
     ).toBeInTheDocument();
@@ -872,6 +1469,28 @@ describe("App routes", () => {
       }
       if (
         url ===
+        "/api/v1/games/nba-bos-nyk-2026-04-21/markets/game-total-221_5/delta-series?bucketSeconds=60"
+      ) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+        });
+      }
+      if (
+        url ===
+        "/api/v1/games/nba-bos-nyk-2026-04-21/markets/game-total-221_5/lead-lag?bucketSeconds=60&maxLagBuckets=20"
+      ) {
+        return mockJsonResponse({
+          data: {
+            bucketSeconds: 60,
+            insufficientData: true,
+            pairs: [],
+          },
+          meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+        });
+      }
+      if (
+        url ===
         "/api/v1/games/nba-bos-nyk-2026-04-21/markets/game-total-221_5/sources"
       ) {
         return mockJsonResponse({
@@ -926,12 +1545,13 @@ describe("App routes", () => {
           name: "Directional disagreement and probability splits",
         })
       ).toBeInTheDocument();
-      expect(screen.getByText("market feeds bet365")).toBeInTheDocument();
-      expect(screen.getByText("NBA state available")).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Restart all capture" })
       ).toBeInTheDocument();
     });
+
+    expect(screen.getByText("market feeds bet365")).toBeInTheDocument();
+    expect(screen.getByText("NBA state available")).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Restart all capture" })
@@ -957,6 +1577,8 @@ describe("App routes", () => {
         name: "Persisted market and ingest history",
       })
     ).toBeInTheDocument();
+    expect(screen.getByText("Signals worth opening first")).toBeInTheDocument();
+    expect(await screen.findByText("Peak gap")).toBeInTheDocument();
     expect(screen.getByText("Recent adapter activity")).toBeInTheDocument();
     expect(screen.getByText("Persisted source coverage")).toBeInTheDocument();
     expect(
@@ -973,17 +1595,33 @@ describe("App routes", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Dataset and timeline exports",
+        name: "Data engineering export package",
       })
     ).toBeInTheDocument();
+    expect(screen.getByText("Quote export builder")).toBeInTheDocument();
     expect(
-      screen.getAllByRole("button", { name: "Download CSV" }).length
-    ).toBeGreaterThan(0);
+      screen.getByRole("link", { name: "Download full package" })
+    ).toHaveAttribute("href", "/api/v1/exports/full-package.sqlite");
+    expect(screen.getAllByRole("link", { name: "CSV" }).length).toBeGreaterThan(
+      0
+    );
     expect(
-      screen.getByText(
-        "No canonical games are visible right now. The dataset exports above still work, and history/settings remain available while capture or backfill repopulates game-level views."
-      )
-    ).toBeInTheDocument();
+      screen.getByRole("link", { name: "Download SQLite" })
+    ).toHaveAttribute("href", "/api/v1/exports/sqlite");
+
+    fireEvent.change(screen.getByLabelText("Provider"), {
+      target: { value: "kalshi" },
+    });
+    fireEvent.change(screen.getByLabelText("Market family"), {
+      target: { value: "player-prop" },
+    });
+
+    expect(
+      screen.getByRole("link", { name: "Download filtered CSV" })
+    ).toHaveAttribute("href", expect.stringContaining("family=player-prop"));
+    expect(
+      screen.getByRole("link", { name: "Download filtered CSV" })
+    ).toHaveAttribute("href", expect.stringContaining("source=kalshi"));
   });
 
   it("does not trigger g-d navigation while typing in settings inputs", async () => {

@@ -567,32 +567,39 @@ function selectLatestTicksBySourceMarketIds(
     return latest;
   }
 
+  const placeholders = sourceMarketIds.map(() => "?").join(", ");
   const rows = db
     .prepare(
       `
-        SELECT
-          id,
-          source_market_id AS sourceMarketId,
-          captured_at AS capturedAt,
-          price_raw AS priceRaw,
-          odds_raw AS oddsRaw,
-          line_raw AS lineRaw,
-          implied_probability AS impliedProbability,
-          best_bid AS bestBid,
-          best_ask AS bestAsk,
-          volume,
-          depth_score AS depthScore,
-          is_heartbeat AS isHeartbeat
-        FROM quote_ticks
-        WHERE source_market_id IN (${sourceMarketIds.map(() => "?").join(", ")})
-        ORDER BY source_market_id ASC, captured_at DESC, id DESC
+        WITH ranked AS (
+          SELECT
+            id,
+            source_market_id AS sourceMarketId,
+            captured_at AS capturedAt,
+            price_raw AS priceRaw,
+            odds_raw AS oddsRaw,
+            line_raw AS lineRaw,
+            implied_probability AS impliedProbability,
+            best_bid AS bestBid,
+            best_ask AS bestAsk,
+            volume,
+            depth_score AS depthScore,
+            is_heartbeat AS isHeartbeat,
+            ROW_NUMBER() OVER (
+              PARTITION BY source_market_id
+              ORDER BY captured_at DESC, id DESC
+            ) AS rn
+          FROM quote_ticks
+          WHERE source_market_id IN (${placeholders})
+        )
+        SELECT * FROM ranked WHERE rn = 1
       `
     )
     .all(...sourceMarketIds) as Record<string, unknown>[];
 
   for (const row of rows) {
     const tick = rowToQuoteTick(row);
-    if (tick && !latest.has(tick.sourceMarketId)) {
+    if (tick) {
       latest.set(tick.sourceMarketId, tick);
     }
   }
@@ -609,28 +616,35 @@ function selectLatestRawPayloadsBySourceMarketIds(
     return latest;
   }
 
+  const placeholders = sourceMarketIds.map(() => "?").join(", ");
   const rows = db
     .prepare(
       `
-        SELECT
-          id,
-          source,
-          captured_at AS capturedAt,
-          entity_type AS entityType,
-          entity_id AS entityId,
-          payload_json AS payloadJson,
-          content_hash AS contentHash
-        FROM raw_payloads
-        WHERE entity_type = 'source_market'
-          AND entity_id IN (${sourceMarketIds.map(() => "?").join(", ")})
-        ORDER BY entity_id ASC, captured_at DESC, id DESC
+        WITH ranked AS (
+          SELECT
+            id,
+            source,
+            captured_at AS capturedAt,
+            entity_type AS entityType,
+            entity_id AS entityId,
+            payload_json AS payloadJson,
+            content_hash AS contentHash,
+            ROW_NUMBER() OVER (
+              PARTITION BY entity_id
+              ORDER BY captured_at DESC, id DESC
+            ) AS rn
+          FROM raw_payloads
+          WHERE entity_type = 'source_market'
+            AND entity_id IN (${placeholders})
+        )
+        SELECT * FROM ranked WHERE rn = 1
       `
     )
     .all(...sourceMarketIds) as Record<string, unknown>[];
 
   for (const row of rows) {
     const payload = rowToRawPayload(row);
-    if (payload && !latest.has(payload.entityId)) {
+    if (payload) {
       latest.set(payload.entityId, payload);
     }
   }
@@ -768,6 +782,20 @@ function buildDivergenceRow(
   } satisfies DivergenceRow;
 }
 
+function formatGameLabel(game: CanonicalGame) {
+  return `${game.awayParticipant.shortName} at ${game.homeParticipant.shortName}`;
+}
+
+function deriveResearchGameStatus(
+  bundle: NonNullable<ReturnType<typeof selectGameBundle>>
+) {
+  if (bundle.outcome) {
+    return "final" as const;
+  }
+
+  return bundle.gameState?.status ?? ("scheduled" as const);
+}
+
 function selectGameBundle(db: Database.Database, gameId: string) {
   const gameRow = db
     .prepare(
@@ -861,6 +889,324 @@ function buildGameCard(
     outcome: bundle.outcome,
     topDivergences,
   } satisfies ResearchGameCard;
+}
+
+type ResearchDivergenceEntry = {
+  bundle: NonNullable<ReturnType<typeof selectGameBundle>>;
+  instrumentView: MarketInstrumentView;
+  row: DivergenceRow;
+};
+
+function selectFilteredGameBundles(
+  db: Database.Database,
+  filters: Pick<GamesFilters, "date" | "league" | "sport">
+) {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters.sport) {
+    clauses.push("sport = ?");
+    params.push(filters.sport);
+  }
+  if (filters.league) {
+    clauses.push("league = ?");
+    params.push(filters.league);
+  }
+  if (filters.date) {
+    clauses.push("substr(scheduled_start, 1, 10) = ?");
+    params.push(filters.date);
+  }
+
+  const gameRows = db
+    .prepare(
+      `
+        SELECT
+          id,
+          sport,
+          league,
+          source_game_key_nba AS sourceGameKeyNba,
+          home_participant_json AS homeParticipantJson,
+          away_participant_json AS awayParticipantJson,
+          scheduled_start AS scheduledStart
+        FROM games
+        ${clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : ""}
+        ORDER BY scheduled_start ASC, id ASC
+      `
+    )
+    .all(...params) as Record<string, unknown>[];
+
+  if (gameRows.length === 0) return [];
+
+  const gameIds = gameRows.map((row) => String(row.id));
+  const gamePlaceholders = gameIds.map(() => "?").join(", ");
+
+  const gameStateRows = db
+    .prepare(
+      `
+        WITH ranked AS (
+          SELECT
+            id,
+            game_id AS gameId,
+            captured_at AS capturedAt,
+            status,
+            period,
+            clock,
+            home_score AS homeScore,
+            away_score AS awayScore,
+            is_final AS isFinal,
+            started_at AS startedAt,
+            final_at AS finalAt,
+            ROW_NUMBER() OVER (
+              PARTITION BY game_id
+              ORDER BY captured_at DESC, id DESC
+            ) AS rn
+          FROM game_states
+          WHERE game_id IN (${gamePlaceholders})
+        )
+        SELECT * FROM ranked WHERE rn = 1
+      `
+    )
+    .all(...gameIds) as Record<string, unknown>[];
+  const latestStateByGame = new Map<string, CanonicalGameState>();
+  for (const row of gameStateRows) {
+    const state = rowToGameState(row);
+    if (state) latestStateByGame.set(state.gameId, state);
+  }
+
+  const outcomeRows = db
+    .prepare(
+      `
+        SELECT
+          game_id AS gameId,
+          final_home_score AS finalHomeScore,
+          final_away_score AS finalAwayScore,
+          winner_key AS winnerKey,
+          captured_at AS capturedAt
+        FROM game_outcomes
+        WHERE game_id IN (${gamePlaceholders})
+      `
+    )
+    .all(...gameIds) as Record<string, unknown>[];
+  const outcomeByGame = new Map<string, GameOutcome>();
+  for (const row of outcomeRows) {
+    const outcome = rowToOutcome(row);
+    if (outcome) outcomeByGame.set(outcome.gameId, outcome);
+  }
+
+  const instrumentRows = db
+    .prepare(
+      `
+        SELECT
+          id,
+          game_id AS gameId,
+          family,
+          selection,
+          line,
+          participant_key AS participantKey,
+          in_play AS inPlay,
+          display_label AS displayLabel
+        FROM market_instruments
+        WHERE game_id IN (${gamePlaceholders})
+        ORDER BY display_label ASC
+      `
+    )
+    .all(...gameIds) as Record<string, unknown>[];
+  const instrumentsByGame = new Map<string, MarketInstrument[]>();
+  for (const row of instrumentRows) {
+    const instrument = rowToInstrument(row);
+    const list = instrumentsByGame.get(instrument.gameId) ?? [];
+    list.push(instrument);
+    instrumentsByGame.set(instrument.gameId, list);
+  }
+
+  const sourceMarketRows = db
+    .prepare(
+      `
+        SELECT
+          id,
+          source,
+          source_market_key AS sourceMarketKey,
+          source_selection_key AS sourceSelectionKey,
+          game_id AS gameId,
+          instrument_id AS instrumentId,
+          raw_family AS rawFamily,
+          raw_label AS rawLabel,
+          mapping_status AS mappingStatus,
+          raw_metadata_json AS rawMetadataJson
+        FROM source_markets
+        WHERE game_id IN (${gamePlaceholders})
+      `
+    )
+    .all(...gameIds) as Record<string, unknown>[];
+  const sourceMarketsByGame = new Map<string, SourceMarket[]>();
+  const allSourceMarketIds: string[] = [];
+  for (const row of sourceMarketRows) {
+    const sourceMarket = rowToSourceMarket(row);
+    allSourceMarketIds.push(sourceMarket.id);
+    const list = sourceMarketsByGame.get(sourceMarket.gameId) ?? [];
+    list.push(sourceMarket);
+    sourceMarketsByGame.set(sourceMarket.gameId, list);
+  }
+
+  const latestTicks = selectLatestTicksBySourceMarketIds(
+    db,
+    allSourceMarketIds
+  );
+  const latestPayloads = selectLatestRawPayloadsBySourceMarketIds(
+    db,
+    allSourceMarketIds
+  );
+
+  return gameRows
+    .map((gameRow) => {
+      const game = rowToGame(gameRow);
+      const gameId = game.id;
+      return {
+        game,
+        gameState: latestStateByGame.get(gameId) ?? null,
+        instruments: instrumentsByGame.get(gameId) ?? [],
+        latestPayloads,
+        latestTicks,
+        outcome: outcomeByGame.get(gameId) ?? null,
+        sourceMarkets: sourceMarketsByGame.get(gameId) ?? [],
+      };
+    })
+    .filter((bundle) => bundle !== null);
+}
+
+function compareDivergenceRows(
+  left: DivergenceRow,
+  right: DivergenceRow,
+  sort: DivergenceFilters["sort"]
+) {
+  switch (sort) {
+    case "captureRecency":
+      return (
+        (left.captureRecencyMs ?? Number.MAX_SAFE_INTEGER) -
+        (right.captureRecencyMs ?? Number.MAX_SAFE_INTEGER)
+      );
+    case "freshness":
+      return freshnessBandFromMs(left.captureRecencyMs ?? null).localeCompare(
+        freshnessBandFromMs(right.captureRecencyMs ?? null)
+      );
+    case "lineMismatch":
+      return Number(right.lineMismatch) - Number(left.lineMismatch);
+    case "signalPriority":
+      return right.signalPriority - left.signalPriority;
+    case "divergence":
+    default:
+      return (
+        (right.impliedProbabilityGap ?? 0) - (left.impliedProbabilityGap ?? 0)
+      );
+  }
+}
+
+function buildResearchDivergenceEntries(filters: DivergenceFilters = {}) {
+  const db = getDatabase();
+  let entries = selectFilteredGameBundles(db, {
+    league: filters.league,
+    sport: filters.sport,
+  }).flatMap((bundle) =>
+    bundle.instruments
+      .filter((instrument) => {
+        if (filters.family && instrument.family !== filters.family) {
+          return false;
+        }
+        if (
+          typeof filters.inPlay === "boolean" &&
+          instrument.inPlay !== filters.inPlay
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .map((instrument) => {
+        const instrumentView = buildMarketInstrumentView(
+          instrument,
+          bundle.sourceMarkets.filter(
+            (sourceMarket) => sourceMarket.instrumentId === instrument.id
+          ),
+          bundle.latestTicks,
+          bundle.latestPayloads
+        );
+
+        return {
+          bundle,
+          instrumentView,
+          row: buildDivergenceRow(bundle.game, instrumentView),
+        } satisfies ResearchDivergenceEntry;
+      })
+  );
+
+  if (filters.mappedState) {
+    entries = entries.filter(
+      (entry) => entry.row.comparableState === filters.mappedState
+    );
+  }
+  if (filters.severity) {
+    entries = entries.filter(
+      (entry) => entry.row.severity === filters.severity
+    );
+  }
+  if (filters.freshness) {
+    entries = entries.filter(
+      (entry) =>
+        freshnessBandFromMs(entry.row.captureRecencyMs ?? null) ===
+        filters.freshness
+    );
+  }
+  if (filters.sourceSet) {
+    const requestedSources = new Set(
+      filters.sourceSet
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    );
+
+    entries = entries.filter((entry) =>
+      entry.instrumentView.sources.every((source) =>
+        requestedSources.has(source.source)
+      )
+    );
+  }
+
+  return [...entries].sort((left, right) =>
+    compareDivergenceRows(left.row, right.row, filters.sort)
+  );
+}
+
+function buildSignalMismatchRow(entry: ResearchDivergenceEntry) {
+  const bySource = new Map(
+    entry.instrumentView.sources.map((quote) => [quote.source, quote])
+  );
+  const bet365 = bySource.get("bet365")?.impliedProbability ?? null;
+  const kalshi = bySource.get("kalshi")?.impliedProbability ?? null;
+  const polymarket = bySource.get("polymarket")?.impliedProbability ?? null;
+  const externalValues = [kalshi, polymarket].filter(
+    (value): value is number => typeof value === "number"
+  );
+  const externalAverage =
+    externalValues.length > 0
+      ? externalValues.reduce((sum, value) => sum + value, 0) /
+        externalValues.length
+      : null;
+
+  return {
+    ...entry.row,
+    bet365ImpliedProbability: bet365 ?? null,
+    directionalDisagreement:
+      typeof bet365 === "number" &&
+      typeof externalAverage === "number" &&
+      ((bet365 >= 0.5 && externalAverage < 0.5) ||
+        (bet365 < 0.5 && externalAverage >= 0.5)),
+    finalAwayScore: entry.bundle.outcome?.finalAwayScore ?? null,
+    finalHomeScore: entry.bundle.outcome?.finalHomeScore ?? null,
+    gameLabel: formatGameLabel(entry.bundle.game),
+    gameStatus: deriveResearchGameStatus(entry.bundle),
+    kalshiImpliedProbability: kalshi ?? null,
+    polymarketImpliedProbability: polymarket ?? null,
+    scheduledStart: entry.bundle.game.scheduledStart,
+  } satisfies SignalMismatchRow;
 }
 
 export function upsertGame(game: CanonicalGame) {
@@ -1082,6 +1428,63 @@ export function upsertSourceMarket(sourceMarket: SourceMarket) {
   );
 }
 
+export type HistoricalTickInput = Omit<QuoteTick, "id" | "isHeartbeat">;
+
+export type HistoricalTickResult = {
+  id: number | null;
+  inserted: boolean;
+};
+
+export function appendHistoricalTick(
+  tick: HistoricalTickInput
+): HistoricalTickResult {
+  return executeDatabaseOperation(
+    "quoteTicks.appendHistorical",
+    () => {
+      const db = getDatabase();
+      const result = db
+        .prepare(
+          `
+            INSERT OR IGNORE INTO quote_ticks (
+              source_market_id,
+              captured_at,
+              price_raw,
+              odds_raw,
+              line_raw,
+              implied_probability,
+              best_bid,
+              best_ask,
+              volume,
+              depth_score,
+              is_heartbeat
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+          `
+        )
+        .run(
+          tick.sourceMarketId,
+          tick.capturedAt,
+          tick.priceRaw ?? null,
+          tick.oddsRaw ?? null,
+          tick.lineRaw ?? null,
+          tick.impliedProbability ?? null,
+          tick.bestBid ?? null,
+          tick.bestAsk ?? null,
+          tick.volume ?? null,
+          tick.depthScore ?? null
+        );
+
+      return {
+        id: result.changes > 0 ? Number(result.lastInsertRowid) : null,
+        inserted: result.changes > 0,
+      } satisfies HistoricalTickResult;
+    },
+    {
+      sourceMarketId: tick.sourceMarketId,
+    }
+  );
+}
+
 export function appendQuoteTick(tick: Omit<QuoteTick, "id">) {
   return executeDatabaseOperation(
     "quoteTicks.append",
@@ -1263,7 +1666,10 @@ export function recordRawPayload(input: {
   );
 }
 
+export type AdapterCaptureMode = "discovery" | "historical" | "live";
+
 export function recordAdapterRun(input: {
+  captureMode?: AdapterCaptureMode;
   errorCode?: string | null;
   errorMessage?: string | null;
   finishedAt?: string | null;
@@ -1288,9 +1694,10 @@ export function recordAdapterRun(input: {
               error_code,
               error_message,
               records_seen,
-              records_written
+              records_written,
+              capture_mode
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
         )
         .run(
@@ -1301,12 +1708,14 @@ export function recordAdapterRun(input: {
           input.errorCode ?? null,
           input.errorMessage ?? null,
           input.recordsSeen ?? 0,
-          input.recordsWritten ?? 0
+          input.recordsWritten ?? 0,
+          input.captureMode ?? "live"
         );
 
       return Number(result.lastInsertRowid);
     },
     {
+      captureMode: input.captureMode ?? "live",
       source: input.source,
       status: input.status,
     }
@@ -1492,45 +1901,7 @@ export function listResearchGames(filters: GamesFilters = {}) {
     "research.games.list",
     () => {
       const db = getDatabase();
-      const clauses: string[] = [];
-      const params: unknown[] = [];
-
-      if (filters.sport) {
-        clauses.push("sport = ?");
-        params.push(filters.sport);
-      }
-      if (filters.league) {
-        clauses.push("league = ?");
-        params.push(filters.league);
-      }
-      if (filters.date) {
-        clauses.push("substr(scheduled_start, 1, 10) = ?");
-        params.push(filters.date);
-      }
-
-      const rows = db
-        .prepare(
-          `
-            SELECT
-              id,
-              sport,
-              league,
-              source_game_key_nba AS sourceGameKeyNba,
-              home_participant_json AS homeParticipantJson,
-              away_participant_json AS awayParticipantJson,
-              scheduled_start AS scheduledStart
-            FROM games
-            ${clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : ""}
-            ORDER BY scheduled_start ASC, id ASC
-          `
-        )
-        .all(...params) as Record<string, unknown>[];
-
-      const cards = rows
-        .map((row) => selectGameBundle(db, String(row.id)))
-        .filter((bundle): bundle is NonNullable<typeof bundle> =>
-          Boolean(bundle)
-        )
+      const cards = selectFilteredGameBundles(db, filters)
         .map((bundle) => buildGameCard(bundle))
         .filter((card) => {
           if (filters.status && card.gameState?.status !== filters.status) {
@@ -2091,131 +2462,15 @@ export function getInstrumentRawSource(
 export function listResearchDivergence(filters: DivergenceFilters = {}) {
   return executeDatabaseOperation(
     "research.divergence.list",
-    () => {
-      const cards = listResearchGames({
-        league: filters.league,
-        sport: filters.sport,
-      });
-
-      let rows = cards.flatMap((card) =>
-        listGameMarkets(card.game.id, {
-          family: filters.family,
-          inPlay: filters.inPlay,
-        }).map((instrumentView) =>
-          buildDivergenceRow(card.game, instrumentView)
-        )
-      );
-
-      if (filters.mappedState) {
-        rows = rows.filter(
-          (row) => row.comparableState === filters.mappedState
-        );
-      }
-      if (filters.severity) {
-        rows = rows.filter((row) => row.severity === filters.severity);
-      }
-      if (filters.freshness) {
-        rows = rows.filter(
-          (row) =>
-            freshnessBandFromMs(row.captureRecencyMs ?? null) ===
-            filters.freshness
-        );
-      }
-      if (filters.sourceSet) {
-        const requestedSources = new Set(
-          filters.sourceSet
-            .split(",")
-            .map((value) => value.trim())
-            .filter(Boolean)
-        );
-
-        rows = rows.filter((row) => {
-          const comparison = getInstrumentComparison(
-            row.gameId,
-            row.instrumentId
-          );
-          if (!comparison) {
-            return false;
-          }
-          return comparison.latestQuotesBySource.every((source) =>
-            requestedSources.has(source.source)
-          );
-        });
-      }
-
-      rows = [...rows].sort((left, right) => {
-        switch (filters.sort) {
-          case "captureRecency":
-            return (
-              (left.captureRecencyMs ?? Number.MAX_SAFE_INTEGER) -
-              (right.captureRecencyMs ?? Number.MAX_SAFE_INTEGER)
-            );
-          case "freshness":
-            return freshnessBandFromMs(
-              left.captureRecencyMs ?? null
-            ).localeCompare(
-              freshnessBandFromMs(right.captureRecencyMs ?? null)
-            );
-          case "lineMismatch":
-            return Number(right.lineMismatch) - Number(left.lineMismatch);
-          case "signalPriority":
-            return right.signalPriority - left.signalPriority;
-          case "divergence":
-          default:
-            return (
-              (right.impliedProbabilityGap ?? 0) -
-              (left.impliedProbabilityGap ?? 0)
-            );
-        }
-      });
-
-      return rows;
-    },
+    () => buildResearchDivergenceEntries(filters).map((entry) => entry.row),
     filters
   );
 }
 
 export function listSignalMismatches() {
   return executeDatabaseOperation("research.signalMismatches.list", () => {
-    const rows = listResearchDivergence({ sort: "divergence" })
-      .map((row) => {
-        const comparison = getInstrumentComparison(
-          row.gameId,
-          row.instrumentId
-        );
-        if (!comparison) {
-          return null;
-        }
-
-        const bySource = new Map(
-          comparison.latestQuotesBySource.map((quote) => [quote.source, quote])
-        );
-        const bet365 = bySource.get("bet365")?.impliedProbability ?? null;
-        const kalshi = bySource.get("kalshi")?.impliedProbability ?? null;
-        const polymarket =
-          bySource.get("polymarket")?.impliedProbability ?? null;
-        const externalValues = [kalshi, polymarket].filter(
-          (value): value is number => typeof value === "number"
-        );
-        const externalAverage =
-          externalValues.length > 0
-            ? externalValues.reduce((sum, value) => sum + value, 0) /
-              externalValues.length
-            : null;
-
-        return {
-          ...row,
-          bet365ImpliedProbability: bet365 ?? null,
-          directionalDisagreement:
-            typeof bet365 === "number" &&
-            typeof externalAverage === "number" &&
-            ((bet365 >= 0.5 && externalAverage < 0.5) ||
-              (bet365 < 0.5 && externalAverage >= 0.5)),
-          kalshiImpliedProbability: kalshi ?? null,
-          polymarketImpliedProbability: polymarket ?? null,
-        };
-      })
-      .filter((row): row is NonNullable<typeof row> => row !== null)
+    const rows = buildResearchDivergenceEntries({ sort: "divergence" })
+      .map((entry) => buildSignalMismatchRow(entry))
       .filter(
         (row) =>
           row.directionalDisagreement ||
@@ -2317,7 +2572,8 @@ function latestSuccessfulRun(source: string) {
           error_code AS errorCode,
           error_message AS errorMessage,
           records_seen AS recordsSeen,
-          records_written AS recordsWritten
+          records_written AS recordsWritten,
+          capture_mode AS captureMode
         FROM adapter_runs
         WHERE source = ? AND status = 'ok'
         ORDER BY started_at DESC, id DESC
@@ -2356,7 +2612,8 @@ function latestRun(source: string) {
           error_code AS errorCode,
           error_message AS errorMessage,
           records_seen AS recordsSeen,
-          records_written AS recordsWritten
+          records_written AS recordsWritten,
+          capture_mode AS captureMode
         FROM adapter_runs
         WHERE source = ?
         ORDER BY started_at DESC, id DESC
@@ -2507,7 +2764,8 @@ export function listAdapterRuns(limit = 50) {
               error_code AS errorCode,
               error_message AS errorMessage,
               records_seen AS recordsSeen,
-              records_written AS recordsWritten
+              records_written AS recordsWritten,
+              capture_mode AS captureMode
             FROM adapter_runs
             ORDER BY started_at DESC, id DESC
             LIMIT ?

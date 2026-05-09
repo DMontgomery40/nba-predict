@@ -11,10 +11,12 @@ import {
   getInstrumentTimeline,
   listAdminSources,
   listGameMarkets,
+  listSignalMismatches,
   recordGameStateObservation,
   recordQuoteObservation,
   resetDatabase,
   upsertGame,
+  upsertGameOutcome,
   upsertMarketInstrument,
   upsertSourceMarket,
 } from "../db";
@@ -411,6 +413,76 @@ describe("live repository", () => {
       missingSources: ["bet365", "kalshi"],
       unmappedSources: ["polymarket"],
     });
+  });
+
+  it("builds historical signal mismatches with game context from latest source views", () => {
+    seedLiveRepositoryGame();
+
+    upsertGameOutcome({
+      capturedAt: "2026-04-22T00:05:00.000Z",
+      finalAwayScore: 110,
+      finalHomeScore: 118,
+      gameId: "nba-bos-nyk-2026-04-21",
+      winnerKey: "bos",
+    });
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-bos-moneyline",
+      instrumentId: "bos-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Boston wins",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-bos-ml",
+      sourceSelectionKey: "bos",
+    });
+
+    recordQuoteObservation({
+      bestAsk: 0.5,
+      bestBid: 0.49,
+      capturedAt: "2026-04-21T23:40:20.000Z",
+      depthScore: 70,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.48,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.48,
+      sourceMarketId: "sm-polymarket-bos-moneyline",
+      volume: 31,
+    });
+
+    recordQuoteObservation({
+      bestAsk: 0.5,
+      bestBid: 0.49,
+      capturedAt: "2026-04-21T23:40:25.000Z",
+      depthScore: 81,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.49,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.49,
+      sourceMarketId: "sm-kalshi-bos-moneyline",
+      volume: 40,
+    });
+
+    expect(listSignalMismatches()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          bet365ImpliedProbability: 0.61,
+          directionalDisagreement: true,
+          displayLabel: "Boston moneyline",
+          finalAwayScore: 110,
+          finalHomeScore: 118,
+          gameLabel: "Knicks at Celtics",
+          gameStatus: "final",
+          kalshiImpliedProbability: 0.49,
+          polymarketImpliedProbability: 0.48,
+          scheduledStart: "2026-04-21T23:00:00.000Z",
+        }),
+      ])
+    );
   });
 
   it("marks bet365 session exports invalid until the configured file exists", () => {

@@ -510,13 +510,18 @@ export type SignalMismatchesPayload = {
     directionalDisagreement: boolean;
     displayLabel: string;
     family: string;
+    finalAwayScore?: number | null;
+    finalHomeScore?: number | null;
+    gameLabel: string;
     gameId: string;
+    gameStatus: string;
     impliedProbabilityGap?: number | null;
     instrumentId: string;
     kalshiImpliedProbability?: number | null;
     lineMismatch: boolean;
     mappingStatus: string;
     polymarketImpliedProbability?: number | null;
+    scheduledStart: string;
     severity: string;
     signalPriority: number;
   }>;
@@ -607,6 +612,21 @@ export type ResearchCoveragePayload = {
     missingSources: string[];
     unmappedSources: string[];
   }>;
+  meta: {
+    generatedAt: string;
+  };
+};
+
+export type ExportCatalogPayload = {
+  data: {
+    datasets: Array<{
+      formats: string[];
+      id: string;
+      rowCount: number | null;
+      title: string;
+    }>;
+    filters: Record<string, string>;
+  };
   meta: {
     generatedAt: string;
   };
@@ -770,6 +790,203 @@ export function getSignalMismatches() {
   return request<SignalMismatchesPayload>("/api/v1/research/signal-mismatches");
 }
 
+export function getExportCatalog() {
+  return request<ExportCatalogPayload>("/api/v1/exports");
+}
+
+export type SourceClosingProbability = {
+  source: string;
+  impliedProbability: number | null;
+  capturedAt: string | null;
+  freshnessMs: number | null;
+};
+
+export type ClosedGameInstrumentSummary = {
+  gameId: string;
+  instrumentId: string;
+  family: string;
+  selection: string;
+  displayLabel: string;
+  participantKey: string | null;
+  finalAt: string | null;
+  outcome: { winnerKey: string | null; winnerProbability: 0 | 1 | null };
+  sources: SourceClosingProbability[];
+};
+
+export type ClosedGameSummary = {
+  gameId: string;
+  matchup: string;
+  league: string;
+  sport: string;
+  scheduledStart: string;
+  finalAt: string | null;
+  finalHomeScore: number | null;
+  finalAwayScore: number | null;
+  winnerKey: string | null;
+  moneylineByParticipant: ClosedGameInstrumentSummary[];
+};
+
+export type SignalQualityReportPayload = {
+  data: {
+    sampleCount: number;
+    perSource: Array<{
+      source: string;
+      sampleCount: number;
+      brier: number | null;
+      logLoss: number | null;
+      closingWinnerAccuracy: number | null;
+      calibrationSlope: number | null;
+      calibrationIntercept: number | null;
+    }>;
+  };
+  meta: { generatedAt: string };
+};
+
+export type ClosedGamesPayload = {
+  data: ClosedGameSummary[];
+  meta: { generatedAt: string };
+};
+
+export type DeltaSeriesPayload = {
+  data: Array<{
+    bucketAt: string;
+    bet365Probability: number | null;
+    externalAverage: number | null;
+    perSource: Record<string, number | null>;
+    absoluteDelta: number | null;
+    signedDelta: number | null;
+  }>;
+  meta: { generatedAt: string };
+};
+
+export type LeadLagPayload = {
+  data: {
+    bucketSeconds: number;
+    insufficientData: boolean;
+    pairs: Array<{
+      pair: [string, string];
+      bestLagBuckets: number;
+      bestCorrelation: number;
+      leadSource: string;
+      lagSource: string;
+      sampleCount: number;
+    }>;
+  };
+  meta: { generatedAt: string };
+};
+
+export type LeadLagSeriesPayload = {
+  data: {
+    bucketSeconds: number;
+    insufficientData: boolean;
+    primaryPair: [string, string] | null;
+    overall: {
+      bestLagBuckets: number;
+      bestCorrelation: number;
+      leadSource: string;
+      lagSource: string;
+      sampleCount: number;
+    } | null;
+    offsetSeries: Array<{
+      bucketAt: string;
+      lagBuckets: number | null;
+      correlation: number | null;
+    }>;
+    offsetHistogram: Array<{ lagBuckets: number; count: number }>;
+  };
+  meta: { generatedAt: string };
+};
+
+type ClosingCutoff = "live-final" | "pregame";
+
+export function getSignalQualityReport(options?: {
+  closingCutoff?: ClosingCutoff;
+  league?: string;
+  since?: string;
+  until?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.closingCutoff)
+    params.set("closingCutoff", options.closingCutoff);
+  if (options?.league) params.set("league", options.league);
+  if (options?.since) params.set("since", options.since);
+  if (options?.until) params.set("until", options.until);
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<SignalQualityReportPayload>(
+    `/api/v1/research/signal-quality${suffix}`
+  );
+}
+
+export function getClosedGames(options?: {
+  closingCutoff?: ClosingCutoff;
+  league?: string;
+  limit?: number;
+  since?: string;
+  until?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.closingCutoff)
+    params.set("closingCutoff", options.closingCutoff);
+  if (options?.league) params.set("league", options.league);
+  if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.since) params.set("since", options.since);
+  if (options?.until) params.set("until", options.until);
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<ClosedGamesPayload>(`/api/v1/research/closed-games${suffix}`);
+}
+
+export function getInstrumentDeltaSeries(
+  gameId: string,
+  instrumentId: string,
+  options?: { bucketSeconds?: number }
+) {
+  const params = new URLSearchParams();
+  if (options?.bucketSeconds)
+    params.set("bucketSeconds", String(options.bucketSeconds));
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<DeltaSeriesPayload>(
+    `/api/v1/games/${gameId}/markets/${instrumentId}/delta-series${suffix}`
+  );
+}
+
+export function getInstrumentLeadLag(
+  gameId: string,
+  instrumentId: string,
+  options?: { bucketSeconds?: number; maxLagBuckets?: number }
+) {
+  const params = new URLSearchParams();
+  if (options?.bucketSeconds)
+    params.set("bucketSeconds", String(options.bucketSeconds));
+  if (options?.maxLagBuckets)
+    params.set("maxLagBuckets", String(options.maxLagBuckets));
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<LeadLagPayload>(
+    `/api/v1/games/${gameId}/markets/${instrumentId}/lead-lag${suffix}`
+  );
+}
+
+export function getInstrumentLeadLagSeries(
+  gameId: string,
+  instrumentId: string,
+  options?: {
+    bucketSeconds?: number;
+    maxLagBuckets?: number;
+    windowBuckets?: number;
+  }
+) {
+  const params = new URLSearchParams();
+  if (options?.bucketSeconds)
+    params.set("bucketSeconds", String(options.bucketSeconds));
+  if (options?.maxLagBuckets)
+    params.set("maxLagBuckets", String(options.maxLagBuckets));
+  if (options?.windowBuckets)
+    params.set("windowBuckets", String(options.windowBuckets));
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<LeadLagSeriesPayload>(
+    `/api/v1/games/${gameId}/markets/${instrumentId}/lead-lag-series${suffix}`
+  );
+}
+
 export function getLiveHealth() {
   return request<LivenessPayload>("/health/live");
 }
@@ -785,6 +1002,27 @@ export function getInstrumentTimelineExportUrl(
   instrumentId: string
 ) {
   return `/api/v1/games/${gameId}/markets/${instrumentId}/export.csv`;
+}
+
+export function getDatasetExportUrl(
+  dataset: string,
+  format: "csv" | "jsonl",
+  filters: Record<string, string | null | undefined> = {}
+) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
+  }
+  const suffix = params.toString();
+  return `/api/v1/exports/${dataset}.${format}${suffix ? `?${suffix}` : ""}`;
+}
+
+export function getSqliteExportUrl() {
+  return "/api/v1/exports/sqlite";
+}
+
+export function getFullPackageExportUrl() {
+  return "/api/v1/exports/full-package.sqlite";
 }
 
 export function postCaptureRestart(body: { source?: string }) {

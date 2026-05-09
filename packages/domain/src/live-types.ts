@@ -308,6 +308,11 @@ export type DivergenceRow = {
 };
 
 export type SignalMismatchRow = DivergenceRow & {
+  gameLabel: string;
+  scheduledStart: string;
+  gameStatus: ResearchGameStatus;
+  finalAwayScore?: number | null;
+  finalHomeScore?: number | null;
   bet365ImpliedProbability?: number | null;
   kalshiImpliedProbability?: number | null;
   polymarketImpliedProbability?: number | null;

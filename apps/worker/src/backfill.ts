@@ -1,0 +1,222 @@
+import {
+  syncBet365DirectLive,
+  syncBet365InternalDump,
+  syncKalshiNbaDirect,
+  syncKalshiNbaHistorical,
+  syncPolymarketNbaHistorical,
+} from "@signal-console/adapters";
+import {
+  closeDatabase,
+  createAppLogger,
+  loadRuntimeEnv,
+  serializeErrorForLog,
+} from "@signal-console/shared";
+
+import { syncNbaSidecarWindow } from "./nba-sidecar";
+
+type BackfillTarget =
+  | "all"
+  | "bet365-direct"
+  | "bet365-internal"
+  | "kalshi"
+  | "kalshi-historical"
+  | "nba"
+  | "polymarket";
+
+type BackfillOptions = {
+  fidelityMinutes?: number;
+  lookaheadDays?: number;
+  lookbackDays?: number;
+  maxEvents?: number;
+  periodIntervalMinutes?: 1 | 60;
+  since?: string;
+  target: BackfillTarget;
+};
+
+const DEFAULT_LOOKBACK_DAYS = 30;
+
+function parseArgs(argv: string[]): BackfillOptions {
+  const args: Record<string, string | undefined> = {};
+  let target: BackfillTarget = "all";
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (
+      token === "kalshi" ||
+      token === "kalshi-historical" ||
+      token === "polymarket" ||
+      token === "nba" ||
+      token === "bet365-internal" ||
+      token === "bet365-direct" ||
+      token === "all"
+    ) {
+      target = token;
+      continue;
+    }
+
+    if (!token.startsWith("--")) continue;
+    const key = token.slice(2);
+    const next = argv[i + 1];
+    if (!next || next.startsWith("--")) {
+      args[key] = "true";
+    } else {
+      args[key] = next;
+      i += 1;
+    }
+  }
+
+  const asNumber = (value: string | undefined) => {
+    if (!value) return undefined;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  const period = asNumber(args.periodInterval);
+  return {
+    fidelityMinutes: asNumber(args.fidelity),
+    lookaheadDays: asNumber(args.lookaheadDays),
+    lookbackDays: asNumber(args.lookbackDays) ?? DEFAULT_LOOKBACK_DAYS,
+    maxEvents: asNumber(args.maxEvents),
+    periodIntervalMinutes:
+      period === 1 || period === 60 ? (period as 1 | 60) : undefined,
+    since: args.since,
+    target,
+  };
+}
+
+function printUsage() {
+  const lines = [
+    "Signal Console historical backfill",
+    "",
+    "Usage:",
+    "  pnpm backfill nba [--lookbackDays 365] [--lookaheadDays 0]",
+    "  pnpm backfill kalshi [--since 2026-04-20] [--maxEvents N]",
+    "  pnpm backfill kalshi-historical [--maxEvents N] [--periodInterval 1|60]",
+    "  pnpm backfill polymarket [--since 2024-10-01] [--maxEvents N] [--fidelity 1]",
+    "  pnpm backfill bet365-internal    # reads BET365_INTERNAL_DUMP_DIR/*.jsonl",
+    "  pnpm backfill bet365-direct      # Playwright scrape, needs BET365_SESSION_STATE_PATH",
+    "  pnpm backfill all",
+    "",
+    "Order matters: run `nba` first so canonical games exist before matching market events.",
+  ];
+
+  for (const line of lines) {
+    process.stdout.write(`${line}\n`);
+  }
+}
+
+async function runNba(
+  logger: ReturnType<typeof createAppLogger>,
+  options: BackfillOptions
+) {
+  const summary = await syncNbaSidecarWindow({
+    lookaheadDays: options.lookaheadDays ?? 0,
+    lookbackDays: options.lookbackDays ?? DEFAULT_LOOKBACK_DAYS,
+  });
+  logger.info(summary, "NBA sidecar historical window completed.");
+  return summary;
+}
+
+async function runKalshi(
+  logger: ReturnType<typeof createAppLogger>,
+  options: BackfillOptions
+) {
+  const summary = await syncKalshiNbaDirect({
+    captureMode: "historical",
+    maxEvents: options.maxEvents,
+    minimumStartDate: options.since,
+  });
+  logger.info(summary, "Kalshi NBA direct backfill completed.");
+  return summary;
+}
+
+async function runKalshiHistorical(
+  logger: ReturnType<typeof createAppLogger>,
+  options: BackfillOptions
+) {
+  const summary = await syncKalshiNbaHistorical({
+    maxEvents: options.maxEvents,
+    periodIntervalMinutes: options.periodIntervalMinutes ?? 60,
+  });
+  logger.info(summary, "Kalshi NBA historical backfill completed.");
+  return summary;
+}
+
+async function runPolymarket(
+  logger: ReturnType<typeof createAppLogger>,
+  options: BackfillOptions
+) {
+  const summary = await syncPolymarketNbaHistorical({
+    fidelityMinutes: options.fidelityMinutes ?? 1,
+    maxEvents: options.maxEvents,
+    since: options.since,
+  });
+  logger.info(summary, "Polymarket NBA historical backfill completed.");
+  return summary;
+}
+
+async function runBet365Internal(logger: ReturnType<typeof createAppLogger>) {
+  const summary = syncBet365InternalDump();
+  logger.info(summary, "Bet365 internal dump ingest completed.");
+  return summary;
+}
+
+async function runBet365Direct(logger: ReturnType<typeof createAppLogger>) {
+  const summary = await syncBet365DirectLive({ headless: true });
+  logger.info(summary, "Bet365 direct live capture completed.");
+  return summary;
+}
+
+export async function runBackfill(argv: string[] = process.argv.slice(2)) {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    printUsage();
+    return;
+  }
+
+  loadRuntimeEnv();
+  const logger = createAppLogger({ component: "backfill" });
+  const options = parseArgs(argv);
+  logger.info(options, "Backfill starting.");
+
+  try {
+    switch (options.target) {
+      case "nba":
+        await runNba(logger, options);
+        break;
+      case "kalshi":
+        await runKalshi(logger, options);
+        break;
+      case "kalshi-historical":
+        await runKalshiHistorical(logger, options);
+        break;
+      case "polymarket":
+        await runPolymarket(logger, options);
+        break;
+      case "bet365-internal":
+        await runBet365Internal(logger);
+        break;
+      case "bet365-direct":
+        await runBet365Direct(logger);
+        break;
+      case "all":
+        await runNba(logger, options);
+        await runKalshi(logger, options);
+        await runPolymarket(logger, options);
+        await runBet365Internal(logger);
+        break;
+    }
+    logger.info(options, "Backfill finished.");
+  } catch (error) {
+    logger.error(
+      { error: serializeErrorForLog(error), options },
+      "Backfill failed."
+    );
+    process.exitCode = 1;
+  } finally {
+    closeDatabase();
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  await runBackfill();
+}

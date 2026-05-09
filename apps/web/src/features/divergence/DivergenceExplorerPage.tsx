@@ -1,9 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { ErrorState, LoadingState } from "../../components/ErrorState";
-import { PageFrame } from "../../components/PageFrame";
-import { Badge, Panel, SectionTitle } from "../../components/Primitives";
 import { getDivergence, type DivergenceQuery } from "../../data/api";
 
 const severityOptions = ["", "critical", "high", "medium", "low"] as const;
@@ -46,6 +43,19 @@ function buildNextSearchParams(
   return next;
 }
 
+function severityClass(severity: string) {
+  switch (severity) {
+    case "critical":
+      return "sev-critical";
+    case "high":
+      return "sev-high";
+    case "medium":
+      return "sev-medium";
+    default:
+      return "sev-low";
+  }
+}
+
 export function DivergenceExplorerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -73,198 +83,153 @@ export function DivergenceExplorerPage() {
     queryFn: () => getDivergence(filters),
   });
 
-  if (divergence.isLoading || (!divergence.data && !divergence.isError)) {
-    return <LoadingState message="Loading divergence explorer…" />;
-  }
-
-  if (divergence.isError || !divergence.data) {
-    return (
-      <PageFrame
-        aside={
-          <Panel>
-            <SectionTitle eyebrow="Fallback" title="Explorer unavailable" />
-          </Panel>
-        }
-      >
-        <ErrorState
-          description="The divergence explorer query failed."
-          error={divergence.error}
-          onAction={() => void divergence.refetch()}
-          title="Divergence data failed to load"
-        />
-      </PageFrame>
-    );
-  }
-
   function updateFilters(updates: Record<string, string>) {
     setSearchParams(buildNextSearchParams(searchParams, updates));
   }
 
-  const rows = divergence.data.data;
+  const rows = divergence.data?.data ?? [];
 
   return (
-    <PageFrame
-      aside={
-        <Panel>
-          <SectionTitle
-            eyebrow="Explorer Focus"
-            title={rows[0]?.displayLabel ?? "No visible rows"}
-            body={
-              rows[0]
-                ? `${rows[0].family} · ${rows[0].severity} · ${rows[0].comparableState}`
-                : "Adjust the filters or wait for more live capture."
-            }
-          />
-        </Panel>
-      }
-    >
-      <section className="hero-strip">
+    <div className="divergence-surface">
+      <div className="slate-header">
         <div>
-          <div className="eyebrow">Divergence Explorer</div>
+          <div className="eyebrow">Divergence</div>
           <h1>Instrument-first disagreement</h1>
-          <p>
-            Rank live instruments by implied-probability gap, freshness, and
-            line-alignment status.
-          </p>
+          <span className="muted">
+            {rows.length} row{rows.length === 1 ? "" : "s"} · sort, filter, and
+            drill in.
+          </span>
         </div>
-      </section>
+      </div>
 
-      <Panel>
-        <SectionTitle eyebrow="Filters" title="Shareable live explorer state" />
-        <div className="filter-grid">
-          <label className="filter-field">
+      <div className="filter-strip">
+        <label className="filter-inline">
+          <span>family</span>
+          <select
+            value={filters.family ?? ""}
+            onChange={(event) => updateFilters({ family: event.target.value })}
+          >
+            {familyOptions.map((o) => (
+              <option key={o || "all"} value={o}>
+                {o || "all"}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="filter-inline">
+          <span>severity</span>
+          <select
+            value={filters.severity ?? ""}
+            onChange={(event) =>
+              updateFilters({ severity: event.target.value })
+            }
+          >
+            {severityOptions.map((o) => (
+              <option key={o || "all"} value={o}>
+                {o || "all"}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="filter-inline">
+          <span>freshness</span>
+          <select
+            value={filters.freshness ?? ""}
+            onChange={(event) =>
+              updateFilters({ freshness: event.target.value })
+            }
+          >
+            {freshnessOptions.map((o) => (
+              <option key={o || "all"} value={o}>
+                {o || "all"}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="filter-inline">
+          <span>map</span>
+          <select
+            value={filters.mappedState ?? ""}
+            onChange={(event) =>
+              updateFilters({ mappedState: event.target.value })
+            }
+          >
+            {mappedStateOptions.map((o) => (
+              <option key={o || "all"} value={o}>
+                {o || "all"}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="filter-inline">
+          <span>sort</span>
+          <select
+            value={filters.sort ?? "divergence"}
+            onChange={(event) => updateFilters({ sort: event.target.value })}
+          >
+            {sortOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {divergence.isLoading ? (
+        <div className="muted">Loading…</div>
+      ) : divergence.isError ? (
+        <div className="critical">
+          Failed to load divergence. {(divergence.error as Error)?.message}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="muted">No rows match this filter set.</div>
+      ) : (
+        <div className="divergence-grid">
+          <div className="div-row div-head">
+            <span>Instrument</span>
             <span>Family</span>
-            <select
-              className="filter-select"
-              value={filters.family ?? ""}
-              onChange={(event) =>
-                updateFilters({ family: event.target.value })
-              }
-            >
-              {familyOptions.map((option) => (
-                <option key={option || "all"} value={option}>
-                  {option || "All families"}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="filter-field">
-            <span>Severity</span>
-            <select
-              className="filter-select"
-              value={filters.severity ?? ""}
-              onChange={(event) =>
-                updateFilters({ severity: event.target.value })
-              }
-            >
-              {severityOptions.map((option) => (
-                <option key={option || "all"} value={option}>
-                  {option || "All severities"}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="filter-field">
-            <span>Freshness</span>
-            <select
-              className="filter-select"
-              value={filters.freshness ?? ""}
-              onChange={(event) =>
-                updateFilters({ freshness: event.target.value })
-              }
-            >
-              {freshnessOptions.map((option) => (
-                <option key={option || "all"} value={option}>
-                  {option || "All freshness"}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="filter-field">
+            <span className="num">Gap</span>
             <span>Mapping</span>
-            <select
-              className="filter-select"
-              value={filters.mappedState ?? ""}
-              onChange={(event) =>
-                updateFilters({ mappedState: event.target.value })
-              }
-            >
-              {mappedStateOptions.map((option) => (
-                <option key={option || "all"} value={option}>
-                  {option || "All mapping states"}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="filter-field">
-            <span>Sort</span>
-            <select
-              className="filter-select"
-              value={filters.sort ?? "divergence"}
-              onChange={(event) => updateFilters({ sort: event.target.value })}
-            >
-              {sortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <span>Sev</span>
+            <span className="num">Prio</span>
+            <span />
+          </div>
+          {rows.map((row) => (
+            <div className="div-row" key={`${row.gameId}:${row.instrumentId}`}>
+              <span className="ellipsis">
+                <Link
+                  className="matchup-link"
+                  to={`/games/${row.gameId}/markets/${row.instrumentId}`}
+                >
+                  {row.displayLabel}
+                </Link>
+              </span>
+              <span className="muted mono">{row.family}</span>
+              <span className="num mono">
+                {row.impliedProbabilityGap == null
+                  ? "—"
+                  : `${(row.impliedProbabilityGap * 100).toFixed(1)}%`}
+              </span>
+              <span
+                className={`mono ${row.lineMismatch ? "critical" : "muted"}`}
+              >
+                {row.comparableState}
+              </span>
+              <span className={`sev-chip ${severityClass(row.severity)}`}>
+                {row.severity}
+              </span>
+              <span className="num mono muted">{row.signalPriority}</span>
+              <Link
+                className="row-open"
+                to={`/games/${row.gameId}/markets/${row.instrumentId}`}
+              >
+                ↗
+              </Link>
+            </div>
+          ))}
         </div>
-      </Panel>
-
-      <Panel>
-        <div className="table-shell">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Instrument</th>
-                <th>Family</th>
-                <th>Gap</th>
-                <th>Mapping</th>
-                <th>Priority</th>
-                <th>Open</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={`${row.gameId}:${row.instrumentId}`}>
-                  <td>
-                    <strong>{row.displayLabel}</strong>
-                    <div className="muted">{row.severity}</div>
-                  </td>
-                  <td>{row.family}</td>
-                  <td className="table-metric">
-                    {row.impliedProbabilityGap == null
-                      ? "n/a"
-                      : `${(row.impliedProbabilityGap * 100).toFixed(1)}%`}
-                  </td>
-                  <td>
-                    <div className="tag-row">
-                      <Badge tone={row.lineMismatch ? "warning" : "neutral"}>
-                        {row.comparableState}
-                      </Badge>
-                    </div>
-                  </td>
-                  <td className="table-metric">{row.signalPriority}</td>
-                  <td>
-                    <Link
-                      className="ghost-button"
-                      to={`/games/${row.gameId}/markets/${row.instrumentId}`}
-                    >
-                      Open
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
-    </PageFrame>
+      )}
+    </div>
   );
 }

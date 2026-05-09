@@ -2,9 +2,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  backupDatabase,
   checkDatabaseHealth,
   recordAdapterRun,
   resetDatabase,
@@ -50,9 +52,36 @@ describe("shared db", () => {
       counts: {
         watchlistCount: 1,
       },
-      schemaVersion: 3,
+      schemaVersion: 5,
       status: "ok",
     });
+  });
+
+  it("creates a readable SQLite backup that includes WAL writes", async () => {
+    upsertWatchlist({
+      eventId: "bos-vs-nyk",
+      note: "Research queue",
+      priority: 91,
+      status: "queued",
+    });
+
+    const snapshotPath = join(tempDir, "snapshot.sqlite");
+    await backupDatabase(snapshotPath);
+
+    const snapshot = new Database(snapshotPath, {
+      fileMustExist: true,
+      readonly: true,
+    });
+    try {
+      expect(snapshot.prepare("PRAGMA integrity_check").pluck().get()).toBe(
+        "ok"
+      );
+      expect(
+        snapshot.prepare("SELECT COUNT(*) FROM watchlist").pluck().get()
+      ).toBe(1);
+    } finally {
+      snapshot.close();
+    }
   });
 
   it("reopens the sqlite handle when the database path changes", () => {

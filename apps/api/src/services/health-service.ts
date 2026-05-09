@@ -111,10 +111,8 @@ export function buildReadinessPayload(context?: { logger?: HealthLogger }) {
         : "Bet365 capture is not configured.",
   });
 
-  const kalshiDirectAuthConfigured = Boolean(
-    process.env.KALSHI_API_KEY && process.env.KALSHI_API_SECRET
-  );
-  const kalshiCaptureReady = Boolean(oddsApiKey);
+  const kalshiDirectAuthConfigured = Boolean(process.env.KALSHI_API_KEY);
+  const kalshiCaptureReady = kalshiDirectAuthConfigured;
   checks.push({
     details: {
       directAuthConfigured: kalshiDirectAuthConfigured,
@@ -125,15 +123,11 @@ export function buildReadinessPayload(context?: { logger?: HealthLogger }) {
     name: "kalshi-capture",
     operatorHint: kalshiCaptureReady
       ? undefined
-      : kalshiDirectAuthConfigured
-        ? "Direct Kalshi credentials are present, but the current worker only runs the Odds-API-backed Kalshi sync path. Set ODDS_API_KEY until direct Kalshi ingestion is implemented."
-        : "Set ODDS_API_KEY for the current Kalshi ingestion path, or implement direct Kalshi capture before advertising readiness.",
+      : "Set KALSHI_API_KEY for the direct Kalshi NBA market-data sync path.",
     status: kalshiCaptureReady ? "ok" : "error",
     summary: kalshiCaptureReady
-      ? "Kalshi capture is configured through Odds-API.io."
-      : kalshiDirectAuthConfigured
-        ? "Direct Kalshi credentials are configured, but no active ingest path uses them yet."
-        : "Kalshi capture is not configured.",
+      ? "Kalshi capture is configured through the direct Kalshi API."
+      : "Kalshi capture is not configured.",
   });
 
   const hasPersistedLiveData =

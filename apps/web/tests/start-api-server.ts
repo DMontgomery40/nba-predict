@@ -208,6 +208,32 @@ function seedResearchBackend() {
     volume: 44,
   });
   recordQuoteObservation({
+    bestAsk: 0.49,
+    bestBid: 0.48,
+    capturedAt: "2026-04-21T23:56:05.000Z",
+    depthScore: 84,
+    heartbeatAfterMs: 60_000,
+    impliedProbability: 0.48,
+    lineRaw: null,
+    oddsRaw: null,
+    priceRaw: 0.48,
+    sourceMarketId: "sm-kalshi-bos-moneyline",
+    volume: 60,
+  });
+  recordQuoteObservation({
+    bestAsk: 0.47,
+    bestBid: 0.46,
+    capturedAt: "2026-04-21T23:56:08.000Z",
+    depthScore: 75,
+    heartbeatAfterMs: 60_000,
+    impliedProbability: 0.46,
+    lineRaw: null,
+    oddsRaw: null,
+    priceRaw: 0.46,
+    sourceMarketId: "sm-polymarket-bos-moneyline",
+    volume: 46,
+  });
+  recordQuoteObservation({
     bestAsk: null,
     bestBid: null,
     capturedAt: "2026-04-21T23:55:10.000Z",
