@@ -242,6 +242,38 @@ describe("worker runtime", () => {
     expect(syncPolymarket).toHaveBeenCalledOnce();
   });
 
+  it("preserves worker backoff when every attempted market provider fails", async () => {
+    process.env.ODDS_API_KEY = "odds-key";
+    process.env.KALSHI_API_KEY = "kalshi-key";
+
+    const syncBet365 = vi.fn(async () => {
+      throw new Error("bet365 unavailable");
+    });
+    const syncKalshi = vi.fn(async () => {
+      throw new Error("kalshi unavailable");
+    });
+    const syncPolymarket = vi.fn(async () => {
+      throw new Error("polymarket unavailable");
+    });
+
+    const result = await runWorkerCycle({
+      consecutiveFailures: 2,
+      intervalMs: 1_000,
+      logger: createAppLogger({ test: "worker" }),
+      maxBackoffMs: 8_000,
+      now: () => new Date("2026-04-22T06:00:00.000Z"),
+      syncBet365: syncBet365 as never,
+      syncKalshi,
+      syncPolymarket,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.nextDelayMs).toBe(8_000);
+    expect(syncBet365).toHaveBeenCalledOnce();
+    expect(syncKalshi).toHaveBeenCalledOnce();
+    expect(syncPolymarket).toHaveBeenCalledOnce();
+  });
+
   it("keeps backoff capped at the configured ceiling", () => {
     expect(calculateBackoffDelay(1_000, 0, 4_000)).toBe(1_000);
     expect(calculateBackoffDelay(1_000, 1, 4_000)).toBe(2_000);
