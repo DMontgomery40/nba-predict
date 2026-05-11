@@ -16,6 +16,8 @@ type RequestOptions = {
   allowStatuses?: number[];
 };
 
+const API_REQUEST_TIMEOUT_MS = 10_000;
+
 export class ApiRequestError extends Error {
   readonly code: string;
   readonly details?: unknown;
@@ -79,6 +81,12 @@ async function request<T>(
   options?: RequestOptions
 ): Promise<T> {
   let response: Response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    API_REQUEST_TIMEOUT_MS
+  );
+
   try {
     response = await fetch(path, {
       headers: {
@@ -86,6 +94,7 @@ async function request<T>(
         ...(init?.headers ?? {}),
       },
       ...init,
+      signal: controller.signal,
     });
   } catch (error) {
     const apiError = new ApiRequestError({
@@ -110,6 +119,8 @@ async function request<T>(
     });
 
     throw apiError;
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const payload = (await response.json().catch(() => null)) as
@@ -470,8 +481,10 @@ export type RawSourcePayload = {
 };
 
 export type DivergenceQuery = {
+  date?: string;
   family?: string;
   freshness?: "aging" | "fresh" | "offline" | "stale";
+  limit?: number;
   mappedState?: "comparable" | "line-mismatch" | "unmapped";
   severity?: "critical" | "high" | "low" | "medium";
   sort?:
@@ -524,6 +537,95 @@ export type SignalMismatchesPayload = {
     scheduledStart: string;
     severity: string;
     signalPriority: number;
+  }>;
+  meta: {
+    generatedAt: string;
+  };
+};
+
+export type PlayerPropAlertsPayload = {
+  data: Array<{
+    absoluteDelta: number;
+    action: "manual-review";
+    bet365: {
+      bestAsk?: number | null;
+      bestBid?: number | null;
+      capturedAt: string;
+      impliedProbability: number;
+      lineRaw?: number | null;
+      mappingStatus: string;
+      oddsRaw?: string | null;
+      priceRaw?: number | null;
+      rawLabel?: string | null;
+      source: "bet365";
+      sourceMarketId: string;
+      sourceMarketKey: string;
+      sourceSelectionKey?: string | null;
+      volume?: number | null;
+    };
+    detectedAt: string;
+    direction: "bet365-higher" | "prediction-market-higher";
+    displayLabel: string;
+    freshness: {
+      bet365AgeMs: number;
+      pairGapMs: number;
+      predictionMarketAgeMs: number;
+    };
+    gameId: string;
+    gameLabel: string;
+    id: string;
+    inPlay: boolean;
+    instrumentId: string;
+    league: string;
+    line?: number | null;
+    lineMismatch: boolean;
+    participantKey?: string | null;
+    predictionMarket: {
+      bestAsk?: number | null;
+      bestBid?: number | null;
+      capturedAt: string;
+      impliedProbability: number;
+      lineRaw?: number | null;
+      mappingStatus: string;
+      oddsRaw?: string | null;
+      priceRaw?: number | null;
+      rawLabel?: string | null;
+      source: "kalshi" | "polymarket";
+      sourceMarketId: string;
+      sourceMarketKey: string;
+      sourceSelectionKey?: string | null;
+      volume?: number | null;
+    };
+    riskScore: number;
+    scheduledStart: string;
+    selection: string;
+    severity: string;
+    signedDelta: number;
+    sport: string;
+  }>;
+  meta: {
+    generatedAt: string;
+  };
+};
+
+export type PlayerPropAlertPlaybackPayload = {
+  data: Array<{
+    alertCount: number;
+    alerts: PlayerPropAlertsPayload["data"];
+    capturedAt: string;
+    error?: {
+      code?: string;
+      message: string;
+    };
+    notifiedAlertIds: string[];
+    poll: {
+      includeStale: boolean;
+      limit: number;
+      maxPairGapMinutes: number;
+      maxQuoteAgeMinutes: number;
+      minDelta: number;
+    };
+    source: "player-prop-alert-watch";
   }>;
   meta: {
     generatedAt: string;
@@ -701,8 +803,15 @@ export type MappingResolutionPayload = {
   };
 };
 
-export function getGames() {
-  return request<GamesPayload>("/api/v1/games");
+export function getGames(filters: { limit?: number } = {}) {
+  const query = new URLSearchParams();
+
+  if (filters.limit != null) {
+    query.set("limit", String(filters.limit));
+  }
+
+  const suffix = query.toString();
+  return request<GamesPayload>(`/api/v1/games${suffix ? `?${suffix}` : ""}`);
 }
 
 export function getGameMarkets(gameId: string) {
@@ -744,6 +853,9 @@ export function getInstrumentRawSource(
 export function getDivergence(filters: DivergenceQuery = {}) {
   const query = new URLSearchParams();
 
+  if (filters.date) {
+    query.set("date", filters.date);
+  }
   if (filters.family) {
     query.set("family", filters.family);
   }
@@ -758,6 +870,9 @@ export function getDivergence(filters: DivergenceQuery = {}) {
   }
   if (filters.sort) {
     query.set("sort", filters.sort);
+  }
+  if (filters.limit != null) {
+    query.set("limit", String(filters.limit));
   }
 
   const suffix = query.toString();
@@ -786,8 +901,68 @@ export function getResearchCoverage() {
   return request<ResearchCoveragePayload>("/api/v1/research/coverage");
 }
 
-export function getSignalMismatches() {
-  return request<SignalMismatchesPayload>("/api/v1/research/signal-mismatches");
+export function getSignalMismatches(options?: {
+  date?: string;
+  family?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.date) {
+    params.set("date", options.date);
+  }
+  if (options?.family) {
+    params.set("family", options.family);
+  }
+
+  const suffix = params.toString();
+  return request<SignalMismatchesPayload>(
+    `/api/v1/research/signal-mismatches${suffix ? `?${suffix}` : ""}`
+  );
+}
+
+export function getPlayerPropAlerts(options?: {
+  includeStale?: boolean;
+  limit?: number;
+  maxPairGapMinutes?: number;
+  maxQuoteAgeMinutes?: number;
+  minDelta?: number;
+}) {
+  const params = new URLSearchParams();
+  if (options?.includeStale != null) {
+    params.set("includeStale", String(options.includeStale));
+  }
+  if (options?.limit != null) {
+    params.set("limit", String(options.limit));
+  }
+  if (options?.maxPairGapMinutes != null) {
+    params.set("maxPairGapMinutes", String(options.maxPairGapMinutes));
+  }
+  if (options?.maxQuoteAgeMinutes != null) {
+    params.set("maxQuoteAgeMinutes", String(options.maxQuoteAgeMinutes));
+  }
+  if (options?.minDelta != null) {
+    params.set("minDelta", String(options.minDelta));
+  }
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<PlayerPropAlertsPayload>(
+    `/api/v1/research/player-prop-alerts${suffix}`
+  );
+}
+
+export function getPlayerPropAlertPlayback(options?: {
+  date?: string;
+  limit?: number;
+}) {
+  const params = new URLSearchParams();
+  if (options?.date) {
+    params.set("date", options.date);
+  }
+  if (options?.limit != null) {
+    params.set("limit", String(options.limit));
+  }
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<PlayerPropAlertPlaybackPayload>(
+    `/api/v1/research/player-prop-alert-playback${suffix}`
+  );
 }
 
 export function getExportCatalog() {

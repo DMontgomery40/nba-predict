@@ -29,6 +29,14 @@ const booleanQueryParamSchema = z.preprocess((value) => {
   return value;
 }, z.boolean());
 
+const positiveIntegerQueryParamSchema = z.preprocess((value) => {
+  if (typeof value === "string" && value.trim() !== "") {
+    return Number(value);
+  }
+
+  return value;
+}, z.number().int().positive());
+
 export const coverageSummarySchema = z.object({
   activeSourceCount: z.number().int().nonnegative(),
   availableSources: z.array(researchSourceIdSchema),
@@ -198,6 +206,53 @@ export const signalMismatchRowSchema = divergenceRowSchema.extend({
   directionalDisagreement: z.boolean(),
 });
 
+export const playerPropAlertSourceSchema = z.object({
+  source: z.enum(["bet365", "kalshi", "polymarket"]),
+  sourceMarketId: z.string(),
+  sourceMarketKey: z.string(),
+  sourceSelectionKey: z.string().nullable().optional(),
+  rawLabel: z.string().nullable().optional(),
+  mappingStatus: mappingStatusSchema,
+  impliedProbability: z.number().min(0).max(1),
+  capturedAt: z.string(),
+  lineRaw: z.number().nullable().optional(),
+  oddsRaw: z.string().nullable().optional(),
+  priceRaw: z.number().nullable().optional(),
+  bestBid: z.number().nullable().optional(),
+  bestAsk: z.number().nullable().optional(),
+  volume: z.number().nullable().optional(),
+});
+
+export const playerPropDisagreementAlertSchema = z.object({
+  id: z.string(),
+  gameId: z.string(),
+  instrumentId: z.string(),
+  gameLabel: z.string(),
+  sport: z.string(),
+  league: z.string(),
+  scheduledStart: z.string(),
+  displayLabel: z.string(),
+  participantKey: z.string().nullable().optional(),
+  selection: z.string(),
+  line: z.number().nullable().optional(),
+  inPlay: z.boolean(),
+  severity: severityBandSchema,
+  riskScore: z.number().min(0),
+  absoluteDelta: z.number().min(0).max(1),
+  signedDelta: z.number().min(-1).max(1),
+  direction: z.enum(["bet365-higher", "prediction-market-higher"]),
+  detectedAt: z.string(),
+  lineMismatch: z.boolean(),
+  bet365: playerPropAlertSourceSchema,
+  predictionMarket: playerPropAlertSourceSchema,
+  freshness: z.object({
+    bet365AgeMs: z.number().min(0),
+    predictionMarketAgeMs: z.number().min(0),
+    pairGapMs: z.number().min(0),
+  }),
+  action: z.literal("manual-review"),
+});
+
 export const coverageRowSchema = z.object({
   gameId: z.string(),
   instrumentId: z.string().nullable().optional(),
@@ -239,12 +294,13 @@ export const storageCoverageRowSchema = z.object({
 });
 
 export const gamesQuerySchema = z.object({
-  sport: z.string().optional(),
-  league: z.string().optional(),
-  status: z.string().optional(),
   date: z.string().optional(),
-  sourceCoverage: z.string().optional(),
   hasUnmappedMarkets: booleanQueryParamSchema.optional(),
+  league: z.string().optional(),
+  limit: positiveIntegerQueryParamSchema.optional(),
+  sourceCoverage: z.string().optional(),
+  sport: z.string().optional(),
+  status: z.string().optional(),
 });
 
 export const gameMarketsQuerySchema = z.object({
@@ -264,11 +320,13 @@ export const instrumentTimelineQuerySchema = z.object({
 export const researchDivergenceQuerySchema = z.object({
   sport: z.string().optional(),
   league: z.string().optional(),
+  date: z.string().optional(),
   family: marketFamilySchema.optional(),
   inPlay: booleanQueryParamSchema.optional(),
   sourceSet: z.string().optional(),
   severity: severityBandSchema.optional(),
   freshness: z.string().optional(),
+  limit: positiveIntegerQueryParamSchema.optional(),
   mappedState: z.enum(["comparable", "line-mismatch", "unmapped"]).optional(),
   sort: z
     .enum([

@@ -12,6 +12,8 @@ import {
   getInstrumentSources,
   getInstrumentTimeline,
   getLeadLagSeries,
+  listPlayerPropDisagreementAlerts,
+  listPlayerPropAlertPlaybackFrames,
   getResearchCoverage,
   getResearchGame,
   getSignalQualityReport,
@@ -34,6 +36,13 @@ type GamesQuery = Parameters<typeof listResearchGames>[0];
 type GameMarketsQuery = Parameters<typeof listGameMarkets>[1];
 type InstrumentTimelineQuery = Parameters<typeof getInstrumentTimeline>[2];
 type ResearchDivergenceQuery = Parameters<typeof listResearchDivergence>[0];
+type SignalMismatchesQuery = Parameters<typeof listSignalMismatches>[0];
+type PlayerPropAlertQuery = Parameters<
+  typeof listPlayerPropDisagreementAlerts
+>[0];
+type PlayerPropAlertPlaybackQuery = Parameters<
+  typeof listPlayerPropAlertPlaybackFrames
+>[0];
 type MappingResolveBody = Parameters<typeof resolveSourceMarketMapping>[0];
 type CaptureRestartBody = {
   source?: string;
@@ -425,9 +434,13 @@ export function getResearchDivergencePayload(
   context?: ServiceContext
 ) {
   const logger = getLogger(context, "getResearchDivergencePayload");
-  const data = listResearchDivergence(query);
+  const effectiveQuery = {
+    ...query,
+    limit: query?.limit ?? 250,
+  };
+  const data = listResearchDivergence(effectiveQuery);
   logger.debug(
-    { count: data.length, query },
+    { count: data.length, query: effectiveQuery },
     "Built research divergence payload."
   );
   return {
@@ -436,10 +449,48 @@ export function getResearchDivergencePayload(
   };
 }
 
-export function getSignalMismatchesPayload(context?: ServiceContext) {
+export function getSignalMismatchesPayload(
+  query: SignalMismatchesQuery = {},
+  context?: ServiceContext
+) {
   const logger = getLogger(context, "getSignalMismatchesPayload");
-  const data = listSignalMismatches();
-  logger.debug({ count: data.length }, "Built signal mismatches payload.");
+  const data = listSignalMismatches(query);
+  logger.debug(
+    { count: data.length, query },
+    "Built signal mismatches payload."
+  );
+  return {
+    data,
+    meta: generatedMeta(),
+  };
+}
+
+export function getPlayerPropDisagreementAlertsPayload(
+  query: PlayerPropAlertQuery,
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getPlayerPropDisagreementAlertsPayload");
+  const data = listPlayerPropDisagreementAlerts(query);
+  logger.debug(
+    { count: data.length, query },
+    "Built player prop disagreement alerts payload."
+  );
+  return {
+    data,
+    meta: generatedMeta(),
+  };
+}
+
+export function getPlayerPropAlertPlaybackPayload(
+  query: PlayerPropAlertPlaybackQuery,
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getPlayerPropAlertPlaybackPayload");
+  const data = listPlayerPropAlertPlaybackFrames(query);
+  logger.debug(
+    { count: data.length, query },
+    "Built player prop alert playback payload."
+  );
   return {
     data,
     meta: generatedMeta(),

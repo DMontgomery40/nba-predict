@@ -1,5 +1,6 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { ErrorState, LoadingState } from "../../components/ErrorState";
 import { PageFrame } from "../../components/PageFrame";
@@ -12,6 +13,7 @@ import {
 import {
   getAdminCaptureRuns,
   getAdminStorageCoverage,
+  getDivergence,
   getInstrumentTimeline,
   getResearchCoverage,
   getSignalMismatches,
@@ -24,6 +26,7 @@ import {
 type SignalMismatchRow = Awaited<
   ReturnType<typeof getSignalMismatches>
 >["data"][number];
+type DivergenceRow = Awaited<ReturnType<typeof getDivergence>>["data"][number];
 type InstrumentTimelineData = Awaited<
   ReturnType<typeof getInstrumentTimeline>
 >["data"];
@@ -38,6 +41,35 @@ type HistoricalGapSummary = {
   peakKalshi?: number | null;
   peakPolymarket?: number | null;
 };
+
+function localDateInputValue(date = new Date()) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function yesterdayDateInputValue() {
+  const date = new Date();
+  date.setDate(date.getDate() - 1);
+  return localDateInputValue(date);
+}
+
+function formatReviewDateLabel(value: string) {
+  if (!value) {
+    return "all persisted dates";
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (!Number.isFinite(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
 
 function formatTimestamp(value?: string | null) {
   if (!value) {
@@ -208,46 +240,124 @@ function buildHistoricalGapSummary(
   return peakSummary;
 }
 
-function selectHighlightRows(rows: SignalMismatchRow[]) {
+function selectHighlightRows(
+  rows: SignalMismatchRow[],
+  reviewDateLabel: string
+) {
   const finishedRows = rows.filter(
     (row) => row.gameStatus === "final" && !row.lineMismatch
   );
 
   if (finishedRows.length > 0) {
     return {
-      body: "These are the clearest finished-game mismatches we have persisted this week, ranked by gap.",
+      body: `These are the clearest finished-game mismatches persisted for ${reviewDateLabel}, ranked by gap.`,
       rows: finishedRows.slice(0, 3),
       usesFallback: false,
     };
   }
 
+  if (rows.length === 0) {
+    return {
+      body: `No signal mismatch rows are persisted for ${reviewDateLabel}.`,
+      rows: [],
+      usesFallback: false,
+    };
+  }
+
   return {
-    body: "No finished-game source history is persisted in the current database yet, so this falls back to the clearest live or pregame mismatches we do have.",
+    body: `No finished-game source history is persisted for ${reviewDateLabel}, so this falls back to live or pregame mismatches on that date.`,
     rows: rows.filter((row) => !row.lineMismatch).slice(0, 3),
     usesFallback: true,
   };
 }
 
+function marketFamilyFromParam(value: string | null) {
+  return value === "player-prop" ||
+    value === "moneyline" ||
+    value === "spread" ||
+    value === "total"
+    ? value
+    : "all";
+}
+
+function formatPlayerPropCount(count: number) {
+  return `${count} player prop${count === 1 ? "" : "s"} tracked`;
+}
+
 export function HistoryPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [reviewDate, setReviewDate] = useState(
+    () => searchParams.get("date") ?? yesterdayDateInputValue()
+  );
+  const [marketFamily, setMarketFamily] = useState(() =>
+    marketFamilyFromParam(searchParams.get("family"))
+  );
+  const reviewDateLabel = useMemo(
+    () => formatReviewDateLabel(reviewDate),
+    [reviewDate]
+  );
+  const selectedFamily = marketFamily === "all" ? undefined : marketFamily;
+
+  function updateHistoryFilters(next: { date?: string; family?: string }) {
+    const nextDate = next.date ?? reviewDate;
+    const nextFamily = next.family ?? marketFamily;
+    setReviewDate(nextDate);
+    setMarketFamily(nextFamily);
+    setSearchParams((current) => {
+      const params = new URLSearchParams(current);
+      if (nextDate) {
+        params.set("date", nextDate);
+      } else {
+        params.delete("date");
+      }
+      if (nextFamily !== "all") {
+        params.set("family", nextFamily);
+      } else {
+        params.delete("family");
+      }
+      return params;
+    });
+  }
+
+  const signalMismatches = useQuery({
+    queryKey: ["research-signal-mismatches", reviewDate, selectedFamily],
+    queryFn: () =>
+      getSignalMismatches({
+        date: reviewDate || undefined,
+        family: selectedFamily,
+      }),
+  });
+  const trackedPlayerProps = useQuery({
+    enabled: selectedFamily === "player-prop",
+    queryKey: ["research-history-tracked-player-props", reviewDate],
+    queryFn: () =>
+      getDivergence({
+        date: reviewDate || undefined,
+        family: "player-prop",
+        limit: 500,
+        sort: "signalPriority",
+      }),
+  });
+  const secondaryHistoryEnabled = Boolean(signalMismatches.data);
   const captureRuns = useQuery({
+    enabled: secondaryHistoryEnabled,
     queryKey: ["admin-capture-runs"],
     queryFn: getAdminCaptureRuns,
   });
   const storageCoverage = useQuery({
+    enabled: secondaryHistoryEnabled,
     queryKey: ["admin-storage-coverage"],
     queryFn: getAdminStorageCoverage,
   });
   const researchCoverage = useQuery({
+    enabled: secondaryHistoryEnabled,
     queryKey: ["research-coverage"],
     queryFn: getResearchCoverage,
   });
-  const signalMismatches = useQuery({
-    queryKey: ["research-signal-mismatches"],
-    queryFn: getSignalMismatches,
-  });
 
   const highlightedRows = selectHighlightRows(
-    signalMismatches.data?.data ?? []
+    signalMismatches.data?.data ?? [],
+    reviewDateLabel
   );
   const highlightTimelines = useQueries({
     queries: highlightedRows.rows.map((row) => ({
@@ -262,28 +372,13 @@ export function HistoryPage() {
   });
 
   if (
-    captureRuns.isLoading ||
-    storageCoverage.isLoading ||
-    researchCoverage.isLoading ||
     signalMismatches.isLoading ||
-    (!captureRuns.data && !captureRuns.isError) ||
-    (!storageCoverage.data && !storageCoverage.isError) ||
-    (!researchCoverage.data && !researchCoverage.isError) ||
     (!signalMismatches.data && !signalMismatches.isError)
   ) {
     return <LoadingState message="Loading persisted research history…" />;
   }
 
-  if (
-    captureRuns.isError ||
-    storageCoverage.isError ||
-    researchCoverage.isError ||
-    signalMismatches.isError ||
-    !captureRuns.data ||
-    !storageCoverage.data ||
-    !researchCoverage.data ||
-    !signalMismatches.data
-  ) {
+  if (signalMismatches.isError || !signalMismatches.data) {
     return (
       <PageFrame
         aside={
@@ -293,17 +388,9 @@ export function HistoryPage() {
         }
       >
         <ErrorState
-          description="The persisted history surfaces could not be loaded."
-          error={
-            captureRuns.error ??
-            storageCoverage.error ??
-            researchCoverage.error ??
-            signalMismatches.error
-          }
+          description="The persisted signal mismatch surface could not be loaded."
+          error={signalMismatches.error}
           onAction={() => {
-            void captureRuns.refetch();
-            void storageCoverage.refetch();
-            void researchCoverage.refetch();
             void signalMismatches.refetch();
           }}
           title="History failed to load"
@@ -312,7 +399,9 @@ export function HistoryPage() {
     );
   }
 
-  const quoteTicksPersisted = storageCoverage.data.data.reduce(
+  const storageCoverageRows = storageCoverage.data?.data ?? [];
+  const researchCoverageRows = researchCoverage.data?.data ?? [];
+  const quoteTicksPersisted = storageCoverageRows.reduce(
     (sum, row) => sum + row.quoteTickCount,
     0
   );
@@ -322,6 +411,7 @@ export function HistoryPage() {
   const directionalSignalCount = signalMismatches.data.data.filter(
     (row) => row.directionalDisagreement
   ).length;
+  const trackedPlayerPropRows = trackedPlayerProps.data?.data ?? [];
 
   return (
     <PageFrame
@@ -343,15 +433,89 @@ export function HistoryPage() {
           <div className="eyebrow">History</div>
           <h1>Persisted market and ingest history</h1>
           <p>
-            Start with the clearest source gap, then drill into the supporting
-            capture history, coverage, and raw persistence underneath it.
+            Start with the clearest source gap for {reviewDateLabel}
+            {selectedFamily ? ` in ${selectedFamily}` : ""}, then drill into the
+            supporting capture history, coverage, and raw persistence underneath
+            it.
           </p>
+        </div>
+        <div className="history-review-actions">
+          <label>
+            <span>Review date</span>
+            <input
+              onChange={(event) =>
+                updateHistoryFilters({ date: event.target.value })
+              }
+              type="date"
+              value={reviewDate}
+            />
+          </label>
+          <label>
+            <span>Family</span>
+            <select
+              onChange={(event) =>
+                updateHistoryFilters({ family: event.target.value })
+              }
+              value={marketFamily}
+            >
+              <option value="all">All families</option>
+              <option value="player-prop">Player props</option>
+              <option value="moneyline">Moneyline</option>
+              <option value="spread">Spread</option>
+              <option value="total">Total</option>
+            </select>
+          </label>
         </div>
       </section>
 
+      {selectedFamily === "player-prop" ? (
+        <Panel>
+          <SectionTitle
+            eyebrow="Tracked Player Props"
+            title={
+              trackedPlayerProps.isLoading
+                ? "Loading tracked player props"
+                : formatPlayerPropCount(trackedPlayerPropRows.length)
+            }
+            body="These are persisted player-prop instruments for the selected date, including props that did not reach the notification threshold."
+          />
+          {trackedPlayerProps.isError ? (
+            <ErrorState
+              description="Tracked player-prop rows could not be loaded."
+              error={trackedPlayerProps.error}
+              onAction={() => void trackedPlayerProps.refetch()}
+              title="Tracked player props failed to load"
+            />
+          ) : trackedPlayerProps.isLoading ? (
+            <div className="loading-panel">Loading tracked player props...</div>
+          ) : trackedPlayerPropRows.length === 0 ? (
+            <p className="muted">
+              No persisted player-prop rows are available for this date.
+            </p>
+          ) : (
+            <div className="tracked-history-grid">
+              {trackedPlayerPropRows.slice(0, 24).map((row: DivergenceRow) => (
+                <Link
+                  className="tracked-history-row"
+                  key={`${row.gameId}:${row.instrumentId}`}
+                  to={`/games/${row.gameId}/markets/${row.instrumentId}`}
+                >
+                  <div>
+                    <strong>{row.displayLabel}</strong>
+                    <span>{row.gameId}</span>
+                  </div>
+                  <em>{formatPercent(row.impliedProbabilityGap)}</em>
+                  <span>{row.comparableState.replace("-", " ")}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Panel>
+      ) : null}
+
       <Panel>
         <SectionTitle
-          eyebrow="This Week"
+          eyebrow="Review Date"
           title="Signals worth opening first"
           body={highlightedRows.body}
         />
@@ -503,7 +667,9 @@ export function HistoryPage() {
         />
         <MetricTile
           label="Quote Ticks"
-          value={String(quoteTicksPersisted)}
+          value={
+            storageCoverage.isLoading ? "..." : String(quoteTicksPersisted)
+          }
           tone={quoteTicksPersisted > 0 ? "positive" : "warning"}
         />
       </div>
@@ -515,7 +681,16 @@ export function HistoryPage() {
           body="These rows come from persisted adapter run logging, not the current browser session."
         />
         <div className="stack">
-          {captureRuns.data.data.length === 0 ? (
+          {captureRuns.isLoading ? (
+            <div className="loading-panel">Loading capture runs...</div>
+          ) : captureRuns.isError || !captureRuns.data ? (
+            <ErrorState
+              description="Capture-run history could not be loaded."
+              error={captureRuns.error}
+              onAction={() => void captureRuns.refetch()}
+              title="Capture runs failed to load"
+            />
+          ) : captureRuns.data.data.length === 0 ? (
             <p className="muted">No capture runs have been written yet.</p>
           ) : (
             captureRuns.data.data.slice(0, 10).map((run) => (
@@ -544,10 +719,19 @@ export function HistoryPage() {
             body="This shows which sources and market families have durable payloads behind them."
           />
           <div className="stack">
-            {storageCoverage.data.data.length === 0 ? (
+            {storageCoverage.isLoading ? (
+              <div className="loading-panel">Loading storage coverage...</div>
+            ) : storageCoverage.isError || !storageCoverage.data ? (
+              <ErrorState
+                description="Persisted source coverage could not be loaded."
+                error={storageCoverage.error}
+                onAction={() => void storageCoverage.refetch()}
+                title="Storage coverage failed to load"
+              />
+            ) : storageCoverageRows.length === 0 ? (
               <p className="muted">No persisted source coverage rows yet.</p>
             ) : (
-              storageCoverage.data.data.slice(0, 8).map((row) => (
+              storageCoverageRows.slice(0, 8).map((row) => (
                 <div
                   className="storage-coverage-row"
                   key={`${row.gameId}-${row.source}-${row.family ?? "all"}`}
@@ -576,12 +760,21 @@ export function HistoryPage() {
             body="This keeps missing and unmapped source visibility alive when there is nothing new on the current slate."
           />
           <div className="stack">
-            {researchCoverage.data.data.length === 0 ? (
+            {researchCoverage.isLoading ? (
+              <div className="loading-panel">Loading research coverage...</div>
+            ) : researchCoverage.isError || !researchCoverage.data ? (
+              <ErrorState
+                description="Research coverage rows could not be loaded."
+                error={researchCoverage.error}
+                onAction={() => void researchCoverage.refetch()}
+                title="Research coverage failed to load"
+              />
+            ) : researchCoverageRows.length === 0 ? (
               <p className="muted">
                 No research coverage rows are available yet.
               </p>
             ) : (
-              researchCoverage.data.data.slice(0, 8).map((row) => (
+              researchCoverageRows.slice(0, 8).map((row) => (
                 <div
                   className="storage-coverage-row"
                   key={`${row.gameId}-${row.instrumentId ?? "game"}-${row.family ?? "all"}`}

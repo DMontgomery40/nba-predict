@@ -2,8 +2,10 @@ from nba_sidecar.normalizers import (
     normalize_live_boxscore_payload,
     normalize_live_playbyplay_payload,
     normalize_live_scoreboard_payload,
+    normalize_schedule_league_payload,
     normalize_stats_scoreboard_payload,
 )
+from nba_sidecar.service import NbaSidecarService
 
 
 def test_normalize_live_scoreboard_payload_maps_game_and_state() -> None:
@@ -159,3 +161,117 @@ def test_normalize_stats_scoreboard_payload_dedupes_repeated_game_headers() -> N
 
     assert len(normalized.games) == 1
     assert normalized.games[0].game.id == "nba-0042500112"
+
+
+def test_normalize_schedule_league_payload_maps_future_playoff_games() -> None:
+    payload = {
+        "meta": {"time": "2026-05-10T14:19:57.1957Z"},
+        "leagueSchedule": {
+            "gameDates": [
+                {
+                    "gameDate": "05/11/2026 00:00:00",
+                    "games": [
+                        {
+                            "awayTeam": {
+                                "score": 0,
+                                "teamCity": "Detroit",
+                                "teamName": "Pistons",
+                                "teamTricode": "DET",
+                            },
+                            "gameDateTimeUTC": "2026-05-12T00:00:00Z",
+                            "gameId": "0042500204",
+                            "gameStatus": 1,
+                            "gameStatusText": "8:00 pm ET",
+                            "gameTimeUTC": "1900-01-01T00:00:00Z",
+                            "homeTeam": {
+                                "score": 0,
+                                "teamCity": "Cleveland",
+                                "teamName": "Cavaliers",
+                                "teamTricode": "CLE",
+                            },
+                            "period": 0,
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+
+    normalized = normalize_schedule_league_payload(
+        payload, requested_date="2026-05-11"
+    )
+
+    assert len(normalized.games) == 1
+    assert normalized.games[0].game.id == "nba-0042500204"
+    assert normalized.games[0].game.scheduledStart == "2026-05-12T00:00:00Z"
+    assert normalized.games[0].game.awayParticipant.abbreviation == "DET"
+    assert normalized.games[0].game.homeParticipant.abbreviation == "CLE"
+
+
+def test_service_falls_back_to_schedule_when_stats_scoreboard_is_empty(monkeypatch) -> None:
+    class EmptyScoreboard:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        def get_dict(self) -> dict:
+            return {
+                "resultSets": [
+                    {"headers": ["GAME_ID"], "name": "GameHeader", "rowSet": []},
+                    {"headers": ["GAME_ID"], "name": "LineScore", "rowSet": []},
+                ]
+            }
+
+    class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"""
+            {
+              "meta": {"time": "2026-05-10T14:19:57.1957Z"},
+              "leagueSchedule": {
+                "gameDates": [
+                  {
+                    "gameDate": "05/11/2026 00:00:00",
+                    "games": [
+                      {
+                        "awayTeam": {
+                          "score": 0,
+                          "teamCity": "Oklahoma City",
+                          "teamName": "Thunder",
+                          "teamTricode": "OKC"
+                        },
+                        "gameDateTimeUTC": "2026-05-12T02:30:00Z",
+                        "gameId": "0042500224",
+                        "gameStatus": 1,
+                        "gameStatusText": "10:30 pm ET",
+                        "homeTeam": {
+                          "score": 0,
+                          "teamCity": "Los Angeles",
+                          "teamName": "Lakers",
+                          "teamTricode": "LAL"
+                        },
+                        "period": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """
+
+    monkeypatch.setattr(
+        "nba_sidecar.service.scoreboardv2.ScoreboardV2", EmptyScoreboard
+    )
+    monkeypatch.setattr("nba_sidecar.service.is_today", lambda _requested_date: False)
+    monkeypatch.setattr(
+        "nba_sidecar.service.urlopen", lambda *_args, **_kwargs: FakeResponse()
+    )
+
+    normalized = NbaSidecarService().get_scoreboard("2026-05-11")
+
+    assert len(normalized.games) == 1
+    assert normalized.games[0].game.id == "nba-0042500224"

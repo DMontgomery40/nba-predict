@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   backupDatabase,
   checkDatabaseHealth,
+  getDatabase,
   recordAdapterRun,
   resetDatabase,
   upsertWatchlist,
@@ -52,9 +53,119 @@ describe("shared db", () => {
       counts: {
         watchlistCount: 1,
       },
-      schemaVersion: 5,
+      schemaVersion: 7,
       status: "ok",
     });
+
+    const indexes = getDatabase()
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'index'")
+      .pluck()
+      .all();
+    expect(indexes).toEqual(
+      expect.arrayContaining([
+        "idx_games_scheduled_date",
+        "idx_quote_ticks_source_market_latest",
+        "idx_raw_payloads_entity_latest",
+      ])
+    );
+  });
+
+  it("migrates live Polymarket player props to cross-provider canonical instrument IDs", () => {
+    const dbPath = process.env.SIGNAL_CONSOLE_DB_PATH;
+    if (!dbPath) {
+      throw new Error("SIGNAL_CONSOLE_DB_PATH is required for this test.");
+    }
+
+    const legacy = new Database(dbPath);
+    try {
+      legacy.exec(`
+        CREATE TABLE schema_migrations (
+          version INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          applied_at TEXT NOT NULL
+        );
+        INSERT INTO schema_migrations (version, name, applied_at)
+        VALUES (5, 'canonical-instrument-consolidation', '2026-05-10T00:00:00.000Z');
+
+        CREATE TABLE market_instruments (
+          id TEXT PRIMARY KEY,
+          game_id TEXT NOT NULL,
+          family TEXT NOT NULL,
+          selection TEXT NOT NULL,
+          line REAL,
+          participant_key TEXT,
+          in_play INTEGER NOT NULL DEFAULT 0,
+          display_label TEXT NOT NULL
+        );
+
+        CREATE TABLE source_markets (
+          id TEXT PRIMARY KEY,
+          source TEXT NOT NULL,
+          source_market_key TEXT NOT NULL,
+          source_selection_key TEXT,
+          game_id TEXT NOT NULL,
+          instrument_id TEXT,
+          raw_family TEXT,
+          raw_label TEXT,
+          mapping_status TEXT NOT NULL,
+          raw_metadata_json TEXT
+        );
+
+        INSERT INTO market_instruments (
+          id, game_id, family, selection, line, participant_key, in_play, display_label
+        )
+        VALUES (
+          'nba-0042500173-points-lebron-james-over-24-5',
+          'nba-0042500173',
+          'player-prop',
+          'over',
+          24.5,
+          'lebron-james',
+          0,
+          'LeBron James points over 24.5'
+        );
+
+        INSERT INTO source_markets (
+          id, source, source_market_key, source_selection_key, game_id,
+          instrument_id, raw_family, raw_label, mapping_status, raw_metadata_json
+        )
+        VALUES (
+          'pm-2050554-over',
+          'polymarket',
+          'nba-lal-hou-2026-04-24-points-lebron-james-24pt5',
+          'over',
+          'nba-0042500173',
+          'nba-0042500173-points-lebron-james-over-24-5',
+          'points',
+          'LeBron James: Points O/U 24.5',
+          'auto',
+          '{}'
+        );
+      `);
+    } finally {
+      legacy.close();
+    }
+
+    const db = getDatabase();
+
+    expect(
+      db
+        .prepare("SELECT instrument_id FROM source_markets WHERE id = ?")
+        .pluck()
+        .get("pm-2050554-over")
+    ).toBe("nba-0042500173-player-prop-points-lebron-james-over-24-5");
+    expect(
+      db
+        .prepare("SELECT COUNT(*) FROM market_instruments WHERE id = ?")
+        .pluck()
+        .get("nba-0042500173-points-lebron-james-over-24-5")
+    ).toBe(0);
+    expect(
+      db
+        .prepare("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
+        .pluck()
+        .get()
+    ).toBe(7);
   });
 
   it("creates a readable SQLite backup that includes WAL writes", async () => {

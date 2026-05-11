@@ -33,6 +33,20 @@ function getSidecarLookaheadDays() {
   return Number(process.env.NBA_SIDECAR_LOOKAHEAD_DAYS ?? "3");
 }
 
+function getKalshiLiveMaxEvents() {
+  return Number(process.env.KALSHI_LIVE_MAX_EVENTS ?? "200");
+}
+
+function getKalshiLiveLookbackDays() {
+  return Number(process.env.KALSHI_LIVE_LOOKBACK_DAYS ?? "2");
+}
+
+function getKalshiLiveMinimumStartDate(now: Date) {
+  const minimum = new Date(now);
+  minimum.setUTCDate(minimum.getUTCDate() - getKalshiLiveLookbackDays());
+  return minimum.toISOString().slice(0, 10);
+}
+
 export type WorkerHeartbeatSummary = {
   bet365GamesMatched: number;
   bet365SourceMarketsObserved: number;
@@ -45,6 +59,10 @@ export type WorkerHeartbeatSummary = {
   nbaSidecarConfigured: boolean;
   polymarketGamesMatched: number;
   polymarketSourceMarketsObserved: number;
+  providerFailures: Array<{
+    error: ReturnType<typeof serializeErrorForLog>;
+    source: "bet365" | "kalshi" | "polymarket";
+  }>;
 };
 
 export function calculateBackoffDelay(
@@ -65,6 +83,7 @@ export function buildWorkerHeartbeatSummary(options?: {
   now?: () => Date;
   polymarketGamesMatched?: number;
   polymarketSourceMarketsObserved?: number;
+  providerFailures?: WorkerHeartbeatSummary["providerFailures"];
 }) {
   loadRuntimeEnv();
   const now = options?.now ?? (() => new Date());
@@ -84,6 +103,7 @@ export function buildWorkerHeartbeatSummary(options?: {
     polymarketGamesMatched: options?.polymarketGamesMatched ?? 0,
     polymarketSourceMarketsObserved:
       options?.polymarketSourceMarketsObserved ?? 0,
+    providerFailures: options?.providerFailures ?? [],
   } satisfies WorkerHeartbeatSummary;
 }
 
@@ -105,6 +125,7 @@ export async function runWorkerCycle(options?: {
   const maxBackoffMs =
     options?.maxBackoffMs ?? getDefaultMaxBackoffMs(intervalMs);
   const consecutiveFailures = options?.consecutiveFailures ?? 0;
+  const now = options?.now ?? (() => new Date());
   const syncBet365 = options?.syncBet365 ?? syncOddsApiBet365NbaMarkets;
   const syncKalshi = options?.syncKalshi ?? syncKalshiNbaDirect;
   const syncNbaSidecar = options?.syncNbaSidecar ?? syncNbaSidecarWindow;
@@ -118,6 +139,7 @@ export async function runWorkerCycle(options?: {
     let nbaGameCount = 0;
     let polymarketGamesMatched = 0;
     let polymarketSourceMarketsObserved = 0;
+    const providerFailures: WorkerHeartbeatSummary["providerFailures"] = [];
     const nbaSidecarConfigured = Boolean(process.env.NBA_SIDECAR_BASE_URL);
     const oddsApiConfigured = Boolean(
       process.env.ODDS_API_KEY ?? process.env.ODDS_API_IO_KEY
@@ -135,29 +157,49 @@ export async function runWorkerCycle(options?: {
     }
 
     if (oddsApiConfigured) {
-      const bet365Result = await syncBet365({
-        now: options?.now,
-      });
-      bet365GamesMatched = bet365Result.gamesMatched;
-      bet365SourceMarketsObserved = bet365Result.sourceMarketsObserved;
-      logger.info(bet365Result, "Bet365 sync completed.");
+      try {
+        const bet365Result = await syncBet365({
+          now: options?.now,
+        });
+        bet365GamesMatched = bet365Result.gamesMatched;
+        bet365SourceMarketsObserved = bet365Result.sourceMarketsObserved;
+        logger.info(bet365Result, "Bet365 sync completed.");
+      } catch (error) {
+        const serialized = serializeErrorForLog(error);
+        providerFailures.push({ error: serialized, source: "bet365" });
+        logger.error({ error: serialized }, "Bet365 sync failed.");
+      }
     }
 
     if (kalshiDirectConfigured) {
-      const kalshiResult = await syncKalshi({
-        now: options?.now,
-      });
-      kalshiGamesMatched = kalshiResult.gamesMatched;
-      kalshiSourceMarketsObserved = kalshiResult.sourceMarketsObserved;
-      logger.info(kalshiResult, "Kalshi sync completed.");
+      try {
+        const kalshiResult = await syncKalshi({
+          maxEvents: getKalshiLiveMaxEvents(),
+          minimumStartDate: getKalshiLiveMinimumStartDate(now()),
+          now: options?.now,
+        });
+        kalshiGamesMatched = kalshiResult.gamesMatched;
+        kalshiSourceMarketsObserved = kalshiResult.sourceMarketsObserved;
+        logger.info(kalshiResult, "Kalshi sync completed.");
+      } catch (error) {
+        const serialized = serializeErrorForLog(error);
+        providerFailures.push({ error: serialized, source: "kalshi" });
+        logger.error({ error: serialized }, "Kalshi sync failed.");
+      }
     }
 
-    const polymarketResult = await syncPolymarket({
-      now: options?.now,
-    });
-    polymarketGamesMatched = polymarketResult.gamesMatched;
-    polymarketSourceMarketsObserved = polymarketResult.sourceMarketsObserved;
-    logger.info(polymarketResult, "Polymarket sync completed.");
+    try {
+      const polymarketResult = await syncPolymarket({
+        now: options?.now,
+      });
+      polymarketGamesMatched = polymarketResult.gamesMatched;
+      polymarketSourceMarketsObserved = polymarketResult.sourceMarketsObserved;
+      logger.info(polymarketResult, "Polymarket sync completed.");
+    } catch (error) {
+      const serialized = serializeErrorForLog(error);
+      providerFailures.push({ error: serialized, source: "polymarket" });
+      logger.error({ error: serialized }, "Polymarket sync failed.");
+    }
 
     const summary = buildWorkerHeartbeatSummary({
       bet365GamesMatched,
@@ -169,6 +211,7 @@ export async function runWorkerCycle(options?: {
       now: options?.now,
       polymarketGamesMatched,
       polymarketSourceMarketsObserved,
+      providerFailures,
     });
 
     await options?.onHeartbeat?.(summary);

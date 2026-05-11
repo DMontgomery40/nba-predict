@@ -6,6 +6,8 @@ import {
   getInstrumentDeltaSeriesPayload,
   getInstrumentLeadLagPayload,
   getInstrumentLeadLagSeriesPayload,
+  getPlayerPropAlertPlaybackPayload,
+  getPlayerPropDisagreementAlertsPayload,
   getResearchCoveragePayload,
   getResearchDivergencePayload,
   getSignalMismatchesPayload,
@@ -32,18 +34,98 @@ function parseIntegerParam(
   return defaultValue;
 }
 
+function parseNumberParam(
+  value: unknown,
+  defaultValue?: number
+): number | undefined {
+  if (typeof value === "string" && value.length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : defaultValue;
+  }
+  return defaultValue;
+}
+
+function parseBooleanParam(value: unknown, defaultValue?: boolean) {
+  if (typeof value !== "string") {
+    return defaultValue;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true" || normalized === "1") {
+    return true;
+  }
+  if (normalized === "false" || normalized === "0") {
+    return false;
+  }
+
+  return defaultValue;
+}
+
+function parseDateParam(value: unknown) {
+  if (typeof value !== "string" || value.length === 0) {
+    return undefined;
+  }
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
 export async function registerResearchRoutes(app: FastifyInstance) {
   app.get("/api/v1/research/signal-mismatches", async (request) => {
-    return getSignalMismatchesPayload({
+    const query = parseWithSchema(researchDivergenceQuerySchema, request.query);
+    return getSignalMismatchesPayload(query, {
       logger: request.log.child({ route: "research-signal-mismatches" }),
     });
   });
 
   app.get("/api/v1/research/mismatches", async (request) => {
-    return getSignalMismatchesPayload({
+    const query = parseWithSchema(researchDivergenceQuerySchema, request.query);
+    return getSignalMismatchesPayload(query, {
       logger: request.log.child({ route: "research-mismatches" }),
     });
   });
+
+  app.get(
+    "/api/v1/research/player-prop-alerts",
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string> }>
+    ) => {
+      const query = request.query ?? {};
+      return getPlayerPropDisagreementAlertsPayload(
+        {
+          includeStale: parseBooleanParam(query.includeStale),
+          limit: parseIntegerParam(query.limit, 25),
+          maxPairGapMinutes: parseNumberParam(query.maxPairGapMinutes, 10),
+          maxQuoteAgeMinutes: parseNumberParam(query.maxQuoteAgeMinutes, 10),
+          minDelta: parseNumberParam(query.minDelta, 0.15),
+        },
+        {
+          logger: request.log.child({
+            route: "research-player-prop-alerts",
+          }),
+        }
+      );
+    }
+  );
+
+  app.get(
+    "/api/v1/research/player-prop-alert-playback",
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string> }>
+    ) => {
+      const query = request.query ?? {};
+      return getPlayerPropAlertPlaybackPayload(
+        {
+          date: parseDateParam(query.date),
+          limit: parseIntegerParam(query.limit, 250),
+        },
+        {
+          logger: request.log.child({
+            route: "research-player-prop-alert-playback",
+          }),
+        }
+      );
+    }
+  );
 
   app.get("/api/v1/research/coverage", async (request) => {
     return getResearchCoveragePayload({

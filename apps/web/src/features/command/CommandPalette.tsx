@@ -11,7 +11,7 @@ export function CommandPalette() {
     useAppStore();
   const games = useQuery({
     queryKey: ["games"],
-    queryFn: getGames,
+    queryFn: () => getGames(),
   });
 
   useEffect(() => {

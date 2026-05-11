@@ -14,6 +14,7 @@ import {
   upsertGameOutcome,
   upsertMarketInstrument,
   upsertSourceMarket,
+  writePlayerPropAlertPlaybackFrame,
 } from "@signal-console/shared";
 
 import { buildApiServer } from "../server";
@@ -167,6 +168,30 @@ function seedResearchBackend() {
     sourceMarketKey: "poly-brunson-points",
     sourceSelectionKey: "over",
   });
+  upsertSourceMarket({
+    gameId: "nba-bos-nyk-2026-04-21",
+    id: "sm-bet365-brunson-points",
+    instrumentId: "brunson-over-29_5-points",
+    mappingStatus: "auto",
+    rawFamily: "player-prop",
+    rawLabel: "Jalen Brunson (29.5)",
+    rawMetadata: { market: "player-prop" },
+    source: "bet365",
+    sourceMarketKey: "b365-brunson-points",
+    sourceSelectionKey: "over",
+  });
+  upsertSourceMarket({
+    gameId: "nba-bos-nyk-2026-04-21",
+    id: "sm-kalshi-brunson-points",
+    instrumentId: "brunson-over-29_5-points",
+    mappingStatus: "auto",
+    rawFamily: "player-prop",
+    rawLabel: "Jalen Brunson: 30+ points",
+    rawMetadata: { market: "player-prop" },
+    source: "kalshi",
+    sourceMarketKey: "kal-brunson-points",
+    sourceSelectionKey: "over",
+  });
 
   recordQuoteObservation({
     bestAsk: null,
@@ -246,6 +271,32 @@ function seedResearchBackend() {
     sourceMarketId: "sm-poly-brunson-points",
     volume: 12,
   });
+  recordQuoteObservation({
+    bestAsk: null,
+    bestBid: null,
+    capturedAt: "2026-04-21T23:55:16.000Z",
+    depthScore: 88,
+    heartbeatAfterMs: 60_000,
+    impliedProbability: 0.64,
+    lineRaw: 29.5,
+    oddsRaw: "-178",
+    priceRaw: null,
+    sourceMarketId: "sm-bet365-brunson-points",
+    volume: 100,
+  });
+  recordQuoteObservation({
+    bestAsk: 0.36,
+    bestBid: 0.35,
+    capturedAt: "2026-04-21T23:55:18.000Z",
+    depthScore: 42,
+    heartbeatAfterMs: 60_000,
+    impliedProbability: 0.35,
+    lineRaw: 29.5,
+    oddsRaw: null,
+    priceRaw: 0.35,
+    sourceMarketId: "sm-kalshi-brunson-points",
+    volume: 17,
+  });
 
   recordRawPayload({
     capturedAt: "2026-04-21T23:55:00.000Z",
@@ -298,11 +349,13 @@ describe("api routes", () => {
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "signal-console-api-"));
     process.env.SIGNAL_CONSOLE_DB_PATH = join(tempDir, "signal-console.sqlite");
+    process.env.PLAYER_PROP_ALERT_PLAYBACK_DIR = join(tempDir, "playback");
   });
 
   afterEach(() => {
     resetDatabase();
     delete process.env.SIGNAL_CONSOLE_DB_PATH;
+    delete process.env.PLAYER_PROP_ALERT_PLAYBACK_DIR;
     delete process.env.NBA_SIDECAR_BASE_URL;
     delete process.env.ODDS_API_KEY;
     delete process.env.ODDS_API_IO_KEY;
@@ -338,6 +391,13 @@ describe("api routes", () => {
         }),
       ],
     });
+
+    const limitedGamesResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/games?limit=1",
+    });
+    expect(limitedGamesResponse.statusCode).toBe(200);
+    expect(limitedGamesResponse.json().data).toHaveLength(1);
 
     const marketResponse = await app.inject({
       method: "GET",
@@ -538,6 +598,13 @@ describe("api routes", () => {
       ]),
     });
 
+    const limitedDivergenceResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/divergence?sort=signalPriority&limit=1",
+    });
+    expect(limitedDivergenceResponse.statusCode).toBe(200);
+    expect(limitedDivergenceResponse.json().data).toHaveLength(1);
+
     const coverageResponse = await app.inject({
       method: "GET",
       url: "/api/v1/research/coverage",
@@ -560,6 +627,72 @@ describe("api routes", () => {
           gameStatus: "final",
         }),
       ]),
+    });
+
+    const dateMismatchResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/signal-mismatches?date=2026-04-22",
+    });
+    expect(dateMismatchResponse.statusCode).toBe(200);
+    expect(dateMismatchResponse.json()).toMatchObject({ data: [] });
+
+    const propAlertResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/player-prop-alerts?includeStale=true",
+    });
+    expect(propAlertResponse.statusCode).toBe(200);
+    expect(propAlertResponse.json()).toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          absoluteDelta: expect.closeTo(0.29, 6),
+          action: "manual-review",
+          bet365: expect.objectContaining({
+            impliedProbability: 0.64,
+            rawLabel: "Jalen Brunson (29.5)",
+            source: "bet365",
+          }),
+          displayLabel: "Jalen Brunson over 29.5 points",
+          predictionMarket: expect.objectContaining({
+            impliedProbability: 0.35,
+            rawLabel: "Jalen Brunson: 30+ points",
+            source: "kalshi",
+          }),
+        }),
+      ]),
+    });
+
+    writePlayerPropAlertPlaybackFrame({
+      alertCount: 1,
+      alerts: [propAlertResponse.json().data[0]],
+      capturedAt: "2026-04-21T23:55:30.000Z",
+      notifiedAlertIds: [propAlertResponse.json().data[0].id],
+      poll: {
+        includeStale: true,
+        limit: 25,
+        maxPairGapMinutes: 10,
+        maxQuoteAgeMinutes: 10,
+        minDelta: 0.15,
+      },
+      source: "player-prop-alert-watch",
+    });
+
+    const propPlaybackResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/player-prop-alert-playback?date=2026-04-21&limit=5",
+    });
+    expect(propPlaybackResponse.statusCode).toBe(200);
+    expect(propPlaybackResponse.json()).toMatchObject({
+      data: [
+        expect.objectContaining({
+          alertCount: 1,
+          alerts: [
+            expect.objectContaining({
+              displayLabel: "Jalen Brunson over 29.5 points",
+            }),
+          ],
+          notifiedAlertIds: [expect.any(String)],
+        }),
+      ],
     });
 
     const sourcesResponse = await app.inject({

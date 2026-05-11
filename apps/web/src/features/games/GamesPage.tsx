@@ -48,7 +48,7 @@ function formatGameName(entry: GameRow) {
 export function GamesPage() {
   const games = useQuery({
     queryKey: ["games"],
-    queryFn: getGames,
+    queryFn: () => getGames(),
   });
 
   if (games.isLoading || (!games.data && !games.isError)) {

@@ -14,6 +14,8 @@
 - `UX-014` History shall be a first-class route that surfaces persisted capture runs, storage coverage, research coverage, and signal mismatches even when no games are currently visible on the live slate.
 - `UX-015` Exports shall be a first-class, data-engineering-friendly route with a package-first layout: the first control downloads the complete persisted SQLite store, while secondary controls expose API-backed CSV/JSONL tables and provider/family quote slices such as all player props or one provider's prop market family.
 - `UX-016` The games index shall not dead-end on an empty slate; it shall point the user toward history, exports, and settings when no canonical games are currently visible.
+- `UX-017` The root trader desk shall prioritize player-prop attribution risk above general research: fresh Bet365-vs-prediction-market prop disagreements should appear in a first-panel queue and trigger a dismissible popup that links directly to the instrument workspace.
+- `UX-018` Player-prop alerts shall have a first-class monitor route that shows the current live review queue and the persisted watcher replay tape for the selected date, including which frames fired desktop notifications.
 
 ## Interaction Rules
 

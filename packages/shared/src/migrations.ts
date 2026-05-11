@@ -2,7 +2,7 @@ import { DatabaseFailureError } from "./errors";
 
 import type Database from "better-sqlite3";
 
-export const currentSchemaVersion = 5;
+export const currentSchemaVersion = 7;
 
 function nowIso() {
   return new Date().toISOString();
@@ -32,6 +32,27 @@ function insertMigration(db: Database.Database, version: number, name: string) {
   db.prepare(
     "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)"
   ).run(version, name, nowIso());
+}
+
+function tableExists(db: Database.Database, tableName: string) {
+  const row = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(tableName);
+  return Boolean(row);
+}
+
+function normalizeMigrationToken(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildMigrationStableId(
+  parts: Array<string | number | null | undefined>
+) {
+  return parts.map(normalizeMigrationToken).filter(Boolean).join("-");
 }
 
 function applyInitialRuntimeSchema(db: Database.Database) {
@@ -183,12 +204,18 @@ function applyLiveResearchSchema(db: Database.Database) {
         ON game_states(game_id, captured_at DESC);
       CREATE INDEX IF NOT EXISTS idx_quote_ticks_source_market_captured
         ON quote_ticks(source_market_id, captured_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_quote_ticks_source_market_latest
+        ON quote_ticks(source_market_id, captured_at DESC, id DESC);
       CREATE INDEX IF NOT EXISTS idx_source_markets_source_key
         ON source_markets(source, source_market_key);
       CREATE INDEX IF NOT EXISTS idx_market_instruments_game_family_inplay
         ON market_instruments(game_id, family, in_play);
       CREATE INDEX IF NOT EXISTS idx_raw_payloads_source_entity
         ON raw_payloads(source, entity_type, entity_id, captured_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_raw_payloads_entity_latest
+        ON raw_payloads(entity_type, entity_id, captured_at DESC, id DESC);
+      CREATE INDEX IF NOT EXISTS idx_games_scheduled_date
+        ON games(substr(scheduled_start, 1, 10));
       CREATE INDEX IF NOT EXISTS idx_adapter_runs_source_started
         ON adapter_runs(source, started_at DESC);
       CREATE INDEX IF NOT EXISTS idx_mapping_resolutions_source_market
@@ -295,6 +322,14 @@ export function applyMigrations(db: Database.Database, dbPath: string) {
   if (getAppliedVersion(db) < 5) {
     applyCanonicalInstrumentConsolidation(db);
   }
+
+  if (getAppliedVersion(db) < 6) {
+    applyPolymarketPlayerPropCanonicalIds(db);
+  }
+
+  if (getAppliedVersion(db) < 7) {
+    applyLatestLookupIndexes(db);
+  }
 }
 
 function applyCanonicalInstrumentConsolidation(db: Database.Database) {
@@ -332,5 +367,132 @@ function applyCanonicalInstrumentConsolidation(db: Database.Database) {
     `);
 
     insertMigration(db, 5, "canonical-instrument-consolidation");
+  })();
+}
+
+function applyPolymarketPlayerPropCanonicalIds(db: Database.Database) {
+  db.transaction(() => {
+    const rows = db
+      .prepare(
+        `
+          SELECT
+            sm.id AS sourceMarketId,
+            sm.instrument_id AS sourceInstrumentId,
+            sm.game_id AS gameId,
+            sm.raw_family AS rawFamily,
+            mi.id AS instrumentId,
+            mi.family AS family,
+            mi.selection AS selection,
+            mi.line AS line,
+            mi.participant_key AS participantKey,
+            mi.in_play AS inPlay,
+            mi.display_label AS displayLabel
+          FROM source_markets sm
+          JOIN market_instruments mi ON mi.id = sm.instrument_id
+          WHERE sm.source = 'polymarket'
+            AND mi.family = 'player-prop'
+            AND sm.raw_family IN ('assists', 'points', 'rebounds', 'threes')
+            AND mi.participant_key IS NOT NULL
+            AND mi.selection IS NOT NULL
+        `
+      )
+      .all() as Array<{
+      displayLabel: string;
+      family: string;
+      gameId: string;
+      inPlay: number;
+      instrumentId: string;
+      line: number | null;
+      participantKey: string | null;
+      rawFamily: string | null;
+      selection: string;
+      sourceInstrumentId: string | null;
+      sourceMarketId: string;
+    }>;
+
+    for (const row of rows) {
+      const canonicalId = buildMigrationStableId([
+        row.gameId,
+        "player-prop",
+        row.rawFamily,
+        row.participantKey,
+        row.selection,
+        row.line,
+      ]);
+
+      if (!canonicalId || canonicalId === row.instrumentId) {
+        continue;
+      }
+
+      db.prepare(
+        `
+          INSERT OR IGNORE INTO market_instruments (
+            id, game_id, family, selection, line, participant_key, in_play, display_label
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `
+      ).run(
+        canonicalId,
+        row.gameId,
+        row.family,
+        row.selection,
+        row.line,
+        row.participantKey,
+        row.inPlay,
+        row.displayLabel
+      );
+
+      db.prepare(
+        `
+          UPDATE source_markets
+          SET instrument_id = ?
+          WHERE id = ?
+        `
+      ).run(canonicalId, row.sourceMarketId);
+
+      if (row.sourceInstrumentId) {
+        db.prepare(
+          `
+            DELETE FROM market_instruments
+            WHERE id = ?
+              AND id != ?
+              AND NOT EXISTS (
+                SELECT 1
+                FROM source_markets sm
+                WHERE sm.instrument_id = market_instruments.id
+              )
+          `
+        ).run(row.sourceInstrumentId, canonicalId);
+      }
+    }
+
+    insertMigration(db, 6, "polymarket-player-prop-canonical-ids");
+  })();
+}
+
+function applyLatestLookupIndexes(db: Database.Database) {
+  db.transaction(() => {
+    if (tableExists(db, "quote_ticks")) {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_quote_ticks_source_market_latest
+          ON quote_ticks(source_market_id, captured_at DESC, id DESC);
+      `);
+    }
+
+    if (tableExists(db, "raw_payloads")) {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_raw_payloads_entity_latest
+          ON raw_payloads(entity_type, entity_id, captured_at DESC, id DESC);
+      `);
+    }
+
+    if (tableExists(db, "games")) {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_games_scheduled_date
+          ON games(substr(scheduled_start, 1, 10));
+      `);
+    }
+
+    insertMigration(db, 7, "latest-lookup-indexes");
   })();
 }

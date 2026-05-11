@@ -13,6 +13,7 @@ import { getGames } from "../data/api";
 
 const navItems = [
   { label: "Desk", to: "/" },
+  { label: "Prop Alerts", to: "/prop-alerts" },
   { label: "Slate", to: "/games" },
   { label: "Divergence", to: "/divergence" },
   { label: "Research", to: "/research" },
@@ -24,6 +25,9 @@ const navItems = [
 function workspaceStatus(pathname: string, activeGameCount: number) {
   if (pathname === "/") {
     return "Ranked trader work queue";
+  }
+  if (pathname.startsWith("/prop-alerts")) {
+    return "Player-prop alert monitor and replay tape";
   }
   if (pathname === "/games") {
     return `${activeGameCount} tracked game${activeGameCount === 1 ? "" : "s"}`;
@@ -67,7 +71,7 @@ export function ShellLayout() {
   const games = useQuery({
     enabled: location.pathname === "/games",
     queryKey: ["games"],
-    queryFn: getGames,
+    queryFn: () => getGames(),
   });
 
   useEffect(() => {
@@ -110,6 +114,7 @@ export function ShellLayout() {
             e: "/exports",
             g: "/games",
             h: "/history",
+            p: "/prop-alerts",
             r: "/research",
             s: "/settings",
           };
