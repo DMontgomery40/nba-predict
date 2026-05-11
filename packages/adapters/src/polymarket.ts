@@ -543,6 +543,7 @@ function buildPlayerPropSelectionRecords(
     const displayLabel = `${subject} ${describeMetric(marketType)} ${selection} ${line}`;
     const instrumentId = buildStableId([
       game.game.id,
+      "player-prop",
       marketType,
       subjectKey,
       selection,

@@ -29,21 +29,29 @@ Build a real research backend and operator console for live market comparison ac
 - Player-prop ingestion for Bet365 Odds-API snapshots and Polymarket historical CLOB backfill, with May 2 export files under `data/exports/`
 - Direct Kalshi NBA market-data capture via `KALSHI_API_KEY`, covering milestone-related game, spread, total, team-prop, player-prop, period, overtime, and related event families in canonical storage
 - API-backed export catalog and server-streamed CSV/JSONL/SQLite downloads surfaced from `/exports`, including provider/family quote slices for data engineering
+- NBA sidecar future-schedule fallback to the official NBA CDN season schedule, covering playoff games that `scoreboardv2` omits or times out on
+- Worker market-provider isolation: bet365 rate limits are reported without blocking Kalshi/Polymarket refresh, and live Kalshi scans are bounded to recent events
+- First-class player-prop attribution risk alerts: `/api/v1/research/player-prop-alerts` compares fresh mapped Bet365 props against Kalshi/Polymarket, and the trader desk polls it every five seconds for a popup plus top-of-dashboard review queue
+- Player-prop alert watcher and replay path: `pnpm prop-alert-watch` records every poll frame to JSONL, sends desktop notifications for newly observed alert ids, `/api/v1/research/player-prop-alert-playback` serves the tape, and `/prop-alerts` replays what the watcher saw
+- Odds-API Bet365 backup discovery is bounded to pending/live NBA events around the active target slate before requesting odds for matched event ids
 
 ## In Progress
 
-- Cutting the pathological `research/signal-mismatches` cost that currently leaves History, Settings, and Exports stuck in loading states for real users
-- Refocusing the historical UI on weekly comparative highlights with score/context readouts instead of operator-oriented storage/admin trivia above the fold
+- Running the Mother's Day playoff player-prop alert monitor for the live slate
+- Turning player-prop alerts from a polling read model into a full exposure-aware workflow once bet-intent/liability feeds exist
+- Cutting the pathological `research/signal-mismatches` and coverage/export cost that can still leave heavy research routes slow on the full 4.5M+ quote local DB
 - Tightening the direct public Bet365 capture seam so the repo is not permanently dependent on a backup provider
-- Restoring fresh Bet365 capture so the desk can show an actual live trading signal instead of stale diagnostic rows.
+- Restoring fresh Bet365 capture; the current local Odds-API path is configured and now target-bounded, but the account is still rate-limited with HTTP 429 until the upstream window resets
 
 ## Next
 
 1. Land direct public-site Bet365 capture so the primary source path no longer depends on Odds-API.io as a backup provider.
-2. Add broader live validation around direct Kalshi and Bet365 backup ingestion with real local provider credentials.
-3. Expand the chart surface with clearer game-state overlays, mismatch annotations, and depth-oriented views where the source supports them.
-4. Turn more admin placeholders into executable workflows rather than queue-only records.
-5. Keep widening browser and integration coverage around env -> worker -> DB -> API -> UI for the live-only operator path.
+2. Attach exposure/liability inputs to player-prop attribution alerts so the popup can rank by money at risk rather than price delta alone.
+3. Add an indexed, date/game-scoped export path for the handoff slices so data engineering does not have to pull full-table CSVs for current-game joins.
+4. Add broader live validation around direct Kalshi and Bet365 backup ingestion with real local provider credentials.
+5. Expand the chart surface with clearer game-state overlays, mismatch annotations, and depth-oriented views where the source supports them.
+6. Turn more admin placeholders into executable workflows rather than queue-only records.
+7. Keep widening browser and integration coverage around env -> worker -> DB -> API -> UI for the live-only operator path.
 
 ## Non-Negotiables
 

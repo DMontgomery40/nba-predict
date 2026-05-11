@@ -20,6 +20,8 @@ import type {
   MarketFamily,
   MarketInstrument,
   MarketInstrumentView,
+  PlayerPropAlertSource,
+  PlayerPropDisagreementAlert,
   QuoteTick,
   RawPayloadAttachment,
   ResearchGameCard,
@@ -54,16 +56,19 @@ type GamesFilters = {
   date?: string;
   hasUnmappedMarkets?: boolean;
   league?: string;
+  limit?: number;
   sourceCoverage?: string;
   sport?: string;
   status?: string;
 };
 
 type DivergenceFilters = {
+  date?: string;
   family?: MarketFamily;
   freshness?: string;
   inPlay?: boolean;
   league?: string;
+  limit?: number;
   mappedState?: ComparableState;
   severity?: "low" | "medium" | "high" | "critical";
   sort?:
@@ -74,6 +79,15 @@ type DivergenceFilters = {
     | "signalPriority";
   sourceSet?: string;
   sport?: string;
+};
+
+type PlayerPropAlertFilters = {
+  includeStale?: boolean;
+  limit?: number;
+  maxPairGapMinutes?: number;
+  maxQuoteAgeMinutes?: number;
+  minDelta?: number;
+  now?: Date | string;
 };
 
 type QuoteObservationInput = Omit<QuoteTick, "id" | "isHeartbeat"> & {
@@ -111,6 +125,14 @@ function stringifyJson(payload: JsonValue) {
 
 function toBoolean(value: number | boolean | null | undefined) {
   return value === true || value === 1;
+}
+
+function nullableNumber(value: unknown) {
+  if (value == null) {
+    return null;
+  }
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
 }
 
 function timestampValue(value: string | null | undefined) {
@@ -567,38 +589,33 @@ function selectLatestTicksBySourceMarketIds(
     return latest;
   }
 
-  const placeholders = sourceMarketIds.map(() => "?").join(", ");
-  const rows = db
-    .prepare(
+  const latestTick = db.prepare(
+    `
+        SELECT
+          id,
+          source_market_id AS sourceMarketId,
+          captured_at AS capturedAt,
+          price_raw AS priceRaw,
+          odds_raw AS oddsRaw,
+          line_raw AS lineRaw,
+          implied_probability AS impliedProbability,
+          best_bid AS bestBid,
+          best_ask AS bestAsk,
+          volume,
+          depth_score AS depthScore,
+          is_heartbeat AS isHeartbeat
+        FROM quote_ticks
+        WHERE source_market_id = ?
+        ORDER BY captured_at DESC, id DESC
+        LIMIT 1
       `
-        WITH ranked AS (
-          SELECT
-            id,
-            source_market_id AS sourceMarketId,
-            captured_at AS capturedAt,
-            price_raw AS priceRaw,
-            odds_raw AS oddsRaw,
-            line_raw AS lineRaw,
-            implied_probability AS impliedProbability,
-            best_bid AS bestBid,
-            best_ask AS bestAsk,
-            volume,
-            depth_score AS depthScore,
-            is_heartbeat AS isHeartbeat,
-            ROW_NUMBER() OVER (
-              PARTITION BY source_market_id
-              ORDER BY captured_at DESC, id DESC
-            ) AS rn
-          FROM quote_ticks
-          WHERE source_market_id IN (${placeholders})
-        )
-        SELECT * FROM ranked WHERE rn = 1
-      `
-    )
-    .all(...sourceMarketIds) as Record<string, unknown>[];
+  );
 
-  for (const row of rows) {
-    const tick = rowToQuoteTick(row);
+  for (const sourceMarketId of sourceMarketIds) {
+    const row = latestTick.get(sourceMarketId) as
+      | Record<string, unknown>
+      | undefined;
+    const tick = row ? rowToQuoteTick(row) : null;
     if (tick) {
       latest.set(tick.sourceMarketId, tick);
     }
@@ -616,34 +633,29 @@ function selectLatestRawPayloadsBySourceMarketIds(
     return latest;
   }
 
-  const placeholders = sourceMarketIds.map(() => "?").join(", ");
-  const rows = db
-    .prepare(
+  const latestPayload = db.prepare(
+    `
+        SELECT
+          id,
+          source,
+          captured_at AS capturedAt,
+          entity_type AS entityType,
+          entity_id AS entityId,
+          payload_json AS payloadJson,
+          content_hash AS contentHash
+        FROM raw_payloads
+        WHERE entity_type = 'source_market'
+          AND entity_id = ?
+        ORDER BY captured_at DESC, id DESC
+        LIMIT 1
       `
-        WITH ranked AS (
-          SELECT
-            id,
-            source,
-            captured_at AS capturedAt,
-            entity_type AS entityType,
-            entity_id AS entityId,
-            payload_json AS payloadJson,
-            content_hash AS contentHash,
-            ROW_NUMBER() OVER (
-              PARTITION BY entity_id
-              ORDER BY captured_at DESC, id DESC
-            ) AS rn
-          FROM raw_payloads
-          WHERE entity_type = 'source_market'
-            AND entity_id IN (${placeholders})
-        )
-        SELECT * FROM ranked WHERE rn = 1
-      `
-    )
-    .all(...sourceMarketIds) as Record<string, unknown>[];
+  );
 
-  for (const row of rows) {
-    const payload = rowToRawPayload(row);
+  for (const sourceMarketId of sourceMarketIds) {
+    const row = latestPayload.get(sourceMarketId) as
+      | Record<string, unknown>
+      | undefined;
+    const payload = row ? rowToRawPayload(row) : null;
     if (payload) {
       latest.set(payload.entityId, payload);
     }
@@ -899,7 +911,7 @@ type ResearchDivergenceEntry = {
 
 function selectFilteredGameBundles(
   db: Database.Database,
-  filters: Pick<GamesFilters, "date" | "league" | "sport">
+  filters: Pick<GamesFilters, "date" | "league" | "limit" | "sport">
 ) {
   const clauses: string[] = [];
   const params: unknown[] = [];
@@ -931,6 +943,11 @@ function selectFilteredGameBundles(
         FROM games
         ${clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : ""}
         ORDER BY scheduled_start ASC, id ASC
+        ${
+          filters.limit != null && Number.isFinite(filters.limit)
+            ? `LIMIT ${Math.min(500, Math.max(1, Math.floor(filters.limit)))}`
+            : ""
+        }
       `
     )
     .all(...params) as Record<string, unknown>[];
@@ -1104,6 +1121,7 @@ function compareDivergenceRows(
 function buildResearchDivergenceEntries(filters: DivergenceFilters = {}) {
   const db = getDatabase();
   let entries = selectFilteredGameBundles(db, {
+    date: filters.date,
     league: filters.league,
     sport: filters.sport,
   }).flatMap((bundle) =>
@@ -1170,9 +1188,15 @@ function buildResearchDivergenceEntries(filters: DivergenceFilters = {}) {
     );
   }
 
-  return [...entries].sort((left, right) =>
+  const sortedEntries = [...entries].sort((left, right) =>
     compareDivergenceRows(left.row, right.row, filters.sort)
   );
+  if (filters.limit == null) {
+    return sortedEntries;
+  }
+
+  const clampedLimit = Math.min(500, Math.max(1, Math.floor(filters.limit)));
+  return sortedEntries.slice(0, clampedLimit);
 }
 
 function buildSignalMismatchRow(entry: ResearchDivergenceEntry) {
@@ -1207,6 +1231,325 @@ function buildSignalMismatchRow(entry: ResearchDivergenceEntry) {
     polymarketImpliedProbability: polymarket ?? null,
     scheduledStart: entry.bundle.game.scheduledStart,
   } satisfies SignalMismatchRow;
+}
+
+function clampAlertLimit(value: number | undefined) {
+  if (!value || !Number.isFinite(value)) {
+    return 25;
+  }
+
+  return Math.min(100, Math.max(1, Math.floor(value)));
+}
+
+function normalizeAlertNumber(
+  value: number | undefined,
+  fallback: number,
+  min: number
+) {
+  if (value == null || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.max(min, value);
+}
+
+function playerPropAlertSourceFromRow(
+  row: Record<string, unknown>,
+  prefix: "bet365" | "external"
+): PlayerPropAlertSource {
+  return {
+    bestAsk: nullableNumber(row[`${prefix}BestAsk`]),
+    bestBid: nullableNumber(row[`${prefix}BestBid`]),
+    capturedAt: String(row[`${prefix}CapturedAt`]),
+    impliedProbability: Number(row[`${prefix}ImpliedProbability`]),
+    lineRaw: nullableNumber(row[`${prefix}LineRaw`]),
+    mappingStatus: String(row[`${prefix}MappingStatus`]) as MappingStatus,
+    oddsRaw:
+      row[`${prefix}OddsRaw`] == null ? null : String(row[`${prefix}OddsRaw`]),
+    priceRaw: nullableNumber(row[`${prefix}PriceRaw`]),
+    rawLabel:
+      row[`${prefix}RawLabel`] == null
+        ? null
+        : String(row[`${prefix}RawLabel`]),
+    source: String(row[`${prefix}Source`]) as PlayerPropAlertSource["source"],
+    sourceMarketId: String(row[`${prefix}SourceMarketId`]),
+    sourceMarketKey: String(row[`${prefix}SourceMarketKey`]),
+    sourceSelectionKey:
+      row[`${prefix}SourceSelectionKey`] == null
+        ? null
+        : String(row[`${prefix}SourceSelectionKey`]),
+    volume: nullableNumber(row[`${prefix}Volume`]),
+  };
+}
+
+function buildPlayerPropAlert(
+  row: Record<string, unknown>,
+  options: Required<
+    Pick<
+      PlayerPropAlertFilters,
+      | "includeStale"
+      | "limit"
+      | "maxPairGapMinutes"
+      | "maxQuoteAgeMinutes"
+      | "minDelta"
+    >
+  > & { nowIso: string }
+): PlayerPropDisagreementAlert | null {
+  const bet365 = playerPropAlertSourceFromRow(row, "bet365");
+  const predictionMarket = playerPropAlertSourceFromRow(row, "external");
+  const bet365Timestamp = timestampValue(bet365.capturedAt);
+  const predictionTimestamp = timestampValue(predictionMarket.capturedAt);
+  const nowTimestamp = timestampValue(options.nowIso);
+
+  if (
+    bet365Timestamp < 0 ||
+    predictionTimestamp < 0 ||
+    nowTimestamp < 0 ||
+    !Number.isFinite(bet365.impliedProbability) ||
+    !Number.isFinite(predictionMarket.impliedProbability)
+  ) {
+    return null;
+  }
+
+  const absoluteDelta = Math.abs(
+    predictionMarket.impliedProbability - bet365.impliedProbability
+  );
+  if (absoluteDelta < options.minDelta) {
+    return null;
+  }
+
+  const pairGapMs = Math.abs(predictionTimestamp - bet365Timestamp);
+  if (pairGapMs > options.maxPairGapMinutes * 60_000) {
+    return null;
+  }
+
+  const bet365AgeMs = Math.max(0, nowTimestamp - bet365Timestamp);
+  const predictionMarketAgeMs = Math.max(0, nowTimestamp - predictionTimestamp);
+  if (
+    !options.includeStale &&
+    (bet365AgeMs > options.maxQuoteAgeMinutes * 60_000 ||
+      predictionMarketAgeMs > options.maxQuoteAgeMinutes * 60_000)
+  ) {
+    return null;
+  }
+
+  const line = nullableNumber(row.line);
+  const lineMismatch =
+    !lineValuesMatch(bet365.lineRaw, line) ||
+    !lineValuesMatch(predictionMarket.lineRaw, line) ||
+    !lineValuesMatch(bet365.lineRaw, predictionMarket.lineRaw);
+  const detectedAt = new Date(
+    Math.max(bet365Timestamp, predictionTimestamp)
+  ).toISOString();
+  const signedDelta =
+    predictionMarket.impliedProbability - bet365.impliedProbability;
+  const direction =
+    signedDelta > 0 ? "prediction-market-higher" : "bet365-higher";
+  const severity = gapToSeverity(absoluteDelta, lineMismatch);
+  const inPlay = toBoolean(row.inPlay as number | boolean | null | undefined);
+  const riskScore = Math.max(
+    0,
+    Math.round(
+      absoluteDelta * 1000 +
+        (lineMismatch ? 120 : 0) +
+        (inPlay ? 40 : 0) -
+        pairGapMs / 60_000 -
+        Math.min(bet365AgeMs, predictionMarketAgeMs) / 600_000
+    )
+  );
+  const gameId = String(row.gameId);
+  const instrumentId = String(row.instrumentId);
+
+  return {
+    absoluteDelta,
+    action: "manual-review",
+    bet365,
+    detectedAt,
+    direction,
+    displayLabel: String(row.displayLabel),
+    freshness: {
+      bet365AgeMs,
+      pairGapMs,
+      predictionMarketAgeMs,
+    },
+    gameId,
+    gameLabel: String(row.gameLabel),
+    id: [
+      gameId,
+      instrumentId,
+      predictionMarket.source,
+      direction,
+      bet365.sourceMarketId,
+      predictionMarket.sourceMarketId,
+    ].join(":"),
+    inPlay,
+    instrumentId,
+    league: String(row.league),
+    line,
+    lineMismatch,
+    participantKey:
+      row.participantKey == null ? null : String(row.participantKey),
+    predictionMarket,
+    riskScore,
+    scheduledStart: String(row.scheduledStart),
+    selection: String(row.selection),
+    severity,
+    signedDelta,
+    sport: String(row.sport),
+  } satisfies PlayerPropDisagreementAlert;
+}
+
+export function listPlayerPropDisagreementAlerts(
+  filters: PlayerPropAlertFilters = {}
+) {
+  return executeDatabaseOperation(
+    "research.playerPropDisagreementAlerts.list",
+    () => {
+      const db = getDatabase();
+      const nowIso =
+        filters.now instanceof Date
+          ? filters.now.toISOString()
+          : (filters.now ?? currentTimestamp());
+      const options = {
+        includeStale: filters.includeStale ?? false,
+        limit: clampAlertLimit(filters.limit),
+        maxPairGapMinutes: normalizeAlertNumber(
+          filters.maxPairGapMinutes,
+          10,
+          0
+        ),
+        maxQuoteAgeMinutes: normalizeAlertNumber(
+          filters.maxQuoteAgeMinutes,
+          10,
+          0
+        ),
+        minDelta: normalizeAlertNumber(filters.minDelta, 0.15, 0),
+        nowIso,
+      };
+
+      const rows = db
+        .prepare(
+          `
+            WITH player_props AS (
+              SELECT
+                mi.id AS instrumentId,
+                mi.game_id AS gameId,
+                mi.display_label AS displayLabel,
+                mi.selection,
+                mi.line,
+                mi.participant_key AS participantKey,
+                mi.in_play AS inPlay,
+                g.sport,
+                g.league,
+                g.scheduled_start AS scheduledStart,
+                json_extract(g.away_participant_json, '$.shortName') || ' at ' ||
+                  json_extract(g.home_participant_json, '$.shortName') AS gameLabel
+              FROM market_instruments mi
+              JOIN games g ON g.id = mi.game_id
+              WHERE mi.family = 'player-prop'
+            ),
+            latest_source_ticks AS (
+              SELECT
+                p.*,
+                sm.source,
+                sm.id AS sourceMarketId,
+                sm.source_market_key AS sourceMarketKey,
+                sm.source_selection_key AS sourceSelectionKey,
+                sm.raw_label AS rawLabel,
+                sm.mapping_status AS mappingStatus,
+                q.id AS tickId,
+                q.captured_at AS capturedAt,
+                q.implied_probability AS impliedProbability,
+                q.line_raw AS lineRaw,
+                q.odds_raw AS oddsRaw,
+                q.price_raw AS priceRaw,
+                q.best_bid AS bestBid,
+                q.best_ask AS bestAsk,
+                q.volume AS volume,
+                ROW_NUMBER() OVER (
+                  PARTITION BY sm.instrument_id, sm.source
+                  ORDER BY q.captured_at DESC, q.id DESC
+                ) AS sourceRank
+              FROM player_props p
+              JOIN source_markets sm ON sm.instrument_id = p.instrumentId
+              JOIN quote_ticks q ON q.id = (
+                SELECT q2.id
+                FROM quote_ticks q2
+                WHERE q2.source_market_id = sm.id
+                  AND q2.implied_probability IS NOT NULL
+                ORDER BY q2.captured_at DESC, q2.id DESC
+                LIMIT 1
+              )
+              WHERE sm.source IN ('bet365', 'kalshi', 'polymarket')
+                AND sm.mapping_status != 'unmapped'
+            ),
+            bet365_latest AS (
+              SELECT * FROM latest_source_ticks
+              WHERE source = 'bet365' AND sourceRank = 1
+            ),
+            external_latest AS (
+              SELECT * FROM latest_source_ticks
+              WHERE source IN ('kalshi', 'polymarket') AND sourceRank = 1
+            )
+            SELECT
+              b.gameId,
+              b.instrumentId,
+              b.gameLabel,
+              b.sport,
+              b.league,
+              b.scheduledStart,
+              b.displayLabel,
+              b.selection,
+              b.line,
+              b.participantKey,
+              b.inPlay,
+              b.source AS bet365Source,
+              b.sourceMarketId AS bet365SourceMarketId,
+              b.sourceMarketKey AS bet365SourceMarketKey,
+              b.sourceSelectionKey AS bet365SourceSelectionKey,
+              b.rawLabel AS bet365RawLabel,
+              b.mappingStatus AS bet365MappingStatus,
+              b.capturedAt AS bet365CapturedAt,
+              b.impliedProbability AS bet365ImpliedProbability,
+              b.lineRaw AS bet365LineRaw,
+              b.oddsRaw AS bet365OddsRaw,
+              b.priceRaw AS bet365PriceRaw,
+              b.bestBid AS bet365BestBid,
+              b.bestAsk AS bet365BestAsk,
+              b.volume AS bet365Volume,
+              e.source AS externalSource,
+              e.sourceMarketId AS externalSourceMarketId,
+              e.sourceMarketKey AS externalSourceMarketKey,
+              e.sourceSelectionKey AS externalSourceSelectionKey,
+              e.rawLabel AS externalRawLabel,
+              e.mappingStatus AS externalMappingStatus,
+              e.capturedAt AS externalCapturedAt,
+              e.impliedProbability AS externalImpliedProbability,
+              e.lineRaw AS externalLineRaw,
+              e.oddsRaw AS externalOddsRaw,
+              e.priceRaw AS externalPriceRaw,
+              e.bestBid AS externalBestBid,
+              e.bestAsk AS externalBestAsk,
+              e.volume AS externalVolume
+            FROM bet365_latest b
+            JOIN external_latest e ON e.instrumentId = b.instrumentId
+          `
+        )
+        .all() as Record<string, unknown>[];
+
+      return rows
+        .map((row) => buildPlayerPropAlert(row, options))
+        .filter((row): row is PlayerPropDisagreementAlert => row != null)
+        .sort((left, right) => {
+          if (right.riskScore !== left.riskScore) {
+            return right.riskScore - left.riskScore;
+          }
+          return right.absoluteDelta - left.absoluteDelta;
+        })
+        .slice(0, options.limit);
+    },
+    filters
+  );
 }
 
 export function upsertGame(game: CanonicalGame) {
@@ -1901,7 +2244,16 @@ export function listResearchGames(filters: GamesFilters = {}) {
     "research.games.list",
     () => {
       const db = getDatabase();
-      const cards = selectFilteredGameBundles(db, filters)
+      const hasPostBundleFilter =
+        filters.status != null ||
+        filters.hasUnmappedMarkets != null ||
+        filters.sourceCoverage != null;
+      const cards = selectFilteredGameBundles(db, {
+        date: filters.date,
+        league: filters.league,
+        limit: hasPostBundleFilter ? undefined : filters.limit,
+        sport: filters.sport,
+      })
         .map((bundle) => buildGameCard(bundle))
         .filter((card) => {
           if (filters.status && card.gameState?.status !== filters.status) {
@@ -1927,6 +2279,13 @@ export function listResearchGames(filters: GamesFilters = {}) {
           }
           return true;
         });
+
+      if (hasPostBundleFilter && filters.limit != null) {
+        return cards.slice(
+          0,
+          Math.min(500, Math.max(1, Math.floor(filters.limit)))
+        );
+      }
 
       return cards;
     },
@@ -2467,18 +2826,25 @@ export function listResearchDivergence(filters: DivergenceFilters = {}) {
   );
 }
 
-export function listSignalMismatches() {
-  return executeDatabaseOperation("research.signalMismatches.list", () => {
-    const rows = buildResearchDivergenceEntries({ sort: "divergence" })
-      .map((entry) => buildSignalMismatchRow(entry))
-      .filter(
-        (row) =>
-          row.directionalDisagreement ||
-          (row.impliedProbabilityGap ?? 0) >= 0.08
-      );
+export function listSignalMismatches(filters: DivergenceFilters = {}) {
+  return executeDatabaseOperation(
+    "research.signalMismatches.list",
+    () => {
+      const rows = buildResearchDivergenceEntries({
+        ...filters,
+        sort: filters.sort ?? "divergence",
+      })
+        .map((entry) => buildSignalMismatchRow(entry))
+        .filter(
+          (row) =>
+            row.directionalDisagreement ||
+            (row.impliedProbabilityGap ?? 0) >= 0.08
+        );
 
-    return rows as SignalMismatchRow[];
-  });
+      return rows as SignalMismatchRow[];
+    },
+    filters
+  );
 }
 
 export function getResearchCoverage() {

@@ -129,7 +129,7 @@ export function SettingsPage() {
   });
   const signalMismatches = useQuery({
     queryKey: ["research-signal-mismatches"],
-    queryFn: getSignalMismatches,
+    queryFn: () => getSignalMismatches(),
   });
   const liveHealth = useQuery({
     queryKey: ["health-live"],

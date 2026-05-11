@@ -2,7 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
-import { queryClient } from "../data/api";
+import {
+  queryClient,
+  type PlayerPropAlertPlaybackPayload,
+  type PlayerPropAlertsPayload,
+} from "../data/api";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -23,6 +27,28 @@ function mockJsonResponse(payload: unknown) {
     ok: true,
     status: 200,
     statusText: "OK",
+    headers: new Headers(),
+  } satisfies Partial<Response> as Response);
+}
+
+function mockErrorResponse({
+  message = "Test API failure.",
+  status = 400,
+}: {
+  message?: string;
+  status?: number;
+}) {
+  return Promise.resolve({
+    json: async () => ({
+      error: {
+        code: "TEST_API_FAILURE",
+        message,
+        operatorHint: "Test operator hint.",
+      },
+    }),
+    ok: false,
+    status,
+    statusText: "Bad Request",
     headers: new Headers(),
   } satisfies Partial<Response> as Response);
 }
@@ -64,6 +90,8 @@ function createSettingsFetchImplementation(options?: {
     severity: string;
     signalPriority: number;
   }>;
+  playerPropPlaybackRows?: PlayerPropAlertPlaybackPayload["data"];
+  playerPropAlertRows?: PlayerPropAlertsPayload["data"];
   games?: Array<{
     activeInstrumentCount: number;
     coverage: {
@@ -161,11 +189,82 @@ function createSettingsFetchImplementation(options?: {
       signalPriority: 91,
     },
   ];
+  const playerPropAlertRows = options?.playerPropAlertRows ?? [
+    {
+      absoluteDelta: 0.29,
+      action: "manual-review" as const,
+      bet365: {
+        capturedAt: "2026-04-22T06:00:00.000Z",
+        impliedProbability: 0.64,
+        lineRaw: 29.5,
+        mappingStatus: "auto",
+        oddsRaw: "-178",
+        rawLabel: "Jalen Brunson (29.5)",
+        source: "bet365" as const,
+        sourceMarketId: "sm-bet365-brunson-points",
+        sourceMarketKey: "b365-brunson-points",
+        sourceSelectionKey: "over",
+      },
+      detectedAt: "2026-04-22T06:00:04.000Z",
+      direction: "bet365-higher" as const,
+      displayLabel: "Jalen Brunson points over 29.5",
+      freshness: {
+        bet365AgeMs: 6000,
+        pairGapMs: 4000,
+        predictionMarketAgeMs: 2000,
+      },
+      gameId: "nba-bos-nyk-2026-04-21",
+      gameLabel: "Knicks at Celtics",
+      id: "prop-alert-1",
+      inPlay: true,
+      instrumentId: "brunson-points-over-29_5",
+      league: "NBA",
+      line: 29.5,
+      lineMismatch: false,
+      participantKey: "jalen-brunson",
+      predictionMarket: {
+        bestAsk: 0.36,
+        bestBid: 0.35,
+        capturedAt: "2026-04-22T06:00:04.000Z",
+        impliedProbability: 0.35,
+        lineRaw: 29.5,
+        mappingStatus: "auto",
+        priceRaw: 0.35,
+        rawLabel: "Jalen Brunson: 30+ points",
+        source: "kalshi" as const,
+        sourceMarketId: "sm-kalshi-brunson-points",
+        sourceMarketKey: "kal-brunson-points",
+        sourceSelectionKey: "over",
+      },
+      riskScore: 327,
+      scheduledStart: "2026-04-22T23:00:00.000Z",
+      selection: "over",
+      severity: "critical",
+      signedDelta: -0.29,
+      sport: "basketball",
+    },
+  ];
+  const playerPropPlaybackRows = options?.playerPropPlaybackRows ?? [
+    {
+      alertCount: playerPropAlertRows.length,
+      alerts: playerPropAlertRows,
+      capturedAt: "2026-04-22T06:00:05.000Z",
+      notifiedAlertIds: playerPropAlertRows.map((row) => row.id),
+      poll: {
+        includeStale: false,
+        limit: 25,
+        maxPairGapMinutes: 10,
+        maxQuoteAgeMinutes: 10,
+        minDelta: 0.15,
+      },
+      source: "player-prop-alert-watch" as const,
+    },
+  ];
   const unmappedMarkets = options?.unmappedMarkets ?? [];
 
   return async (input: string | URL | Request) => {
     const url = String(input);
-    if (url === "/api/v1/games") {
+    if (url === "/api/v1/games" || url.startsWith("/api/v1/games?")) {
       return mockJsonResponse({
         data: games,
         meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
@@ -340,9 +439,21 @@ function createSettingsFetchImplementation(options?: {
         meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
       });
     }
-    if (url === "/api/v1/research/signal-mismatches") {
+    if (url.startsWith("/api/v1/research/signal-mismatches")) {
       return mockJsonResponse({
         data: signalMismatchRows,
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/research/player-prop-alerts")) {
+      return mockJsonResponse({
+        data: playerPropAlertRows,
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/research/player-prop-alert-playback")) {
+      return mockJsonResponse({
+        data: playerPropPlaybackRows,
         meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
       });
     }
@@ -584,7 +695,12 @@ function createSettingsFetchImplementation(options?: {
 
 describe("App routes", () => {
   it("renders the trader desk from persisted research surfaces", async () => {
-    fetchMock.mockImplementation(createSettingsFetchImplementation());
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      requestedUrls.push(String(input));
+      return baseFetch(input);
+    });
 
     render(<App />);
 
@@ -606,12 +722,214 @@ describe("App routes", () => {
         "Which venue is moving first on the top-ranked instrument."
       )
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Player prop attribution risk").length
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Check these before exposure stacks up.")
+    ).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText("Jalen Brunson points over 29.5")).length
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Review now" })).toHaveAttribute(
+      "href",
+      "/games/nba-bos-nyk-2026-04-21/markets/brunson-points-over-29_5"
+    );
     expect(screen.getAllByText("Boston moneyline").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("b365 61.0%").length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("b365 61.0%")).length).toBeGreaterThan(
+      0
+    );
     expect(screen.getAllByRole("link", { name: "Open" })[0]).toHaveAttribute(
       "href",
       "/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"
     );
+    expect(requestedUrls).toContain("/api/v1/games?limit=25");
+    expect(requestedUrls).toContain(
+      "/api/v1/divergence?sort=signalPriority&limit=25"
+    );
+  });
+
+  it("fails the trader desk honestly when primary research surfaces cannot load", async () => {
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (
+        url === "/api/v1/games" ||
+        url.startsWith("/api/v1/games?") ||
+        url.startsWith("/api/v1/divergence")
+      ) {
+        return mockErrorResponse({
+          message: "Primary persisted research data is unavailable.",
+        });
+      }
+
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Trader desk failed to load",
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Primary persisted research data is unavailable.")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/No ranked market pressure is persisted yet/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the player prop alert monitor and replay tape", async () => {
+    window.history.replaceState({}, "", "/prop-alerts");
+    fetchMock.mockImplementation(createSettingsFetchImplementation());
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Player prop alert monitor",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Live review queue")).toBeInTheDocument();
+    expect(screen.getByText("What the watcher saw")).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText("Jalen Brunson points over 29.5")).length
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("1 notified")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Open" })[0]).toHaveAttribute(
+      "href",
+      "/games/nba-bos-nyk-2026-04-21/markets/brunson-points-over-29_5"
+    );
+  });
+
+  it("collapses zero-alert player prop playback into a useful tracked-props summary", async () => {
+    window.history.replaceState({}, "", "/prop-alerts");
+    fetchMock.mockImplementation(
+      createSettingsFetchImplementation({
+        divergenceRows: [
+          {
+            captureRecencyMs: 15000,
+            comparableState: "comparable",
+            displayLabel: "Jalen Brunson points over 29.5",
+            family: "player-prop",
+            gameId: "nba-bos-nyk-2026-04-21",
+            impliedProbabilityGap: 0.12,
+            inPlay: true,
+            instrumentId: "brunson-points-over-29_5",
+            lineMismatch: false,
+            mappingStatus: "auto",
+            severity: "medium",
+            signalPriority: 120,
+          },
+          {
+            captureRecencyMs: 20000,
+            comparableState: "comparable",
+            displayLabel: "Jayson Tatum rebounds over 8.5",
+            family: "player-prop",
+            gameId: "nba-bos-nyk-2026-04-21",
+            impliedProbabilityGap: 0.07,
+            inPlay: true,
+            instrumentId: "tatum-rebounds-over-8_5",
+            lineMismatch: false,
+            mappingStatus: "auto",
+            severity: "low",
+            signalPriority: 70,
+          },
+        ],
+        playerPropAlertRows: [],
+        playerPropPlaybackRows: [0, 1, 2].map((index) => ({
+          alertCount: 0,
+          alerts: [],
+          capturedAt: `2026-05-11T03:1${index}:20.238Z`,
+          notifiedAlertIds: [],
+          poll: {
+            includeStale: false,
+            limit: 25,
+            maxPairGapMinutes: 10,
+            maxQuoteAgeMinutes: 10,
+            minDelta: 0.15,
+          },
+          source: "player-prop-alert-watch" as const,
+        })),
+      })
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Player prop alert monitor",
+      })
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Date"), {
+      target: { value: "2026-05-10" },
+    });
+
+    expect(
+      await screen.findByText("2 tracked player props")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/3 watcher polls had no alert/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/None reached the notification threshold of 15 pp/i)
+    ).toBeInTheDocument();
+    expect(screen.queryAllByText("No active prop alert.")).toHaveLength(0);
+    expect(
+      screen.getByRole("link", { name: "See tracked props in History" })
+    ).toHaveAttribute("href", "/history?date=2026-05-10&family=player-prop");
+    expect(
+      screen.getByText("Jayson Tatum rebounds over 8.5")
+    ).toBeInTheDocument();
+  });
+
+  it("shows player prop monitor API failures instead of healthy empty states", async () => {
+    window.history.replaceState({}, "", "/prop-alerts");
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/player-prop-alerts")) {
+        return mockErrorResponse({
+          message: "Player prop alert feed is unavailable.",
+        });
+      }
+      if (url.startsWith("/api/v1/research/player-prop-alert-playback")) {
+        return mockErrorResponse({
+          message: "Player prop alert playback is unavailable.",
+        });
+      }
+
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByText(
+        "Live alert feed failed; current player-prop risk is unverified."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Player prop alert feed failed to load. Current queue is not verified./i
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Player prop alert playback failed to load. Replay history is not verified./i
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("No current player-prop disagreement alert.")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No playback frames have been written for this date.")
+    ).not.toBeInTheDocument();
   });
 
   it("demotes external-only pressure when Bet365 has not populated", async () => {
@@ -655,7 +973,7 @@ describe("App routes", () => {
       })
     ).toBeInTheDocument();
     expect(screen.getByText("not Bet365-backed")).toBeInTheDocument();
-    expect(screen.getAllByText("b365 n/a").length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("b365 n/a")).length).toBeGreaterThan(0);
     expect(
       screen.getByRole("link", { name: "Open diagnostic instrument" })
     ).toHaveAttribute(
@@ -1578,12 +1896,151 @@ describe("App routes", () => {
       })
     ).toBeInTheDocument();
     expect(screen.getByText("Signals worth opening first")).toBeInTheDocument();
+    expect(screen.getByLabelText("Review date")).toBeInTheDocument();
     expect(await screen.findByText("Peak gap")).toBeInTheDocument();
     expect(screen.getByText("Recent adapter activity")).toBeInTheDocument();
     expect(screen.getByText("Persisted source coverage")).toBeInTheDocument();
     expect(
       screen.getByText("Historical disagreement snapshot")
     ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Review date"), {
+      target: { value: "2026-04-21" },
+    });
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([input]) =>
+            String(input) ===
+            "/api/v1/research/signal-mismatches?date=2026-04-21"
+        )
+      ).toBe(true);
+    });
+  });
+
+  it("prefills history to tracked player props from the alert monitor link", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/history?date=2026-04-21&family=player-prop"
+    );
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation({
+      divergenceRows: [
+        {
+          captureRecencyMs: 15000,
+          comparableState: "comparable",
+          displayLabel: "Jalen Brunson points over 29.5",
+          family: "player-prop",
+          gameId: "nba-bos-nyk-2026-04-21",
+          impliedProbabilityGap: 0.12,
+          inPlay: true,
+          instrumentId: "brunson-points-over-29_5",
+          lineMismatch: false,
+          mappingStatus: "auto",
+          severity: "medium",
+          signalPriority: 120,
+        },
+      ],
+    });
+    fetchMock.mockImplementation(async (input) => {
+      requestedUrls.push(String(input));
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Persisted market and ingest history",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Family")).toHaveValue("player-prop");
+    expect(
+      await screen.findByText("1 player prop tracked")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Jalen Brunson points over 29.5")
+    ).toBeInTheDocument();
+    expect(requestedUrls).toContain(
+      "/api/v1/research/signal-mismatches?date=2026-04-21&family=player-prop"
+    );
+    expect(requestedUrls).toContain(
+      "/api/v1/divergence?date=2026-04-21&family=player-prop&sort=signalPriority&limit=500"
+    );
+  });
+
+  it("shows date-scoped history mismatches before secondary history panels finish", async () => {
+    window.history.replaceState({}, "", "/history");
+
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/signal-mismatches")) {
+        return mockJsonResponse({
+          data: [
+            {
+              bet365ImpliedProbability: 0.71,
+              captureRecencyMs: 50000,
+              comparableState: "comparable",
+              directionalDisagreement: true,
+              displayLabel: "Victor Wembanyama over 0.5 steals",
+              family: "player-prop",
+              finalAwayScore: 109,
+              finalHomeScore: 114,
+              gameLabel: "Spurs at Timberwolves",
+              gameId: "nba-0042500234",
+              gameStatus: "final",
+              impliedProbabilityGap: 0.7,
+              instrumentId:
+                "nba-0042500234-player-prop-steals-victor-wembanyama-over-0-5",
+              kalshiImpliedProbability: 0.01,
+              lineMismatch: false,
+              mappingStatus: "auto",
+              polymarketImpliedProbability: null,
+              scheduledStart: "2026-05-10T23:30:00Z",
+              severity: "critical",
+              signalPriority: 714,
+            },
+          ],
+          meta: { generatedAt: "2026-05-11T15:00:00.000Z" },
+        });
+      }
+      if (
+        url.startsWith(
+          "/api/v1/games/nba-0042500234/markets/nba-0042500234-player-prop-steals-victor-wembanyama-over-0-5/timeline"
+        )
+      ) {
+        return mockJsonResponse({
+          data: {
+            annotations: [],
+            gameStateSeries: [],
+            quoteSeriesBySource: {
+              bet365: [],
+              kalshi: [],
+              nba: [],
+              polymarket: [],
+            },
+          },
+          meta: { generatedAt: "2026-05-11T15:00:00.000Z" },
+        });
+      }
+      if (
+        url === "/api/v1/admin/capture/runs" ||
+        url === "/api/v1/admin/storage/coverage" ||
+        url === "/api/v1/research/coverage"
+      ) {
+        return new Promise<Response>(() => {});
+      }
+      return mockJsonResponse({ data: [], meta: { generatedAt: "test" } });
+    });
+
+    render(<App />);
+
+    await screen.findByText("Signals worth opening first");
+    expect(
+      screen.getAllByText("Victor Wembanyama over 0.5 steals").length
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Loading capture runs...")).toBeInTheDocument();
   });
 
   it("renders the exports page with dataset downloads even when games are empty", async () => {

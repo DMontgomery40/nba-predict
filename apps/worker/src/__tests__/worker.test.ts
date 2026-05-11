@@ -23,6 +23,8 @@ describe("worker runtime", () => {
 
   afterEach(() => {
     resetDatabase();
+    delete process.env.KALSHI_LIVE_LOOKBACK_DAYS;
+    delete process.env.KALSHI_LIVE_MAX_EVENTS;
     delete process.env.KALSHI_API_KEY;
     delete process.env.NBA_SIDECAR_BASE_URL;
     delete process.env.ODDS_API_IO_KEY;
@@ -48,6 +50,7 @@ describe("worker runtime", () => {
     expect(summary.nbaSidecarConfigured).toBe(false);
     expect(summary.polymarketGamesMatched).toBe(0);
     expect(summary.polymarketSourceMarketsObserved).toBe(0);
+    expect(summary.providerFailures).toEqual([]);
   });
 
   it("isolates cycle failures and applies exponential backoff instead of crashing the worker", async () => {
@@ -162,7 +165,80 @@ describe("worker runtime", () => {
     }
     expect(syncBet365).toHaveBeenCalledOnce();
     expect(syncKalshi).toHaveBeenCalledOnce();
+    expect(syncKalshi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxEvents: 200,
+        minimumStartDate: "2026-04-20",
+      })
+    );
     expect(syncNbaSidecar).toHaveBeenCalledOnce();
+    expect(syncPolymarket).toHaveBeenCalledOnce();
+  });
+
+  it("keeps later market providers running when bet365 is rate-limited", async () => {
+    process.env.ODDS_API_KEY = "odds-key";
+    process.env.KALSHI_API_KEY = "kalshi-key";
+
+    const syncBet365 = vi.fn(async () => {
+      throw new Error(
+        "Odds-API events request for Bet365 failed with status 429."
+      );
+    });
+    const syncKalshi = vi.fn(async () => ({
+      bookmaker: "Kalshi" as const,
+      eventsFetched: 2,
+      eventsSeen: 2,
+      finishedAt: "2026-04-22T06:00:00.000Z",
+      gamesMatched: 1,
+      marketErrors: [],
+      marketsSeen: 2,
+      milestonesSeen: 1,
+      ok: true as const,
+      quoteObservationsWritten: 4,
+      rawPayloadsWritten: 4,
+      recordsSeen: 4,
+      recordsWritten: 12,
+      source: "kalshi" as const,
+      sourceMarketsObserved: 4,
+      startedAt: "2026-04-22T06:00:00.000Z",
+      unmatchedEventTickers: [],
+    }));
+    const syncPolymarket = vi.fn(async () => ({
+      finishedAt: "2026-04-22T06:00:00.000Z",
+      gamesMatched: 2,
+      marketsSeen: 6,
+      ok: true as const,
+      quoteObservationsWritten: 12,
+      rawPayloadsWritten: 12,
+      recordsSeen: 12,
+      recordsWritten: 36,
+      sourceMarketsObserved: 12,
+      startedAt: "2026-04-22T06:00:00.000Z",
+    }));
+
+    const result = await runWorkerCycle({
+      logger: createAppLogger({ test: "worker" }),
+      now: () => new Date("2026-04-22T06:00:00.000Z"),
+      syncBet365: syncBet365 as never,
+      syncKalshi,
+      syncPolymarket,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.summary.providerFailures).toHaveLength(1);
+      expect(result.summary.providerFailures[0]?.source).toBe("bet365");
+      expect(result.summary.kalshiSourceMarketsObserved).toBe(4);
+      expect(result.summary.polymarketSourceMarketsObserved).toBe(12);
+    }
+    expect(syncBet365).toHaveBeenCalledOnce();
+    expect(syncKalshi).toHaveBeenCalledOnce();
+    expect(syncKalshi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxEvents: 200,
+        minimumStartDate: "2026-04-20",
+      })
+    );
     expect(syncPolymarket).toHaveBeenCalledOnce();
   });
 

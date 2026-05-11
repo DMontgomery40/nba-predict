@@ -209,6 +209,24 @@ function buildSourceMarketId(
   return buildStableId([source, "oa", eventId, marketName, selectionKey, line]);
 }
 
+function readNonNegativeNumberEnv(name: string, fallback: number) {
+  const raw = process.env[name];
+  if (raw == null || raw.trim() === "") {
+    return fallback;
+  }
+
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function getTargetLookaheadHours() {
+  return readNonNegativeNumberEnv("ODDS_API_TARGET_LOOKAHEAD_HOURS", 8);
+}
+
+function getTargetLookbackMinutes() {
+  return readNonNegativeNumberEnv("ODDS_API_TARGET_LOOKBACK_MINUTES", 90);
+}
+
 function getOddsApiKey(options?: { apiKey?: string }) {
   return (
     options?.apiKey ??
@@ -218,30 +236,101 @@ function getOddsApiKey(options?: { apiKey?: string }) {
   );
 }
 
-function buildDateRanges(games: ResearchGameCard[]) {
-  const uniqueDateStarts = [
-    ...new Set(
-      games
-        .map((game) => new Date(game.game.scheduledStart))
-        .filter((value) => Number.isFinite(value.getTime()))
-        .map((value) => {
-          const dayStart = new Date(value);
-          dayStart.setUTCHours(0, 0, 0, 0);
-          return dayStart.toISOString();
-        })
-    ),
-  ].sort();
+function isLiveGameStatus(status: string | null | undefined) {
+  const normalized = String(status ?? "").toLowerCase();
+  return normalized.includes("in-play") || normalized === "live";
+}
 
-  return uniqueDateStarts.map((from) => {
-    const dayStart = new Date(from);
-    const dayEnd = new Date(dayStart);
-    dayEnd.setUTCHours(23, 59, 59, 999);
+function isScheduledGameStatus(status: string | null | undefined) {
+  const normalized = String(status ?? "").toLowerCase();
+  return (
+    normalized.length === 0 ||
+    normalized === "scheduled" ||
+    normalized === "pending" ||
+    normalized.includes("pre") ||
+    normalized.includes("not-started")
+  );
+}
 
-    return {
-      from,
-      to: dayEnd.toISOString(),
-    };
-  });
+function selectTargetGames(
+  games: ResearchGameCard[],
+  options: {
+    lookaheadHours?: number;
+    lookbackMinutes?: number;
+    now: Date;
+  }
+) {
+  const lookaheadMs =
+    Math.max(0, options.lookaheadHours ?? getTargetLookaheadHours()) *
+    60 *
+    60_000;
+  const lookbackMs =
+    Math.max(0, options.lookbackMinutes ?? getTargetLookbackMinutes()) * 60_000;
+  const nowMs = options.now.getTime();
+  const windowStart = nowMs - lookbackMs;
+  const windowEnd = nowMs + lookaheadMs;
+
+  return games
+    .filter((game) => {
+      const scheduledAt = new Date(game.game.scheduledStart).getTime();
+      if (!Number.isFinite(scheduledAt)) {
+        return false;
+      }
+
+      if (isLiveGameStatus(game.gameState?.status)) {
+        return true;
+      }
+
+      return (
+        isScheduledGameStatus(game.gameState?.status) &&
+        scheduledAt >= windowStart &&
+        scheduledAt <= windowEnd
+      );
+    })
+    .sort((left, right) => {
+      const leftLive = isLiveGameStatus(left.gameState?.status);
+      const rightLive = isLiveGameStatus(right.gameState?.status);
+      if (leftLive !== rightLive) {
+        return leftLive ? -1 : 1;
+      }
+
+      return (
+        new Date(left.game.scheduledStart).getTime() -
+        new Date(right.game.scheduledStart).getTime()
+      );
+    });
+}
+
+function buildTargetEventRange(
+  games: ResearchGameCard[],
+  options: {
+    now: Date;
+    lookaheadHours?: number;
+    lookbackMinutes?: number;
+  }
+) {
+  const targetGames = selectTargetGames(games, options);
+  if (targetGames.length === 0) {
+    return null;
+  }
+
+  const lookaheadMs =
+    Math.max(0, options.lookaheadHours ?? getTargetLookaheadHours()) *
+    60 *
+    60_000;
+  const lookbackMs =
+    Math.max(0, options.lookbackMinutes ?? getTargetLookbackMinutes()) * 60_000;
+  const starts = targetGames
+    .map((game) => new Date(game.game.scheduledStart).getTime())
+    .filter((value) => Number.isFinite(value));
+  const fromMs = Math.min(options.now.getTime(), ...starts) - lookbackMs;
+  const toMs = Math.max(options.now.getTime(), ...starts) + lookaheadMs;
+
+  return {
+    from: new Date(fromMs).toISOString(),
+    targetGames,
+    to: new Date(toMs).toISOString(),
+  };
 }
 
 function findMatchingGame(games: ResearchGameCard[], event: OddsApiEvent) {
@@ -1016,7 +1105,7 @@ export async function fetchOddsApiNbaEvents(options: {
   url.searchParams.set("apiKey", options.apiKey);
   url.searchParams.set("sport", "basketball");
   url.searchParams.set("league", "usa-nba");
-  url.searchParams.set("status", "pending,live,settled");
+  url.searchParams.set("status", "pending,live");
   url.searchParams.set("bookmaker", options.bookmaker);
   url.searchParams.set("limit", "100");
   if (options.from) {
@@ -1028,8 +1117,17 @@ export async function fetchOddsApiNbaEvents(options: {
 
   const response = await fetchImpl(url.toString());
   if (!response.ok) {
+    const context = [
+      `sport=${url.searchParams.get("sport")}`,
+      `league=${url.searchParams.get("league")}`,
+      `status=${url.searchParams.get("status")}`,
+      `bookmaker=${options.bookmaker}`,
+      `from=${url.searchParams.get("from") ?? "n/a"}`,
+      `to=${url.searchParams.get("to") ?? "n/a"}`,
+      `limit=${url.searchParams.get("limit")}`,
+    ].join(" ");
     throw new Error(
-      `Odds-API events request for ${options.bookmaker} failed with status ${response.status}.`
+      `Odds-API events request for ${options.bookmaker} failed with status ${response.status} (${context}).`
     );
   }
 
@@ -1131,24 +1229,47 @@ async function syncOddsApiBookmaker(options: {
       } satisfies OddsApiSyncSummary;
     }
 
-    const events: OddsApiEvent[] = [];
-    for (const range of buildDateRanges(games)) {
-      events.push(
-        ...(await fetchOddsApiNbaEvents({
-          apiKey,
-          baseUrl: options.baseUrl,
-          bookmaker: options.bookmaker,
-          fetchImpl: options.fetchImpl,
-          from: range.from,
-          to: range.to,
-        }))
-      );
+    const targetRange = buildTargetEventRange(games, { now: now() });
+    if (!targetRange) {
+      const finishedAt = now().toISOString();
+      recordAdapterRun({
+        finishedAt,
+        recordsSeen: 0,
+        recordsWritten: 0,
+        source,
+        startedAt,
+        status: "ok",
+      });
+
+      return {
+        bookmaker: options.bookmaker,
+        finishedAt,
+        gamesMatched: 0,
+        marketsSeen: 0,
+        ok: true as const,
+        quoteObservationsWritten: 0,
+        rawPayloadsWritten: 0,
+        recordsSeen: 0,
+        recordsWritten: 0,
+        source,
+        sourceMarketsObserved: 0,
+        startedAt,
+      } satisfies OddsApiSyncSummary;
     }
+
+    const events = await fetchOddsApiNbaEvents({
+      apiKey,
+      baseUrl: options.baseUrl,
+      bookmaker: options.bookmaker,
+      fetchImpl: options.fetchImpl,
+      from: targetRange.from,
+      to: targetRange.to,
+    });
 
     const matchedGames = events
       .map((event) => ({
         event,
-        game: findMatchingGame(games, event),
+        game: findMatchingGame(targetRange.targetGames, event),
       }))
       .filter(
         (

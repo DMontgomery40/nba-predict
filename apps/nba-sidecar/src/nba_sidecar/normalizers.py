@@ -62,7 +62,7 @@ def _normalize_status(status_code: int | None) -> str:
 
 
 def _scheduled_start_from_live(game: dict[str, Any]) -> str:
-    scheduled = _pick(game, "gameTimeUTC", "gameEt", "gameDateTimeUTC")
+    scheduled = _pick(game, "gameDateTimeUTC", "gameTimeUTC", "gameEt")
     if scheduled:
         return str(scheduled)
 
@@ -228,6 +228,43 @@ def normalize_stats_scoreboard_payload(
         games=normalized_games,
         generatedAt=generated_at,
         requestedDate=requested_date,
+    )
+
+
+def _schedule_date_matches(game_date: str | None, requested_date: str) -> bool:
+    if not game_date:
+        return False
+
+    try:
+        normalized = datetime.strptime(game_date[:10], "%m/%d/%Y").date().isoformat()
+    except ValueError:
+        return game_date.startswith(requested_date)
+
+    return normalized == requested_date
+
+
+def normalize_schedule_league_payload(
+    payload: dict[str, Any], requested_date: str
+) -> ScoreboardResponse:
+    league_schedule = payload.get("leagueSchedule", {})
+    game_dates = league_schedule.get("gameDates", [])
+    generated_at = _pick(payload.get("meta", {}), "time", default=_now_iso())
+    games: list[dict[str, Any]] = []
+
+    for schedule_date in game_dates:
+        if not _schedule_date_matches(schedule_date.get("gameDate"), requested_date):
+            continue
+        games.extend(schedule_date.get("games", []))
+
+    return normalize_live_scoreboard_payload(
+        {
+            "meta": {"time": generated_at},
+            "scoreboard": {
+                "gameDate": requested_date,
+                "games": games,
+            },
+        },
+        requested_date=requested_date,
     )
 
 

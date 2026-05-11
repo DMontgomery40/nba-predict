@@ -168,6 +168,27 @@ describe("polymarket adapter", () => {
         }),
       ])
     );
+
+    const propRecords = buildPolymarketSelectionRecords(
+      polymarketEventsPayload[0],
+      games[0],
+      polymarketEventsPayload[0].markets[3],
+      "2026-04-22T07:25:00.000Z"
+    );
+
+    expect(propRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayLabel: "LeBron James points over 24.5",
+          family: "player-prop",
+          instrumentId:
+            "nba-0042500173-player-prop-points-lebron-james-over-24-5",
+          line: 24.5,
+          participantKey: "lebron-james",
+          selection: "over",
+        }),
+      ])
+    );
   });
 
   it("writes real game-market rows into the live research store", async () => {
@@ -222,6 +243,20 @@ describe("polymarket adapter", () => {
       latestQuotesBySource: expect.arrayContaining([
         expect.objectContaining({
           impliedProbability: 0.215,
+          source: "polymarket",
+        }),
+      ]),
+    });
+
+    expect(
+      getInstrumentComparison(
+        "nba-0042500173",
+        "nba-0042500173-player-prop-points-lebron-james-over-24-5"
+      )
+    ).toMatchObject({
+      latestQuotesBySource: expect.arrayContaining([
+        expect.objectContaining({
+          impliedProbability: 0.57,
           source: "polymarket",
         }),
       ]),

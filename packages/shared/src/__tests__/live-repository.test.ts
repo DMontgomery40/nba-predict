@@ -11,6 +11,7 @@ import {
   getInstrumentTimeline,
   listAdminSources,
   listGameMarkets,
+  listPlayerPropDisagreementAlerts,
   listSignalMismatches,
   recordGameStateObservation,
   recordQuoteObservation,
@@ -483,6 +484,162 @@ describe("live repository", () => {
         }),
       ])
     );
+    expect(listSignalMismatches({ date: "2026-04-21" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayLabel: "Boston moneyline",
+          scheduledStart: "2026-04-21T23:00:00.000Z",
+        }),
+      ])
+    );
+    expect(listSignalMismatches({ date: "2026-04-22" })).toEqual([]);
+  });
+
+  it("surfaces fresh player-prop attribution alerts without using stale or non-prop mismatches", () => {
+    seedLiveRepositoryGame();
+
+    upsertMarketInstrument({
+      displayLabel: "Jalen Brunson points over 29.5",
+      family: "player-prop",
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "brunson-points-over-29_5",
+      inPlay: true,
+      line: 29.5,
+      participantKey: "jalen-brunson",
+      selection: "over",
+    });
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-bet365-brunson-points",
+      instrumentId: "brunson-points-over-29_5",
+      mappingStatus: "auto",
+      rawFamily: "player-prop",
+      rawLabel: "Jalen Brunson (29.5)",
+      rawMetadata: { source: "bet365" },
+      source: "bet365",
+      sourceMarketKey: "b365-brunson-points",
+      sourceSelectionKey: "over",
+    });
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-poly-brunson-points",
+      instrumentId: "brunson-points-over-29_5",
+      mappingStatus: "auto",
+      rawFamily: "player-prop",
+      rawLabel: "Jalen Brunson: Points O/U 29.5",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-brunson-points",
+      sourceSelectionKey: "over",
+    });
+
+    recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-04-21T23:40:15.000Z",
+      depthScore: 91,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.68,
+      lineRaw: 29.5,
+      oddsRaw: "-213",
+      priceRaw: null,
+      sourceMarketId: "sm-bet365-brunson-points",
+      volume: 100,
+    });
+
+    recordQuoteObservation({
+      bestAsk: 0.43,
+      bestBid: 0.42,
+      capturedAt: "2026-04-21T23:40:20.000Z",
+      depthScore: 44,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.42,
+      lineRaw: 29.5,
+      oddsRaw: null,
+      priceRaw: 0.42,
+      sourceMarketId: "sm-poly-brunson-points",
+      volume: 19,
+    });
+
+    const initialAlerts = listPlayerPropDisagreementAlerts({
+      now: "2026-04-21T23:41:00.000Z",
+    });
+    expect(initialAlerts).toEqual([
+      expect.objectContaining({
+        absoluteDelta: expect.closeTo(0.26, 6),
+        action: "manual-review",
+        bet365: expect.objectContaining({
+          rawLabel: "Jalen Brunson (29.5)",
+          source: "bet365",
+        }),
+        displayLabel: "Jalen Brunson points over 29.5",
+        direction: "bet365-higher",
+        predictionMarket: expect.objectContaining({
+          rawLabel: "Jalen Brunson: Points O/U 29.5",
+          source: "polymarket",
+        }),
+      }),
+    ]);
+
+    const initialAlertId = initialAlerts[0]?.id;
+
+    recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-04-21T23:42:15.000Z",
+      depthScore: 91,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.68,
+      lineRaw: 29.5,
+      oddsRaw: "-213",
+      priceRaw: null,
+      sourceMarketId: "sm-bet365-brunson-points",
+      volume: 100,
+    });
+
+    recordQuoteObservation({
+      bestAsk: 0.43,
+      bestBid: 0.42,
+      capturedAt: "2026-04-21T23:42:20.000Z",
+      depthScore: 44,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.42,
+      lineRaw: 29.5,
+      oddsRaw: null,
+      priceRaw: 0.42,
+      sourceMarketId: "sm-poly-brunson-points",
+      volume: 19,
+    });
+
+    const refreshedAlerts = listPlayerPropDisagreementAlerts({
+      now: "2026-04-21T23:42:30.000Z",
+    });
+    expect(refreshedAlerts[0]).toMatchObject({
+      detectedAt: "2026-04-21T23:42:20.000Z",
+      id: initialAlertId,
+    });
+
+    expect(
+      listPlayerPropDisagreementAlerts({
+        minDelta: 0.3,
+        now: "2026-04-21T23:41:00.000Z",
+      })
+    ).toEqual([]);
+
+    expect(
+      listPlayerPropDisagreementAlerts({
+        now: "2026-04-22T00:30:00.000Z",
+      })
+    ).toEqual([]);
+
+    expect(
+      listPlayerPropDisagreementAlerts({
+        includeStale: true,
+        now: "2026-04-22T00:30:00.000Z",
+      })
+    ).toHaveLength(1);
   });
 
   it("marks bet365 session exports invalid until the configured file exists", () => {

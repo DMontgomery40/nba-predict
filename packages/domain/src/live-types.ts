@@ -319,6 +319,72 @@ export type SignalMismatchRow = DivergenceRow & {
   directionalDisagreement: boolean;
 };
 
+export type PlayerPropAlertSource = {
+  source: Extract<ResearchSourceId, "bet365" | "kalshi" | "polymarket">;
+  sourceMarketId: string;
+  sourceMarketKey: string;
+  sourceSelectionKey?: string | null;
+  rawLabel?: string | null;
+  mappingStatus: MappingStatus;
+  impliedProbability: number;
+  capturedAt: string;
+  lineRaw?: number | null;
+  oddsRaw?: string | null;
+  priceRaw?: number | null;
+  bestBid?: number | null;
+  bestAsk?: number | null;
+  volume?: number | null;
+};
+
+export type PlayerPropDisagreementAlert = {
+  id: string;
+  gameId: string;
+  instrumentId: string;
+  gameLabel: string;
+  sport: string;
+  league: string;
+  scheduledStart: string;
+  displayLabel: string;
+  participantKey?: string | null;
+  selection: string;
+  line?: number | null;
+  inPlay: boolean;
+  severity: SeverityBand;
+  riskScore: number;
+  absoluteDelta: number;
+  signedDelta: number;
+  direction: "bet365-higher" | "prediction-market-higher";
+  detectedAt: string;
+  lineMismatch: boolean;
+  bet365: PlayerPropAlertSource;
+  predictionMarket: PlayerPropAlertSource;
+  freshness: {
+    bet365AgeMs: number;
+    predictionMarketAgeMs: number;
+    pairGapMs: number;
+  };
+  action: "manual-review";
+};
+
+export type PlayerPropAlertPlaybackFrame = {
+  source: "player-prop-alert-watch";
+  capturedAt: string;
+  alertCount: number;
+  alerts: PlayerPropDisagreementAlert[];
+  notifiedAlertIds: string[];
+  poll: {
+    includeStale: boolean;
+    limit: number;
+    maxPairGapMinutes: number;
+    maxQuoteAgeMinutes: number;
+    minDelta: number;
+  };
+  error?: {
+    code?: string;
+    message: string;
+  };
+};
+
 export type CoverageRow = {
   gameId: string;
   instrumentId?: string | null;

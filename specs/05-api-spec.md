@@ -27,9 +27,11 @@
 - `GET /api/v1/exports/:dataset.jsonl`
 - `GET /api/v1/exports/sqlite`
 - `GET /api/v1/exports/full-package.sqlite`
-- `GET /api/v1/divergence`
+- `GET /api/v1/divergence?date=YYYY-MM-DD&limit=N`
 - `GET /api/v1/research/coverage`
-- `GET /api/v1/research/signal-mismatches`
+- `GET /api/v1/research/signal-mismatches?date=YYYY-MM-DD`
+- `GET /api/v1/research/player-prop-alerts`
+- `GET /api/v1/research/player-prop-alert-playback`
 
 ## Admin Routes
 
@@ -47,3 +49,5 @@
 
 - `API-005` Readiness shall return `503` when required live dependencies or persisted live data are missing.
 - `API-006` Live routes shall not fall back to synthetic or curated data.
+- `API-007` Player-prop alert reads shall be backed by persisted `player-prop` instruments, mapped Bet365 source markets, mapped Kalshi/Polymarket source markets, and latest quote ticks. The route shall expose raw labels, source market identifiers, quote timestamps, line terms, probability deltas, and freshness windows so trading can verify attribution without guessing.
+- `API-008` Player-prop alert playback shall read persisted watcher JSONL frames only. Each frame includes the poll timestamp, live alert payload snapshot, notified alert ids, and poll thresholds so trading can replay what the watcher saw at that moment.

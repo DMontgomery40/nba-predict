@@ -586,7 +586,7 @@ describe("odds-api adapter", () => {
     expect(kalshiResult.ok).toBe(true);
   });
 
-  it("fetches odds-api events in per-day windows so multi-day sync does not silently truncate active games", async () => {
+  it("only polls odds-api events for the active target slate before requesting odds", async () => {
     seedUpcomingGame();
     upsertGame({
       awayParticipant: {
@@ -605,12 +605,34 @@ describe("odds-api adapter", () => {
       },
       id: "nba-0042500174",
       league: "NBA",
-      scheduledStart: "2026-04-25T00:00:00.000Z",
+      scheduledStart: "2026-04-24T05:00:00.000Z",
       sourceGameKeyNba: "0042500174",
       sport: "basketball",
     });
+    upsertGame({
+      awayParticipant: {
+        abbreviation: "MIA",
+        key: "mia",
+        name: "Miami Heat",
+        shortName: "Heat",
+        side: "away",
+      },
+      homeParticipant: {
+        abbreviation: "BOS",
+        key: "bos",
+        name: "Boston Celtics",
+        shortName: "Celtics",
+        side: "home",
+      },
+      id: "nba-0042500175",
+      league: "NBA",
+      scheduledStart: "2026-04-25T18:00:00.000Z",
+      sourceGameKeyNba: "0042500175",
+      sport: "basketball",
+    });
 
-    const eventCalls: string[] = [];
+    const eventCalls: Array<Record<string, string | null>> = [];
+    let requestedEventIds: string[] = [];
     const fetchImpl = (async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       const pathname = url.pathname;
@@ -618,50 +640,63 @@ describe("odds-api adapter", () => {
         url.searchParams.get("bookmaker") ?? url.searchParams.get("bookmakers");
 
       if (pathname.endsWith("/events") && requestedBookmaker === "Bet365") {
-        const from = url.searchParams.get("from")?.slice(0, 10) ?? "unknown";
-        eventCalls.push(from);
+        eventCalls.push({
+          bookmaker: requestedBookmaker,
+          from: url.searchParams.get("from"),
+          league: url.searchParams.get("league"),
+          limit: url.searchParams.get("limit"),
+          sport: url.searchParams.get("sport"),
+          status: url.searchParams.get("status"),
+          to: url.searchParams.get("to"),
+        });
 
-        if (from === "2026-04-24") {
-          return {
-            json: async () => oddsApiEventsPayload,
-            ok: true,
-            status: 200,
-          };
-        }
-
-        if (from === "2026-04-25") {
-          return {
-            json: async () => [
-              {
-                away: "Golden State Warriors",
-                date: "2026-04-25T00:00:00.000Z",
-                home: "Dallas Mavericks",
-                id: "evt-2",
-                league: {
-                  name: "NBA",
-                  slug: "usa-nba",
-                },
-                sport: {
-                  name: "Basketball",
-                  slug: "basketball",
-                },
-                status: "live",
+        return {
+          json: async () => [
+            ...oddsApiEventsPayload,
+            {
+              away: "Golden State Warriors",
+              date: "2026-04-24T05:00:00.000Z",
+              home: "Dallas Mavericks",
+              id: "evt-2",
+              league: {
+                name: "NBA",
+                slug: "usa-nba",
               },
-            ],
-            ok: true,
-            status: 200,
-          };
-        }
+              sport: {
+                name: "Basketball",
+                slug: "basketball",
+              },
+              status: "pending",
+            },
+            {
+              away: "Miami Heat",
+              date: "2026-04-25T18:00:00.000Z",
+              home: "Boston Celtics",
+              id: "evt-outside-window",
+              league: {
+                name: "NBA",
+                slug: "usa-nba",
+              },
+              sport: {
+                name: "Basketball",
+                slug: "basketball",
+              },
+              status: "pending",
+            },
+          ],
+          ok: true,
+          status: 200,
+        };
       }
 
       if (pathname.endsWith("/odds/multi") && requestedBookmaker === "Bet365") {
-        const eventIds = (url.searchParams.get("eventIds") ?? "")
+        requestedEventIds = (url.searchParams.get("eventIds") ?? "")
           .split(",")
           .filter(Boolean);
 
         return {
           json: async () =>
-            eventIds.flatMap((eventId) => {
+            requestedEventIds.flatMap((eventId) => {
               if (eventId === "evt-1") {
                 return bet365OddsPayload;
               }
@@ -683,11 +718,11 @@ describe("odds-api adapter", () => {
                               home: "1.70",
                             },
                           ],
-                          updatedAt: "2026-04-22T08:25:00.000Z",
+                          updatedAt: "2026-04-24T05:01:00.000Z",
                         },
                       ],
                     },
-                    date: "2026-04-25T00:00:00.000Z",
+                    date: "2026-04-24T05:00:00.000Z",
                     home: "Dallas Mavericks",
                     id: "evt-2",
                     league: {
@@ -698,12 +733,16 @@ describe("odds-api adapter", () => {
                       name: "Basketball",
                       slug: "basketball",
                     },
-                    status: "live",
+                    status: "pending",
                     urls: {
                       Bet365: "https://example.com/bet365/event-2",
                     },
                   },
                 ];
+              }
+
+              if (eventId === "evt-outside-window") {
+                throw new Error("outside-window event should not be requested");
               }
 
               return [];
@@ -723,11 +762,22 @@ describe("odds-api adapter", () => {
     const result = await syncOddsApiBet365NbaMarkets({
       apiKey: "odds-key",
       fetchImpl,
-      now: () => new Date("2026-04-22T08:30:00.000Z"),
+      now: () => new Date("2026-04-24T02:00:00.000Z"),
     });
 
     expect(result.ok).toBe(true);
-    expect(eventCalls).toEqual(["2026-04-24", "2026-04-25"]);
+    expect(eventCalls).toEqual([
+      {
+        bookmaker: "Bet365",
+        from: "2026-04-23T22:30:00.000Z",
+        league: "usa-nba",
+        limit: "100",
+        sport: "basketball",
+        status: "pending,live",
+        to: "2026-04-24T13:00:00.000Z",
+      },
+    ]);
+    expect(requestedEventIds).toEqual(["evt-1", "evt-2"]);
     expect(listGameMarkets("nba-0042500173")).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -746,5 +796,6 @@ describe("odds-api adapter", () => {
         }),
       ])
     );
+    expect(listGameMarkets("nba-0042500175")).toHaveLength(0);
   });
 });
