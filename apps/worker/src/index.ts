@@ -145,6 +145,8 @@ export async function runWorkerCycle(options?: {
       process.env.ODDS_API_KEY ?? process.env.ODDS_API_IO_KEY
     );
     const kalshiDirectConfigured = Boolean(process.env.KALSHI_API_KEY);
+    const marketProviderAttempts =
+      (oddsApiConfigured ? 1 : 0) + (kalshiDirectConfigured ? 1 : 0) + 1;
 
     if (nbaSidecarConfigured) {
       const syncResult = await syncNbaSidecar({
@@ -199,6 +201,14 @@ export async function runWorkerCycle(options?: {
       const serialized = serializeErrorForLog(error);
       providerFailures.push({ error: serialized, source: "polymarket" });
       logger.error({ error: serialized }, "Polymarket sync failed.");
+    }
+
+    if (providerFailures.length === marketProviderAttempts) {
+      throw new Error(
+        `All configured market providers failed: ${providerFailures
+          .map((failure) => failure.source)
+          .join(", ")}`
+      );
     }
 
     const summary = buildWorkerHeartbeatSummary({

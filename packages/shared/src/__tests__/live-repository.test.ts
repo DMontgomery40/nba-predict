@@ -495,6 +495,31 @@ describe("live repository", () => {
     expect(listSignalMismatches({ date: "2026-04-22" })).toEqual([]);
   });
 
+  it("applies signal mismatch limits after filtering non-mismatches", () => {
+    seedLiveRepositoryGame();
+
+    recordQuoteObservation({
+      bestAsk: 0.5,
+      bestBid: 0.49,
+      capturedAt: "2026-04-21T23:40:30.000Z",
+      depthScore: 66,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.49,
+      lineRaw: -5.5,
+      oddsRaw: null,
+      priceRaw: 0.49,
+      sourceMarketId: "sm-kalshi-bos-spread",
+      volume: 29,
+    });
+
+    expect(listSignalMismatches({ limit: 1 })).toEqual([
+      expect.objectContaining({
+        directionalDisagreement: true,
+        displayLabel: "Boston -4.5",
+      }),
+    ]);
+  });
+
   it("surfaces fresh player-prop attribution alerts without using stale or non-prop mismatches", () => {
     seedLiveRepositoryGame();
 

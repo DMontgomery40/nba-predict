@@ -2830,9 +2830,10 @@ export function listSignalMismatches(filters: DivergenceFilters = {}) {
   return executeDatabaseOperation(
     "research.signalMismatches.list",
     () => {
+      const { limit, ...entryFilters } = filters;
       const rows = buildResearchDivergenceEntries({
-        ...filters,
-        sort: filters.sort ?? "divergence",
+        ...entryFilters,
+        sort: entryFilters.sort ?? "divergence",
       })
         .map((entry) => buildSignalMismatchRow(entry))
         .filter(
@@ -2841,7 +2842,12 @@ export function listSignalMismatches(filters: DivergenceFilters = {}) {
             (row.impliedProbabilityGap ?? 0) >= 0.08
         );
 
-      return rows as SignalMismatchRow[];
+      if (limit == null) {
+        return rows as SignalMismatchRow[];
+      }
+
+      const clampedLimit = Math.min(500, Math.max(1, Math.floor(limit)));
+      return rows.slice(0, clampedLimit) as SignalMismatchRow[];
     },
     filters
   );
