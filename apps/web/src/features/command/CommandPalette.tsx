@@ -4,6 +4,10 @@ import { useNavigate } from "react-router-dom";
 
 import { useAppStore } from "../../app/store";
 import { getGames } from "../../data/api";
+import {
+  buildGameTriage,
+  hasNavigableMarketBoard,
+} from "../../lib/game-triage";
 
 export function CommandPalette() {
   const navigate = useNavigate();
@@ -35,15 +39,15 @@ export function CommandPalette() {
 
   const actions = useMemo(() => {
     const routeActions = [
-      { id: "go-games", label: "Go to tracked games", path: "/" },
+      { id: "go-desk", label: "Go to trading desk", path: "/" },
       {
         id: "go-divergence",
-        label: "Go to divergence explorer",
+        label: "Go to divergence board",
         path: "/divergence",
       },
       {
         id: "go-history",
-        label: "Go to persisted history",
+        label: "Go to saved comparisons",
         path: "/history",
       },
       {
@@ -55,7 +59,8 @@ export function CommandPalette() {
     ];
 
     const gameActions =
-      games.data?.data
+      buildGameTriage(games.data?.data ?? [])
+        .actionableRows.filter(hasNavigableMarketBoard)
         .map((entry) => {
           return {
             id: entry.game.id,
@@ -85,9 +90,9 @@ export function CommandPalette() {
         <input
           autoFocus
           className="command-input"
-          placeholder="Search routes, games, and instruments"
           value={commandInput}
           onChange={(event) => setCommandInput(event.target.value)}
+          placeholder="Search routes and market boards"
         />
         <div className="command-results">
           {actions.map((action) => (

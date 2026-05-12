@@ -685,6 +685,7 @@ export async function syncPolymarketNbaMarkets(options?: {
       options?.games ??
       listResearchGames({
         league: "NBA",
+        referenceNow: now().toISOString(),
         sport: "basketball",
       });
     const events = await fetchPolymarketNbaEvents({

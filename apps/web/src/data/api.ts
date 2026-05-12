@@ -195,12 +195,25 @@ export type GamesPayload = {
       awayScore?: number | null;
       capturedAt?: string | null;
       clock?: string | null;
+      finalAt?: string | null;
+      gameId?: string | null;
       homeScore?: number | null;
+      id?: number | null;
+      isFinal?: boolean | null;
       period?: number | null;
+      startedAt?: string | null;
       status: string;
     } | null;
     hasUnmappedMarkets: boolean;
+    outcome?: {
+      capturedAt?: string | null;
+      finalAwayScore: number;
+      finalHomeScore: number;
+      gameId?: string | null;
+      winnerKey?: string | null;
+    } | null;
     topDivergences: Array<{
+      comparisonSummary?: InstrumentDivergenceSummary | null;
       displayLabel: string;
       family: string;
       impliedProbabilityGap: number;
@@ -214,14 +227,32 @@ export type GamesPayload = {
   };
 };
 
+export type InstrumentDivergenceSummary = {
+  aboveThresholdDurationMs: number;
+  comparisonCount: number;
+  firstAboveThresholdAt?: string | null;
+  firstComparisonAt?: string | null;
+  latestComparisonAt?: string | null;
+  latestGap?: number | null;
+  latestSignedGap?: number | null;
+  latestSourceProbabilities?: Record<string, number | null>;
+  maxGap?: number | null;
+  maxGapAt?: string | null;
+  maxGapSourceProbabilities?: Record<string, number | null>;
+  minGap?: number | null;
+  threshold: number;
+};
+
 export type GameMarketsPayload = {
   data: {
     game: GamesPayload["data"][number]["game"];
     gameState?: GamesPayload["data"][number]["gameState"] | null;
+    outcome?: GamesPayload["data"][number]["outcome"] | null;
     groups: Record<
       string,
       Array<{
         comparableState: string;
+        comparisonSummary?: InstrumentDivergenceSummary | null;
         impliedProbabilityGap?: number | null;
         instrument: {
           displayLabel: string;
@@ -245,6 +276,7 @@ export type GameMarketsPayload = {
             line?: number | null;
             odds?: string | null;
             price?: number | null;
+            selectionKey?: string | null;
             volume?: number | null;
           };
           source: string;
@@ -254,6 +286,7 @@ export type GameMarketsPayload = {
     >;
     items: Array<{
       comparableState: string;
+      comparisonSummary?: InstrumentDivergenceSummary | null;
       impliedProbabilityGap?: number | null;
       instrument: {
         displayLabel: string;
@@ -277,6 +310,7 @@ export type GameMarketsPayload = {
           line?: number | null;
           odds?: string | null;
           price?: number | null;
+          selectionKey?: string | null;
           volume?: number | null;
         };
         source: string;
@@ -313,6 +347,7 @@ export type InstrumentPayload = {
   data: {
     derivedComparison: {
       comparableState: string;
+      comparisonSummary?: InstrumentDivergenceSummary | null;
       impliedProbabilityGap?: number | null;
       lineMismatch: boolean;
       sourceCount: number;
@@ -340,6 +375,7 @@ export type InstrumentPayload = {
         line?: number | null;
         odds?: string | null;
         price?: number | null;
+        selectionKey?: string | null;
         volume?: number | null;
       };
       source: string;
@@ -487,7 +523,11 @@ export type DivergenceQuery = {
   family?: string;
   freshness?: "aging" | "fresh" | "offline" | "stale";
   limit?: number;
-  mappedState?: "comparable" | "line-mismatch" | "unmapped";
+  mappedState?:
+    | "comparable"
+    | "line-mismatch"
+    | "selection-mismatch"
+    | "unmapped";
   severity?: "critical" | "high" | "low" | "medium";
   sort?:
     | "captureRecency"
@@ -501,9 +541,11 @@ export type DivergencePayload = {
   data: Array<{
     captureRecencyMs?: number | null;
     comparableState: string;
+    comparisonSummary?: InstrumentDivergenceSummary | null;
     displayLabel: string;
     family: string;
     gameId: string;
+    gameStatus?: string;
     impliedProbabilityGap?: number | null;
     inPlay: boolean;
     instrumentId: string;
@@ -512,6 +554,7 @@ export type DivergencePayload = {
     severity: string;
     signalPriority: number;
     sources: string[];
+    scheduledStart?: string;
   }>;
   meta: {
     generatedAt: string;
@@ -571,8 +614,8 @@ export type PlayerPropAlertsPayload = {
     displayLabel: string;
     freshness: {
       bet365AgeMs: number;
-      pairGapMs: number;
       predictionMarketAgeMs: number;
+      quoteTimeGapMs?: number;
     };
     gameId: string;
     gameLabel: string;
@@ -624,7 +667,7 @@ export type PlayerPropAlertPlaybackPayload = {
     poll: {
       includeStale: boolean;
       limit: number;
-      maxPairGapMinutes: number;
+      maxQuoteTimeGapMinutes: number;
       maxQuoteAgeMinutes: number;
       minDelta: number;
     };
@@ -956,8 +999,8 @@ export function getSignalMismatches(options?: {
 export function getPlayerPropAlerts(options?: {
   includeStale?: boolean;
   limit?: number;
-  maxPairGapMinutes?: number;
   maxQuoteAgeMinutes?: number;
+  maxQuoteTimeGapMinutes?: number;
   minDelta?: number;
 }) {
   const params = new URLSearchParams();
@@ -967,8 +1010,11 @@ export function getPlayerPropAlerts(options?: {
   if (options?.limit != null) {
     params.set("limit", String(options.limit));
   }
-  if (options?.maxPairGapMinutes != null) {
-    params.set("maxPairGapMinutes", String(options.maxPairGapMinutes));
+  if (options?.maxQuoteTimeGapMinutes != null) {
+    params.set(
+      "maxQuoteTimeGapMinutes",
+      String(options.maxQuoteTimeGapMinutes)
+    );
   }
   if (options?.maxQuoteAgeMinutes != null) {
     params.set("maxQuoteAgeMinutes", String(options.maxQuoteAgeMinutes));

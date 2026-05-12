@@ -25,24 +25,27 @@ Build a real research backend and operator console for live market comparison ac
 - Frontend correctness fixes for timeline bucketing, nullable live-data display, editable-field shortcut guarding, unmapped-market fallbacks, dark-mode chart theming, and deeper browser coverage against seeded live history
 - Frontend coverage wording now separates market feeds from NBA game-state truth so `polymarket + nba` no longer reads like two market books
 - Odds-API backup ingest URL fix so `/v3` routes are preserved for live Bet365 capture
-- Trader desk UI now demotes external-only and stale Bet365 rows into diagnostics, keeping "read first" reserved for fresh Bet365-backed signals and collapsing placeholder/state-only slate noise.
+- Trader desk UI now demotes external-only and old Bet365 rows into diagnostics, reserves live-trading language for current Bet365-vs-exchange signals, and collapses placeholder/scoreboard-only slate noise.
 - Player-prop ingestion for Bet365 Odds-API snapshots and Polymarket historical CLOB backfill, with May 2 export files under `data/exports/`
 - Direct Kalshi NBA market-data capture via `KALSHI_API_KEY`, covering milestone-related game, spread, total, team-prop, player-prop, period, overtime, and related event families in canonical storage
 - API-backed export catalog and server-streamed CSV/JSONL/SQLite downloads surfaced from `/exports`, including provider/family quote slices for data engineering
 - NBA sidecar future-schedule fallback to the official NBA CDN season schedule, covering playoff games that `scoreboardv2` omits or times out on
 - Worker market-provider isolation: bet365 rate limits are reported without blocking Kalshi/Polymarket refresh, and live Kalshi scans are bounded to recent events
 - First-class player-prop attribution risk alerts: `/api/v1/research/player-prop-alerts` compares fresh mapped Bet365 props against Kalshi/Polymarket, and the trader desk polls it every five seconds for a popup plus top-of-dashboard review queue
-- Player-prop alert watcher and replay path: `pnpm prop-alert-watch` records every poll frame to JSONL, sends desktop notifications for newly observed alert ids, `/api/v1/research/player-prop-alert-playback` serves the tape, and `/prop-alerts` replays what the watcher saw
+- Player-prop alert watcher and saved-check path: `pnpm prop-alert-watch` records every poll frame to JSONL, sends desktop notifications for newly observed alert ids, `/api/v1/research/player-prop-alert-playback` serves persisted checks, and `/prop-alerts` reviews the selected date without synthetic frames
 - Odds-API Bet365 backup discovery is bounded to pending/live NBA events around the active target slate before requesting odds for matched event ids
-- Current-slate game ordering keeps live and near-term NBA games ahead of stale historical rows, with stale/missing/final-overdue NBA state called out in Games and Trader Desk
+- Current-slate game ordering keeps live and near-term NBA games ahead of old persisted history, with missing score updates and missing final confirmation called out in Games and Trader Desk
 - NBA sidecar live-scoreboard and schedule CDN fallbacks use browser-compatible NBA headers, keeping active playoff games visible when the default `nba_api` live endpoint is rejected
 - Player-prop divergence visibility now enforces the operator invariant: Bet365 plus at least one comparable Kalshi or Polymarket source, with line-mismatch remaining distinct from comparable probability divergence
+- Divergence truth model now separates game lifecycle, market coverage, quote freshness, and comparison state. Final games use persisted peak/latest comparison summaries, live rows use same-time latest comparisons, and player-prop surfaces fail closed on missing Bet365-plus-exchange coverage, selection mismatch, or prop-line mismatch.
+- Slate and desk game cards no longer manufacture `0.0%` top signals for coverage-only rows; market feeds and NBA state are displayed as separate facts, and source-record inspection no longer exposes raw payload JSON in the trader workspace.
+- Route audit pass now applies the shared lifecycle/comparison model across Desk, Slate, Divergence, Prop Alerts, Saved Checks, Event Workspace, Settings, History, Exports, and Ctrl+K. Trader-facing rows show peak/latest divergence, threshold duration, local timestamps, and same-time source evidence instead of unrelated latest quote trivia.
+- Same-time divergence summary reads now use an indexed source-market path instead of scanning the full quote history, and final-game score lines are rendered from the lifecycle/outcome contract so old NBA `in-play` state cannot contradict a final game row.
 - Settings now exposes runtime-settable environment/config keys, readiness, source health, admin actions, coverage, captures, storage, queued results, and mapping state in dense non-card controls
 - Readiness, worker heartbeat, storage coverage, and research coverage avoid full-DB blocking scans so the full local quote/raw-payload store no longer freezes operator UI surfaces
 - Temporary authenticated local/static hosting is available through `pnpm host:temporary`, suitable for a short-lived Cloudflare tunnel in front of the built web app
 
 ## In Progress
-
 - Running the Mother's Day playoff player-prop alert monitor for the live slate
 - Turning player-prop alerts from a polling read model into a full exposure-aware workflow once bet-intent/liability feeds exist
 - Tightening the direct public Bet365 capture seam so the repo is not permanently dependent on a backup provider
@@ -54,7 +57,7 @@ Build a real research backend and operator console for live market comparison ac
 2. Attach exposure/liability inputs to player-prop attribution alerts so the popup can rank by money at risk rather than price delta alone.
 3. Add an indexed, date/game-scoped export path for the handoff slices so data engineering does not have to pull full-table CSVs for current-game joins.
 4. Add broader live validation around direct Kalshi and Bet365 backup ingestion with real local provider credentials.
-5. Expand the chart surface with clearer game-state overlays, mismatch annotations, and depth-oriented views where the source supports them.
+5. Expand the chart surface with clearer game-state overlays, mismatch annotations, divergence-duration sparklines, and depth-oriented views where the source supports them.
 6. Turn more admin placeholders into executable workflows rather than queue-only records.
 7. Keep widening browser and integration coverage around env -> worker -> DB -> API -> UI for the live-only operator path.
 

@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
@@ -57,9 +63,19 @@ function createSettingsFetchImplementation(options?: {
   divergenceRows?: Array<{
     captureRecencyMs?: number | null;
     comparableState: string;
+    comparisonSummary?: {
+      aboveThresholdDurationMs: number;
+      comparisonCount: number;
+      latestGap?: number | null;
+      latestSourceProbabilities?: Record<string, number | null>;
+      maxGap?: number | null;
+      maxGapSourceProbabilities?: Record<string, number | null>;
+      threshold: number;
+    } | null;
     displayLabel: string;
     family: string;
     gameId: string;
+    gameStatus?: string;
     impliedProbabilityGap?: number | null;
     inPlay: boolean;
     instrumentId: string;
@@ -154,9 +170,27 @@ function createSettingsFetchImplementation(options?: {
     {
       captureRecencyMs: 15000,
       comparableState: "comparable",
+      comparisonSummary: {
+        aboveThresholdDurationMs: 0,
+        comparisonCount: 1,
+        latestGap: 0.12,
+        latestSourceProbabilities: {
+          bet365: 0.61,
+          kalshi: 0.49,
+          polymarket: null,
+        },
+        maxGap: 0.12,
+        maxGapSourceProbabilities: {
+          bet365: 0.61,
+          kalshi: 0.49,
+          polymarket: null,
+        },
+        threshold: 0.15,
+      },
       displayLabel: "Boston moneyline",
       family: "moneyline",
       gameId: "nba-bos-nyk-2026-04-21",
+      gameStatus: "in-play",
       impliedProbabilityGap: 0.12,
       inPlay: true,
       instrumentId: "bos-moneyline",
@@ -212,8 +246,8 @@ function createSettingsFetchImplementation(options?: {
       displayLabel: "Jalen Brunson points over 29.5",
       freshness: {
         bet365AgeMs: 6000,
-        pairGapMs: 4000,
         predictionMarketAgeMs: 2000,
+        quoteTimeGapMs: 4000,
       },
       gameId: "nba-bos-nyk-2026-04-21",
       gameLabel: "Knicks at Celtics",
@@ -255,7 +289,7 @@ function createSettingsFetchImplementation(options?: {
       poll: {
         includeStale: false,
         limit: 25,
-        maxPairGapMinutes: 10,
+        maxQuoteTimeGapMinutes: 10,
         maxQuoteAgeMinutes: 10,
         minDelta: 0.15,
       },
@@ -436,7 +470,7 @@ function createSettingsFetchImplementation(options?: {
             category: "Player prop alerts",
             configured: false,
             defaultValue: "0.15",
-            description: "Minimum Bet365-vs-prediction-market prop delta.",
+            description: "Minimum Bet365-vs-exchange prop delta.",
             inputType: "number",
             key: "PLAYER_PROP_ALERT_MIN_DELTA",
             label: "Minimum prop delta",
@@ -763,9 +797,7 @@ describe("App routes", () => {
       screen.getByText("Most recent moneyline calls by source")
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Which venue is moving first on the top-ranked instrument."
-      )
+      screen.getByText("Which source moved first on the top-ranked market.")
     ).toBeInTheDocument();
     expect(
       screen.getAllByText("Player prop attribution risk").length
@@ -830,7 +862,7 @@ describe("App routes", () => {
     window.history.replaceState(
       {},
       "",
-      "/divergence?family=player-prop&sort=divergence"
+      "/divergence?date=2026-04-21&family=player-prop&sort=divergence"
     );
     fetchMock.mockImplementation(async (input) => {
       const url = String(input);
@@ -849,10 +881,11 @@ describe("App routes", () => {
       })
     ).toBeInTheDocument();
     expect(screen.getByLabelText("family")).toHaveDisplayValue("Player props");
-    expect(screen.getByText("Loading rows")).toBeInTheDocument();
-    expect(screen.queryByText("0 rows")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("slate date")).toHaveValue("2026-04-21");
+    expect(screen.getByText("Loading comparisons")).toBeInTheDocument();
+    expect(screen.queryByText("0 comparisons")).not.toBeInTheDocument();
     expect(
-      screen.getByText(/Loading divergence from the API/)
+      screen.getByText(/Loading persisted comparisons/)
     ).toBeInTheDocument();
   });
 
@@ -860,7 +893,7 @@ describe("App routes", () => {
     window.history.replaceState(
       {},
       "",
-      "/divergence?family=player-prop&severity=high&mappedState=line-mismatch&sort=lineMismatch"
+      "/divergence?date=2026-04-21&family=player-prop&severity=high&mappedState=line-mismatch&sort=lineMismatch"
     );
     const requestedUrls: string[] = [];
     const baseFetch = createSettingsFetchImplementation({
@@ -912,7 +945,7 @@ describe("App routes", () => {
     expect(
       await screen.findByRole("columnheader", { name: "Instrument" })
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("state")).toHaveValue("line-mismatch");
+    expect(screen.getByLabelText("market match")).toHaveValue("line-mismatch");
     expect(screen.getAllByText("Bet365")).toHaveLength(2);
     expect(screen.getByText("Polymarket")).toBeInTheDocument();
     expect(
@@ -928,14 +961,15 @@ describe("App routes", () => {
 
     await waitFor(() => {
       expect(requestedUrls).toContain(
-        "/api/v1/divergence?family=player-prop&sort=divergence"
+        "/api/v1/divergence?date=2026-04-21&family=player-prop&sort=divergence"
       );
     });
-    expect(screen.getByLabelText("state")).toHaveValue("");
+    expect(screen.getByLabelText("slate date")).toHaveValue("2026-04-21");
+    expect(screen.getByLabelText("market match")).toHaveValue("");
     expect(screen.getByLabelText("severity")).toHaveValue("");
   });
 
-  it("renders the player prop alert monitor and replay tape", async () => {
+  it("renders the player prop alert monitor and saved checks", async () => {
     window.history.replaceState({}, "", "/prop-alerts");
     fetchMock.mockImplementation(createSettingsFetchImplementation());
 
@@ -947,8 +981,8 @@ describe("App routes", () => {
         name: "Player prop alert monitor",
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("Live review queue")).toBeInTheDocument();
-    expect(screen.getByText("What the watcher saw")).toBeInTheDocument();
+    expect(screen.getByText("Current review queue")).toBeInTheDocument();
+    expect(screen.getByText("Saved alert checks")).toBeInTheDocument();
     expect(
       (await screen.findAllByText("Jalen Brunson points over 29.5")).length
     ).toBeGreaterThan(0);
@@ -957,6 +991,35 @@ describe("App routes", () => {
       "href",
       "/games/nba-bos-nyk-2026-04-21/markets/brunson-points-over-29_5"
     );
+  });
+
+  it("keeps the saved-check date in the URL and data requests", async () => {
+    window.history.replaceState({}, "", "/prop-alerts?date=2026-05-10");
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      requestedUrls.push(String(input));
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Player prop alert monitor",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-05-10");
+
+    await waitFor(() => {
+      expect(requestedUrls).toContain(
+        "/api/v1/research/player-prop-alert-playback?date=2026-05-10&limit=300"
+      );
+      expect(requestedUrls).toContain(
+        "/api/v1/divergence?date=2026-05-10&family=player-prop&sort=signalPriority&limit=500"
+      );
+    });
   });
 
   it("collapses zero-alert player prop playback into a useful tracked-props summary", async () => {
@@ -970,12 +1033,12 @@ describe("App routes", () => {
             displayLabel: "Jalen Brunson points over 29.5",
             family: "player-prop",
             gameId: "nba-bos-nyk-2026-04-21",
-            impliedProbabilityGap: 0.12,
+            impliedProbabilityGap: 0.58,
             inPlay: true,
             instrumentId: "brunson-points-over-29_5",
             lineMismatch: false,
             mappingStatus: "auto",
-            severity: "medium",
+            severity: "critical",
             signalPriority: 120,
           },
           {
@@ -1002,7 +1065,7 @@ describe("App routes", () => {
           poll: {
             includeStale: false,
             limit: 25,
-            maxPairGapMinutes: 10,
+            maxQuoteTimeGapMinutes: 10,
             maxQuoteAgeMinutes: 10,
             minDelta: 0.15,
           },
@@ -1028,11 +1091,16 @@ describe("App routes", () => {
       await screen.findByText("2 tracked player props")
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/3 watcher polls had no alert/i)
+      screen.getByText(/3 watcher checks had no current alert/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/None reached the notification threshold of 15 pp/i)
+      screen.getByText(
+        /1 persisted comparison reached 15 pp on this date; alert notifications also require quote age and same-time quote rules at each check/i
+      )
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/None reached the notification threshold/i)
+    ).not.toBeInTheDocument();
     expect(screen.queryAllByText("No active prop alert.")).toHaveLength(0);
     expect(
       screen.getByRole("link", { name: "See tracked props in History" })
@@ -1040,6 +1108,49 @@ describe("App routes", () => {
     expect(
       screen.getByText("Jayson Tatum rebounds over 8.5")
     ).toBeInTheDocument();
+  });
+
+  it("summarizes saved alert divergences even when tracked comparison rows are below threshold", async () => {
+    window.history.replaceState({}, "", "/prop-alerts");
+    fetchMock.mockImplementation(
+      createSettingsFetchImplementation({
+        divergenceRows: [
+          {
+            captureRecencyMs: 15000,
+            comparableState: "comparable",
+            displayLabel: "Jalen Brunson points over 29.5",
+            family: "player-prop",
+            gameId: "nba-bos-nyk-2026-04-21",
+            impliedProbabilityGap: 0.02,
+            inPlay: true,
+            instrumentId: "brunson-points-over-29_5",
+            lineMismatch: false,
+            mappingStatus: "auto",
+            severity: "low",
+            signalPriority: 20,
+          },
+        ],
+      })
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Player prop alert monitor",
+      })
+    ).toBeInTheDocument();
+
+    expect(
+      await screen.findByText(/1 saved alert reached 15 pp/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/saved alert divergence ranged from 29 pp to 29 pp/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/No persisted comparison is at the 15 pp threshold/i)
+    ).not.toBeInTheDocument();
   });
 
   it("shows player prop monitor API failures instead of healthy empty states", async () => {
@@ -1054,7 +1165,7 @@ describe("App routes", () => {
       }
       if (url.startsWith("/api/v1/research/player-prop-alert-playback")) {
         return mockErrorResponse({
-          message: "Player prop alert playback is unavailable.",
+          message: "Player prop alert history is unavailable.",
         });
       }
 
@@ -1065,7 +1176,7 @@ describe("App routes", () => {
 
     expect(
       await screen.findByText(
-        "Live alert feed failed; current player-prop risk is unverified."
+        "Current alert feed failed; player-prop risk is unverified."
       )
     ).toBeInTheDocument();
     expect(
@@ -1075,20 +1186,55 @@ describe("App routes", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Player prop alert playback failed to load. Replay history is not verified./i
+        /Player prop alert history failed to load. Saved checks are not verified./i
       )
     ).toBeInTheDocument();
     expect(
       screen.queryByText("No current player-prop disagreement alert.")
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByText("No playback frames have been written for this date.")
+      screen.queryByText("No alert checks have been written for this date.")
     ).not.toBeInTheDocument();
   });
 
   it("demotes external-only pressure when Bet365 has not populated", async () => {
     fetchMock.mockImplementation(
       createSettingsFetchImplementation({
+        divergenceRows: [
+          {
+            captureRecencyMs: 15000,
+            comparableState: "comparable",
+            comparisonSummary: {
+              aboveThresholdDurationMs: 0,
+              comparisonCount: 1,
+              latestGap: 0.03,
+              latestSourceProbabilities: {
+                bet365: null,
+                kalshi: 0.49,
+                polymarket: 0.52,
+              },
+              maxGap: 0.03,
+              maxGapSourceProbabilities: {
+                bet365: null,
+                kalshi: 0.49,
+                polymarket: 0.52,
+              },
+              threshold: 0.15,
+            },
+            displayLabel: "Boston moneyline",
+            family: "moneyline",
+            gameId: "nba-bos-nyk-2026-04-21",
+            gameStatus: "final",
+            impliedProbabilityGap: 0.03,
+            inPlay: false,
+            instrumentId: "bos-moneyline",
+            lineMismatch: false,
+            mappingStatus: "auto",
+            severity: "medium",
+            signalPriority: 91,
+            sources: ["kalshi", "polymarket"],
+          },
+        ],
         signalMismatchRows: [
           {
             bet365ImpliedProbability: null,
@@ -1119,33 +1265,51 @@ describe("App routes", () => {
     render(<App />);
 
     expect(
-      await screen.findByText(/No Bet365-backed trading signal is populated/i)
+      await screen.findByText(
+        /No Bet365-vs-exchange trading signal is populated/i
+      )
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "Diagnostics only: Boston moneyline",
+        name: "Review: Boston moneyline",
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("not Bet365-backed")).toBeInTheDocument();
+    expect(screen.getByText("not Bet365-vs-exchange")).toBeInTheDocument();
     expect((await screen.findAllByText("b365 n/a")).length).toBeGreaterThan(0);
-    expect(
-      screen.getByRole("link", { name: "Open diagnostic instrument" })
-    ).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open market" })).toHaveAttribute(
       "href",
       "/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"
     );
   });
 
-  it("demotes stale Bet365-backed rows instead of calling them live action", async () => {
+  it("demotes past Bet365-backed rows instead of calling them live action", async () => {
     fetchMock.mockImplementation(
       createSettingsFetchImplementation({
         divergenceRows: [
           {
             captureRecencyMs: 45 * 60 * 60_000,
             comparableState: "comparable",
+            comparisonSummary: {
+              aboveThresholdDurationMs: 0,
+              comparisonCount: 1,
+              latestGap: 0.12,
+              latestSourceProbabilities: {
+                bet365: 0.61,
+                kalshi: 0.49,
+                polymarket: 0.52,
+              },
+              maxGap: 0.12,
+              maxGapSourceProbabilities: {
+                bet365: 0.61,
+                kalshi: 0.49,
+                polymarket: 0.52,
+              },
+              threshold: 0.15,
+            },
             displayLabel: "Boston moneyline",
             family: "moneyline",
             gameId: "nba-bos-nyk-2026-04-21",
+            gameStatus: "final",
             impliedProbabilityGap: 0.12,
             inPlay: false,
             instrumentId: "bos-moneyline",
@@ -1153,6 +1317,7 @@ describe("App routes", () => {
             mappingStatus: "auto",
             severity: "high",
             signalPriority: 91,
+            sources: ["bet365", "kalshi", "polymarket"],
           },
         ],
         signalMismatchRows: [
@@ -1186,17 +1351,19 @@ describe("App routes", () => {
 
     expect(
       await screen.findByText(
-        /No fresh Bet365-backed trading signal is populated/i
+        /No current Bet365-vs-exchange trading signal is populated/i
       )
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "Stale diagnostics: Boston moneyline",
+        name: "Past comparison: Boston moneyline",
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("stale Bet365 signal")).toBeInTheDocument();
     expect(
-      screen.queryByText(/Bet365-backed read-first/i)
+      screen.getByText("past Bet365-vs-exchange comparison")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Bet365-vs-exchange read-first/i)
     ).not.toBeInTheDocument();
   });
 
@@ -1238,6 +1405,12 @@ describe("App routes", () => {
                 status: "in-play",
               },
               hasUnmappedMarkets: true,
+              outcome: {
+                capturedAt: "2026-04-22T02:20:00.000Z",
+                finalAwayScore: 108,
+                finalHomeScore: 112,
+                winnerKey: "bos",
+              },
               topDivergences: [
                 {
                   displayLabel: "Boston moneyline",
@@ -1320,23 +1493,176 @@ describe("App routes", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: "Live NBA research slate" })
+      await screen.findByRole("heading", { name: "NBA market work slate" })
     ).toBeInTheDocument();
-    expect(screen.getByText("Actionable games")).toBeInTheDocument();
-    expect(screen.getByText("NBA-state only")).toBeInTheDocument();
+    expect(screen.getByText("Market work boards")).toBeInTheDocument();
+    expect(screen.getByText("Scoreboard only")).toBeInTheDocument();
     expect(screen.getByText("Placeholder names")).toBeInTheDocument();
     expect(screen.getByText("Boards with market work")).toBeInTheDocument();
-    expect(screen.getByText("Knicks at Celtics")).toBeInTheDocument();
-    expect(screen.queryByText("Lakers at Nuggets")).not.toBeInTheDocument();
-    expect(screen.queryByText("Away at Home")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Knicks at Celtics").length).toBeGreaterThan(0);
+    const slateTable = screen.getByRole("table");
     expect(
-      screen.getByText("bet365, kalshi, polymarket + NBA")
+      within(slateTable).getByText("108 - 112 · final")
     ).toBeInTheDocument();
+    expect(
+      within(slateTable).queryByText("108 - 112 · in-play")
+    ).not.toBeInTheDocument();
+    expect(
+      within(slateTable).queryByText("Lakers at Nuggets")
+    ).not.toBeInTheDocument();
+    expect(
+      within(slateTable).queryByText("Away at Home")
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("bet365, kalshi, polymarket")).toBeInTheDocument();
+    expect(within(slateTable).getAllByText("available").length).toBeGreaterThan(
+      0
+    );
     expect(screen.getByText("Boston moneyline")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Signal" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Review" })).toHaveAttribute(
       "href",
       "/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"
     );
+  });
+
+  it("does not promote coverage-only or scoreboard-only schedule rows as command-palette boards", async () => {
+    fetchMock.mockImplementation(
+      createSettingsFetchImplementation({
+        games: [
+          {
+            activeInstrumentCount: 2,
+            coverage: {
+              activeSourceCount: 3,
+              availableSources: ["bet365", "kalshi", "nba"],
+              missingSources: ["polymarket"],
+              unmappedSourceMarketCount: 0,
+            },
+            game: {
+              awayParticipant: {
+                key: "nyk",
+                name: "New York Knicks",
+                shortName: "Knicks",
+              },
+              homeParticipant: {
+                key: "bos",
+                name: "Boston Celtics",
+                shortName: "Celtics",
+              },
+              id: "nba-bos-nyk-2026-04-21",
+              league: "NBA",
+              scheduledStart: "2026-04-21T23:00:00.000Z",
+              sport: "basketball",
+            },
+            gameState: {
+              status: "in-play",
+            },
+            hasUnmappedMarkets: false,
+            topDivergences: [
+              {
+                displayLabel: "Boston moneyline",
+                family: "moneyline",
+                impliedProbabilityGap: 0.07,
+                instrumentId: "bos-moneyline",
+                lineMismatch: false,
+                severity: "high",
+              },
+            ],
+          },
+          {
+            activeInstrumentCount: 0,
+            coverage: {
+              activeSourceCount: 3,
+              availableSources: ["bet365", "kalshi", "nba"],
+              missingSources: ["polymarket"],
+              unmappedSourceMarketCount: 0,
+            },
+            game: {
+              awayParticipant: {
+                key: "lal",
+                name: "Los Angeles Lakers",
+                shortName: "Lakers",
+              },
+              homeParticipant: {
+                key: "den",
+                name: "Denver Nuggets",
+                shortName: "Nuggets",
+              },
+              id: "nba-den-lal-2026-04-21",
+              league: "NBA",
+              scheduledStart: "2026-04-21T01:30:00.000Z",
+              sport: "basketball",
+            },
+            gameState: {
+              status: "scheduled",
+            },
+            hasUnmappedMarkets: false,
+            topDivergences: [],
+          },
+          {
+            activeInstrumentCount: 0,
+            coverage: {
+              activeSourceCount: 1,
+              availableSources: ["nba"],
+              missingSources: ["bet365", "kalshi", "polymarket"],
+              unmappedSourceMarketCount: 0,
+            },
+            game: {
+              awayParticipant: {
+                key: "okc",
+                name: "Oklahoma City Thunder",
+                shortName: "Thunder",
+              },
+              homeParticipant: {
+                key: "phx",
+                name: "Phoenix Suns",
+                shortName: "Suns",
+              },
+              id: "nba-phx-okc-2026-04-21",
+              league: "NBA",
+              scheduledStart: "2026-04-21T03:00:00.000Z",
+              sport: "basketball",
+            },
+            gameState: {
+              status: "scheduled",
+            },
+            hasUnmappedMarkets: false,
+            topDivergences: [],
+          },
+        ],
+      })
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "What the markets actually knew.",
+      })
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+
+    const commandInput = await screen.findByPlaceholderText(
+      "Search routes and market boards"
+    );
+    fireEvent.change(commandInput, { target: { value: "Knicks" } });
+    expect(
+      await screen.findByRole("button", { name: "Open Knicks at Celtics" })
+    ).toBeInTheDocument();
+
+    fireEvent.change(commandInput, { target: { value: "Lakers" } });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "Open Lakers at Nuggets" })
+      ).not.toBeInTheDocument();
+    });
+    fireEvent.change(commandInput, { target: { value: "Thunder" } });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "Open Thunder at Suns" })
+      ).not.toBeInTheDocument();
+    });
+    fireEvent.keyDown(window, { key: "Escape" });
   });
 
   it("renders the research page from closed-game signal-quality payloads", async () => {
@@ -1347,7 +1673,7 @@ describe("App routes", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "How much signal is in prediction markets vs the book?",
+        name: "How much signal is in exchange prices vs bet365?",
       })
     ).toBeInTheDocument();
     expect(screen.getByText("Per-source signal quality")).toBeInTheDocument();
@@ -1515,7 +1841,8 @@ describe("App routes", () => {
         name: "Knicks at Celtics",
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("1 market source + NBA state")).toBeInTheDocument();
+    expect(screen.getByText("1 market source")).toBeInTheDocument();
+    expect(screen.getAllByText("NBA state").length).toBeGreaterThan(0);
     expect(screen.getByText("Available market feeds")).toBeInTheDocument();
     expect(screen.getByText("NBA game state")).toBeInTheDocument();
     expect(
@@ -1782,7 +2109,7 @@ describe("App routes", () => {
               {
                 capturedAt: "2026-04-22T05:55:00.000Z",
                 id: 1,
-                payloadJson: { source: "bet365" },
+                payloadJson: { market: "moneyline", source: "bet365" },
                 source: "bet365",
               },
             ],
@@ -1816,40 +2143,297 @@ describe("App routes", () => {
       "/api/v1/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline/export.csv"
     );
     expect(screen.getByText("Celtics to win outright")).toBeInTheDocument();
-    expect(await screen.findByText("peak |Δ| bet365↔ext")).toBeInTheDocument();
-    expect(screen.getByText(/bet365 → kalshi/)).toBeInTheDocument();
+    expect(await screen.findByText("peak divergence")).toBeInTheDocument();
+    expect(screen.getByText("same minute")).toBeInTheDocument();
+    expect(screen.queryByText(/\(lockstep\)/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Actionable now").length).toBeGreaterThan(0);
     expect(
-      screen.getByText("Comparative signal is live on this market.")
-    ).toBeInTheDocument();
+      screen.queryByText("Comparative signal is live on this market.")
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/kalshi is 67\.0% and bet365 is 61\.0%/i)
+      screen.getByText(/bet365 62\.0% · kalshi 67\.0% · divergence 5\.0 pp/i)
     ).toBeInTheDocument();
     expect(screen.getAllByText("n/a").length).toBeGreaterThan(0);
     expect(screen.queryByText("0.0%")).not.toBeInTheDocument();
     expect(
-      screen
-        .getAllByText("manual")
-        .every((element) => element.className.includes("badge-warning"))
-    ).toBe(true);
-    expect(
-      screen.getAllByRole("button", { name: "Open raw" }).length
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getByRole("button", { name: "Show diagnostics" })
+      screen.getByRole("button", { name: "Show source records" })
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(/latest raw payload #44/i)
+      screen.queryByText(/last source record #44/i)
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show diagnostics" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show source records" })
+    );
 
-    expect(await screen.findByText("Research plumbing")).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText("Source records")).length
+    ).toBeGreaterThan(0);
     await waitFor(() => {
       expect(
         screen.queryByText("Loading diagnostics…")
       ).not.toBeInTheDocument();
     });
-    expect(screen.getByText(/latest raw payload #44/i)).toBeInTheDocument();
+    expect(screen.getByText(/last source record #44/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Source records" }));
+
+    const sourceRecord = await screen.findByRole("dialog", {
+      name: "Source record",
+    });
+    expect(
+      await within(sourceRecord).findByText("Normalized quote")
+    ).toBeInTheDocument();
+    expect(within(sourceRecord).getByText("Market record")).toBeInTheDocument();
+    expect(
+      within(sourceRecord).getByText("Latest raw payload")
+    ).toBeInTheDocument();
+    expect(sourceRecord).toHaveTextContent(/"source":\s*"bet365"/);
+    expect(sourceRecord).toHaveTextContent(/"market":\s*"moneyline"/);
+    expect(
+      within(sourceRecord).queryByText("Raw Source Inspection")
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not compare final player prop quotes captured outside the same-time window", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/games/nba-0042500234/markets/nba-0042500234-player-prop-steals-victor-wembanyama-over-0-5"
+    );
+
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "/api/v1/games") {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-12T07:35:00.000Z" },
+        });
+      }
+      if (url === "/api/v1/games/nba-0042500234") {
+        return mockJsonResponse({
+          data: {
+            coverageSummary: {
+              activeSourceCount: 3,
+              availableSources: ["bet365", "kalshi", "nba"],
+              missingSources: ["polymarket"],
+              unmappedSourceMarketCount: 0,
+            },
+            game: {
+              awayParticipant: {
+                key: "min",
+                name: "Minnesota Timberwolves",
+                shortName: "Timberwolves",
+              },
+              homeParticipant: {
+                key: "sas",
+                name: "San Antonio Spurs",
+                shortName: "Spurs",
+              },
+              id: "nba-0042500234",
+              league: "NBA",
+              scheduledStart: "2026-05-10T23:30:00.000Z",
+              sport: "basketball",
+            },
+            gameState: {
+              awayScore: 109,
+              capturedAt: "2026-05-11T09:18:28.182Z",
+              homeScore: 114,
+              isFinal: true,
+              status: "final",
+            },
+            marketFamilyCounts: [{ family: "player-prop", count: 1 }],
+            outcome: {
+              finalAwayScore: 109,
+              finalHomeScore: 114,
+              winnerKey: "sas",
+            },
+          },
+          meta: { generatedAt: "2026-05-12T07:35:00.000Z" },
+        });
+      }
+      if (
+        url ===
+        "/api/v1/games/nba-0042500234/markets/nba-0042500234-player-prop-steals-victor-wembanyama-over-0-5"
+      ) {
+        return mockJsonResponse({
+          data: {
+            derivedComparison: {
+              comparableState: "comparable",
+              comparisonSummary: {
+                aboveThresholdDurationMs: 0,
+                comparisonCount: 12,
+                firstComparisonAt: "2026-05-10T23:09:26.021Z",
+                latestComparisonAt: "2026-05-10T23:09:26.021Z",
+                latestGap: 0.015714,
+                latestSignedGap: -0.015714,
+                latestSourceProbabilities: {
+                  bet365: 0.714286,
+                  kalshi: 0.73,
+                  polymarket: null,
+                },
+                maxGap: 0.015714,
+                maxGapAt: "2026-05-10T23:09:26.021Z",
+                maxGapSourceProbabilities: {
+                  bet365: 0.714286,
+                  kalshi: 0.73,
+                  polymarket: null,
+                },
+                minGap: 0.015714,
+                threshold: 0.15,
+              },
+              impliedProbabilityGap: 0.684,
+              lineMismatch: false,
+              sourceCount: 2,
+            },
+            gameState: {
+              awayScore: 109,
+              capturedAt: "2026-05-11T09:18:28.182Z",
+              homeScore: 114,
+              isFinal: true,
+              status: "final",
+            },
+            instrument: {
+              displayLabel: "Victor Wembanyama over 0.5 steals",
+              family: "player-prop",
+              id: "nba-0042500234-player-prop-steals-victor-wembanyama-over-0-5",
+              inPlay: false,
+              line: 0.5,
+              selection: "over",
+            },
+            latestQuotesBySource: [
+              {
+                capturedAt: "2026-05-10T23:09:15.934Z",
+                freshnessMs: 116_744_066,
+                impliedProbability: 0.714,
+                mappingStatus: "auto",
+                raw: {
+                  label: "Victor Wembanyama (1) (0.5)",
+                  line: 0.5,
+                  odds: "1.40",
+                  price: 1.4,
+                  selectionKey: "victor-wembanyama-over",
+                },
+                source: "bet365",
+                sourceMarketId: "sm-bet365-wemby-steals",
+              },
+              {
+                capturedAt: "2026-05-12T07:30:23.373Z",
+                freshnessMs: 276_627,
+                impliedProbability: 0.03,
+                mappingStatus: "auto",
+                raw: {
+                  label: "Victor Wembanyama: 1+ steals",
+                  line: 0.5,
+                  price: 0.03,
+                  selectionKey: "over",
+                },
+                source: "kalshi",
+                sourceMarketId: "sm-kalshi-wemby-steals",
+              },
+            ],
+            latestRawReferences: [],
+          },
+          meta: { generatedAt: "2026-05-12T07:35:00.000Z" },
+        });
+      }
+      if (
+        url ===
+        "/api/v1/games/nba-0042500234/markets/nba-0042500234-player-prop-steals-victor-wembanyama-over-0-5/timeline"
+      ) {
+        return mockJsonResponse({
+          data: {
+            annotations: [],
+            gameStateSeries: [],
+            lineMismatchWindows: [],
+            quoteSeriesBySource: {
+              bet365: [
+                {
+                  capturedAt: "2026-05-10T23:09:15.934Z",
+                  impliedProbability: 0.714,
+                  isHeartbeat: false,
+                  source: "bet365",
+                },
+              ],
+              kalshi: [
+                {
+                  capturedAt: "2026-05-10T23:09:26.021Z",
+                  impliedProbability: 0.73,
+                  isHeartbeat: false,
+                  source: "kalshi",
+                },
+                {
+                  capturedAt: "2026-05-12T07:30:23.373Z",
+                  impliedProbability: 0.03,
+                  isHeartbeat: false,
+                  source: "kalshi",
+                },
+              ],
+              polymarket: [],
+            },
+          },
+          meta: { generatedAt: "2026-05-12T07:35:00.000Z" },
+        });
+      }
+      if (
+        url ===
+        "/api/v1/games/nba-0042500234/markets/nba-0042500234-player-prop-steals-victor-wembanyama-over-0-5/delta-series?bucketSeconds=60"
+      ) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-12T07:35:00.000Z" },
+        });
+      }
+      if (
+        url ===
+        "/api/v1/games/nba-0042500234/markets/nba-0042500234-player-prop-steals-victor-wembanyama-over-0-5/lead-lag?bucketSeconds=60&maxLagBuckets=20"
+      ) {
+        return mockJsonResponse({
+          data: {
+            bucketSeconds: 60,
+            insufficientData: true,
+            pairs: [],
+          },
+          meta: { generatedAt: "2026-05-12T07:35:00.000Z" },
+        });
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Victor Wembanyama over 0.5 steals",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText("1.6 pp peak divergence")).toBeInTheDocument();
+    expect(screen.getByText("Latest measured")).toBeInTheDocument();
+    const sampleCell = screen
+      .getByText("same-time samples")
+      .closest(".sq-cell");
+    expect(sampleCell).not.toBeNull();
+    expect(
+      within(sampleCell as HTMLElement).getByText("12")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/bet365 is 71\.4% and kalshi is 3\.0%/i)
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("73.0%")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Victor Wembanyama (1) (0.5)")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("selection victor-wembanyama-over")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/unpaired/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: /Latest measured divergence 1\.6 pp, range 1\.6 pp to 1\.6 pp/i,
+      })
+    ).toBeInTheDocument();
   });
 
   it("renders an honest empty state when an instrument has no attached source markets yet", async () => {
@@ -1988,7 +2572,7 @@ describe("App routes", () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Inspect raw source payloads" })
+      screen.getByRole("button", { name: "Source records" })
     ).toBeDisabled();
   });
 
@@ -2022,7 +2606,7 @@ describe("App routes", () => {
       ).toBeInTheDocument();
     });
 
-    expect(screen.getByText("market feeds bet365")).toBeInTheDocument();
+    expect(screen.getByText(/market feeds\s+bet365/i)).toBeInTheDocument();
     expect(screen.getByText("NBA state available")).toBeInTheDocument();
 
     fireEvent.click(
@@ -2046,17 +2630,17 @@ describe("App routes", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Persisted market and ingest history",
+        name: "Persisted market history",
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("Signals worth opening first")).toBeInTheDocument();
+    expect(
+      screen.getByText("Largest persisted divergences")
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Review date")).toBeInTheDocument();
-    expect(await screen.findByText("Peak gap")).toBeInTheDocument();
+    expect(await screen.findByText("Peak divergence")).toBeInTheDocument();
     expect(screen.getByText("Recent adapter activity")).toBeInTheDocument();
     expect(screen.getByText("Persisted source coverage")).toBeInTheDocument();
-    expect(
-      screen.getByText("Historical disagreement snapshot")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Past disagreement snapshot")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Review date"), {
       target: { value: "2026-04-21" },
@@ -2106,7 +2690,7 @@ describe("App routes", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "Persisted market and ingest history",
+        name: "Persisted market history",
       })
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Family")).toHaveValue("player-prop");
@@ -2190,7 +2774,7 @@ describe("App routes", () => {
 
     render(<App />);
 
-    await screen.findByText("Signals worth opening first");
+    await screen.findByText("Largest persisted divergences");
     expect(
       screen.getAllByText("Victor Wembanyama over 0.5 steals").length
     ).toBeGreaterThan(0);
@@ -2286,8 +2870,10 @@ describe("App routes", () => {
     render(<App />);
 
     expect(
-      await screen.findByText(
-        "No canonical game linked yet (nba-missing-link-2026-04-22) · bet365 · last quote 2026-04-22 06:05:00.000"
+      await screen.findByText((content) =>
+        content.startsWith(
+          "No canonical game linked yet (nba-missing-link-2026-04-22) · bet365 · last quote Apr 22, 2026"
+        )
       )
     ).toBeInTheDocument();
     expect(

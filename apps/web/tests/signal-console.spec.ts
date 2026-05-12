@@ -30,9 +30,7 @@ test("tracked games page opens the top signal", async ({ page }) => {
   await expect(
     page.getByRole("heading", { level: 1, name: "Boston moneyline" })
   ).toBeVisible();
-  await expect(
-    page.getByText("Comparative signal is live on this market.")
-  ).toBeVisible();
+  await expect(page.getByText("Market review")).toBeVisible();
 });
 
 test("top instrument flow opens raw source inspection", async ({ page }) => {
@@ -46,13 +44,11 @@ test("top instrument flow opens raw source inspection", async ({ page }) => {
     page.getByRole("heading", { level: 1, name: "Boston moneyline" })
   ).toBeVisible();
 
-  await page
-    .getByRole("button", { name: "Inspect raw source payloads" })
-    .click();
-  const rawDialog = page.getByRole("dialog", { name: "Raw source inspection" });
+  await page.getByRole("button", { name: "Show source records" }).click();
+  const rawDialog = page.getByRole("dialog", { name: "Source record" });
   await expect(rawDialog).toBeVisible();
   await expect(
-    rawDialog.getByText("Latest raw payload", { exact: true })
+    rawDialog.getByText("Normalized quote", { exact: true })
   ).toBeVisible();
   await expect(
     page.locator(".recharts-cartesian-axis-line").first()

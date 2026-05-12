@@ -94,7 +94,10 @@ export async function registerResearchRoutes(app: FastifyInstance) {
         {
           includeStale: parseBooleanParam(query.includeStale),
           limit: parseIntegerParam(query.limit, 25),
-          maxPairGapMinutes: parseNumberParam(query.maxPairGapMinutes, 10),
+          maxQuoteTimeGapMinutes: parseNumberParam(
+            query.maxQuoteTimeGapMinutes,
+            10
+          ),
           maxQuoteAgeMinutes: parseNumberParam(query.maxQuoteAgeMinutes, 10),
           minDelta: parseNumberParam(query.minDelta, 0.15),
         },

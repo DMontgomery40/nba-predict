@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "../../components/Primitives";
 import { getInstrumentRawSource } from "../../data/api";
+import { formatOperatorDateTime } from "../../lib/time-format";
 
 const preferredSourceOrder = ["bet365", "kalshi", "polymarket", "nba"];
 
@@ -14,6 +15,21 @@ function toneForMapping(status?: string) {
     return "positive" as const;
   }
   return "warning" as const;
+}
+
+function formatQuoteStatus(value?: string | null) {
+  switch (value) {
+    case "fresh":
+      return "under 1m";
+    case "aging":
+      return "1-5m";
+    case "stale":
+      return "over 5m";
+    case "offline":
+      return "no quote";
+    default:
+      return value ?? "n/a";
+  }
 }
 
 export function RawSourceDrawer({
@@ -79,22 +95,25 @@ export function RawSourceDrawer({
   }
 
   const payload = source.data?.data;
+  const latestRawPayload = payload?.rawPayloads[0];
+  const latestRawPayloadJson = latestRawPayload
+    ? JSON.stringify(latestRawPayload.payloadJson, null, 2)
+    : null;
 
   return (
     <div className="drawer-scrim" onClick={onClose}>
       <aside
-        aria-label="Raw source inspection"
+        aria-label="Source record"
         className="raw-drawer"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
         <div className="raw-drawer-header">
           <div>
-            <div className="eyebrow">Raw Source Inspection</div>
+            <div className="eyebrow">Source record</div>
             <h2>{activeSourceId}</h2>
             <p className="muted">
-              Inspect the latest normalized parser output and persisted raw
-              payloads for one source market.
+              Last stored quote and mapping record for this source.
             </p>
           </div>
           <button className="ghost-button" onClick={onClose} type="button">
@@ -122,7 +141,7 @@ export function RawSourceDrawer({
 
           <div className="raw-drawer-detail">
             {source.isLoading ? (
-              <p className="muted">Loading source payload…</p>
+              <p className="muted">Loading source record…</p>
             ) : payload ? (
               <>
                 <div className="context-meta">
@@ -131,20 +150,26 @@ export function RawSourceDrawer({
                     <strong>{payload.sourceMarket.mappingStatus}</strong>
                   </div>
                   <div>
-                    <span>Freshness</span>
-                    <strong>{payload.captureDiagnostics.freshnessBand}</strong>
+                    <span>Quote age</span>
+                    <strong>
+                      {formatQuoteStatus(
+                        payload.captureDiagnostics.freshnessBand
+                      )}
+                    </strong>
                   </div>
                   <div>
                     <span>Last quote</span>
                     <strong>
-                      {payload.captureDiagnostics.lastQuoteCapturedAt ?? "n/a"}
+                      {formatOperatorDateTime(
+                        payload.captureDiagnostics.lastQuoteCapturedAt
+                      )}
                     </strong>
                   </div>
                 </div>
 
                 <div className="raw-detail-grid">
                   <article className="note-card">
-                    <h3>Parser output</h3>
+                    <h3>Normalized quote</h3>
                     <p>
                       Implied probability:{" "}
                       {payload.parserOutput.impliedProbability == null
@@ -156,33 +181,39 @@ export function RawSourceDrawer({
                   </article>
 
                   <article className="note-card">
-                    <h3>Source market</h3>
+                    <h3>Market record</h3>
                     <p>Label: {payload.sourceMarket.rawLabel ?? "n/a"}</p>
-                    <p>Key: {payload.sourceMarket.sourceMarketKey}</p>
+                    <p>Market id: {payload.sourceMarket.sourceMarketKey}</p>
                     <Badge
                       tone={toneForMapping(payload.sourceMarket.mappingStatus)}
                     >
                       {payload.sourceMarket.mappingStatus}
                     </Badge>
                   </article>
-                </div>
 
-                <div className="raw-json-shell">
-                  <div className="raw-json-header">
-                    <div className="eyebrow">Latest raw payload</div>
-                  </div>
-                  <pre>
-                    {JSON.stringify(
-                      payload.rawPayloads[0]?.payloadJson ?? {},
-                      null,
-                      2
+                  <article className="note-card raw-payload-card">
+                    <h3>Latest raw payload</h3>
+                    {latestRawPayload ? (
+                      <>
+                        <p>
+                          Captured:{" "}
+                          {formatOperatorDateTime(latestRawPayload.capturedAt)}
+                        </p>
+                        <pre className="raw-payload-json">
+                          {latestRawPayloadJson}
+                        </pre>
+                      </>
+                    ) : (
+                      <p>
+                        No persisted raw payload is attached to this source.
+                      </p>
                     )}
-                  </pre>
+                  </article>
                 </div>
               </>
             ) : (
               <p className="muted">
-                No raw payload is available for this source.
+                No source record is available for this market.
               </p>
             )}
           </div>

@@ -2,7 +2,27 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { PlayerPropAlertPlaybackFrame } from "@signal-console/domain";
+import type {
+  PlayerPropAlertPlaybackFrame,
+  PlayerPropDisagreementAlert,
+} from "@signal-console/domain";
+
+type LegacyPlayerPropDisagreementAlert = PlayerPropDisagreementAlert & {
+  freshness: PlayerPropDisagreementAlert["freshness"] & {
+    pairGapMs?: number;
+  };
+};
+
+type LegacyPlayerPropAlertPlaybackFrame = Omit<
+  PlayerPropAlertPlaybackFrame,
+  "alerts" | "poll"
+> & {
+  alerts: LegacyPlayerPropDisagreementAlert[];
+  poll: Omit<PlayerPropAlertPlaybackFrame["poll"], "maxQuoteTimeGapMinutes"> & {
+    maxPairGapMinutes?: number;
+    maxQuoteTimeGapMinutes?: number;
+  };
+};
 
 const defaultPlaybackDirectory = resolve(
   fileURLToPath(
@@ -66,9 +86,35 @@ export function getPlayerPropAlertPlaybackPath(
   );
 }
 
-function parsePlaybackLine(line: string) {
+function parsePlaybackLine(line: string): PlayerPropAlertPlaybackFrame | null {
   try {
-    return JSON.parse(line) as PlayerPropAlertPlaybackFrame;
+    const frame = JSON.parse(line) as LegacyPlayerPropAlertPlaybackFrame;
+    const alerts = frame.alerts.map((alert) => {
+      const quoteTimeGapMs =
+        alert.freshness.quoteTimeGapMs ?? alert.freshness.pairGapMs;
+      return {
+        ...alert,
+        freshness: {
+          bet365AgeMs: alert.freshness.bet365AgeMs,
+          predictionMarketAgeMs: alert.freshness.predictionMarketAgeMs,
+          ...(quoteTimeGapMs != null ? { quoteTimeGapMs } : {}),
+        },
+      };
+    });
+    return {
+      ...frame,
+      alerts,
+      poll: {
+        includeStale: frame.poll.includeStale,
+        limit: frame.poll.limit,
+        maxQuoteAgeMinutes: frame.poll.maxQuoteAgeMinutes,
+        maxQuoteTimeGapMinutes:
+          frame.poll.maxQuoteTimeGapMinutes ??
+          frame.poll.maxPairGapMinutes ??
+          10,
+        minDelta: frame.poll.minDelta,
+      },
+    } satisfies PlayerPropAlertPlaybackFrame;
   } catch {
     return null;
   }

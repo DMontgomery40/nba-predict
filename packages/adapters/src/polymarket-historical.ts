@@ -383,6 +383,7 @@ export async function syncPolymarketNbaHistorical(options?: {
       options?.games ??
       listResearchGames({
         league: "NBA",
+        scope: "all",
         sport: "basketball",
       });
     const gameIndex = buildGameIndex(games);

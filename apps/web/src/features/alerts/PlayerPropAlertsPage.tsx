@@ -1,18 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bell, Play, RefreshCw } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
+import { DivergenceMiniChart } from "../../components/DivergenceMiniChart";
 import { PageFrame } from "../../components/PageFrame";
 import { Panel } from "../../components/Primitives";
 import {
   getDivergence,
+  getInstrumentTimeline,
   getPlayerPropAlertPlayback,
   getPlayerPropAlerts,
   type DivergencePayload,
   type PlayerPropAlertPlaybackPayload,
   type PlayerPropAlertsPayload,
 } from "../../data/api";
+import { buildDivergenceTraceSummary } from "../../lib/divergence-history";
+import { formatOperatorDateTime } from "../../lib/time-format";
 
 type DivergenceRow = DivergencePayload["data"][number];
 type PlayerPropAlertRow = PlayerPropAlertsPayload["data"][number];
@@ -23,12 +27,12 @@ function localDateInputValue(date = new Date()) {
   return local.toISOString().slice(0, 10);
 }
 
-function formatTimestamp(value?: string | null) {
-  if (!value) {
-    return "n/a";
-  }
+function isDateInputValue(value: string | null) {
+  return value != null && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
 
-  return value.replace("T", " ").replace("Z", "");
+function formatTimestamp(value?: string | null) {
+  return formatOperatorDateTime(value);
 }
 
 function formatProbability(value?: number | null) {
@@ -37,6 +41,14 @@ function formatProbability(value?: number | null) {
   }
 
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatLine(value?: number | null) {
+  if (value == null || !Number.isFinite(value)) {
+    return "line n/a";
+  }
+
+  return `line ${value > 0 ? `+${value}` : value}`;
 }
 
 function formatDeltaPoints(value?: number | null) {
@@ -68,6 +80,25 @@ function formatAge(value?: number | null) {
   return `${(value / (60 * 60_000)).toFixed(1)}h`;
 }
 
+function rowPeakGap(row: DivergenceRow) {
+  return row.comparisonSummary?.maxGap ?? row.impliedProbabilityGap ?? null;
+}
+
+function matchLabel(state: string) {
+  switch (state) {
+    case "comparable":
+      return "matched";
+    case "line-mismatch":
+      return "line mismatch";
+    case "selection-mismatch":
+      return "selection mismatch";
+    case "unmapped":
+      return "unmapped";
+    default:
+      return state;
+  }
+}
+
 function alertTone(alert: PlayerPropAlertRow) {
   if (alert.severity === "critical") {
     return "critical";
@@ -76,6 +107,26 @@ function alertTone(alert: PlayerPropAlertRow) {
     return "hot";
   }
   return "warm";
+}
+
+function InstrumentTrace({
+  gameId,
+  instrumentId,
+}: {
+  gameId: string;
+  instrumentId: string;
+}) {
+  const timeline = useQuery({
+    queryKey: ["instrument-timeline-mini", gameId, instrumentId],
+    queryFn: () => getInstrumentTimeline(gameId, instrumentId),
+    refetchInterval: 5000,
+  });
+
+  return (
+    <DivergenceMiniChart
+      summary={buildDivergenceTraceSummary(timeline.data?.data)}
+    />
+  );
 }
 
 function AlertCard({
@@ -105,9 +156,12 @@ function AlertCard({
       </div>
       <div className="prop-alert-card-grid">
         <div>
-          <span>b365</span>
+          <span>Bet365</span>
           <strong>{formatProbability(alert.bet365.impliedProbability)}</strong>
-          <em>{alert.bet365.rawLabel ?? alert.bet365.sourceMarketKey}</em>
+          <em>
+            {formatLine(alert.bet365.lineRaw)} ·{" "}
+            {formatTimestamp(alert.bet365.capturedAt)}
+          </em>
         </div>
         <div>
           <span>{alert.predictionMarket.source}</span>
@@ -115,21 +169,27 @@ function AlertCard({
             {formatProbability(alert.predictionMarket.impliedProbability)}
           </strong>
           <em>
-            {alert.predictionMarket.rawLabel ??
-              alert.predictionMarket.sourceMarketKey}
+            {formatLine(alert.predictionMarket.lineRaw)} ·{" "}
+            {formatTimestamp(alert.predictionMarket.capturedAt)}
           </em>
         </div>
         <div>
-          <span>delta</span>
+          <span>Divergence</span>
           <strong>{formatDeltaPoints(alert.signedDelta)}</strong>
           <em>{alert.direction.replaceAll("-", " ")}</em>
         </div>
         <div>
-          <span>age</span>
+          <span>Quote timing</span>
           <strong>{formatAge(alert.freshness.bet365AgeMs)}</strong>
-          <em>pair gap {formatAge(alert.freshness.pairGapMs)}</em>
+          <em>time apart {formatAge(alert.freshness.quoteTimeGapMs)}</em>
         </div>
       </div>
+      {compact ? null : (
+        <InstrumentTrace
+          gameId={alert.gameId}
+          instrumentId={alert.instrumentId}
+        />
+      )}
     </article>
   );
 }
@@ -185,8 +245,12 @@ function TrackedPlayerPropList({ rows }: { rows: DivergenceRow[] }) {
           to={`/games/${row.gameId}/markets/${row.instrumentId}`}
         >
           <span>{row.displayLabel}</span>
-          <strong>{formatThreshold(row.impliedProbabilityGap ?? 0)}</strong>
-          <em>{row.comparableState.replace("-", " ")}</em>
+          <strong>{formatThreshold(rowPeakGap(row) ?? 0)}</strong>
+          <em>{matchLabel(row.comparableState)}</em>
+          <InstrumentTrace
+            gameId={row.gameId}
+            instrumentId={row.instrumentId}
+          />
         </Link>
       ))}
     </div>
@@ -194,16 +258,30 @@ function TrackedPlayerPropList({ rows }: { rows: DivergenceRow[] }) {
 }
 
 export function PlayerPropAlertsPage() {
-  const [playbackDate, setPlaybackDate] = useState(localDateInputValue());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const playbackDate = isDateInputValue(searchParams.get("date"))
+    ? searchParams.get("date")!
+    : localDateInputValue();
   const [notificationThresholdPct, setNotificationThresholdPct] = useState(15);
   const notificationThreshold = notificationThresholdPct / 100;
+
+  function setPlaybackDate(nextDate: string) {
+    const nextParams = new URLSearchParams(searchParams);
+    if (isDateInputValue(nextDate)) {
+      nextParams.set("date", nextDate);
+    } else {
+      nextParams.delete("date");
+    }
+    setSearchParams(nextParams, { replace: true });
+  }
+
   const liveAlerts = useQuery({
     queryKey: ["research-player-prop-alerts", "monitor", notificationThreshold],
     queryFn: () =>
       getPlayerPropAlerts({
         limit: 25,
-        maxPairGapMinutes: 10,
         maxQuoteAgeMinutes: 10,
+        maxQuoteTimeGapMinutes: 10,
         minDelta: notificationThreshold,
       }),
     refetchInterval: 5000,
@@ -243,6 +321,23 @@ export function PlayerPropAlertsPage() {
   );
   const playbackThreshold = latestFrame?.poll.minDelta ?? notificationThreshold;
   const trackedRows = trackedPlayerProps.data?.data ?? [];
+  const trackedRowsAtPlaybackThreshold = trackedRows.filter(
+    (row) => (rowPeakGap(row) ?? 0) >= playbackThreshold
+  );
+  const playbackAlerts = frames.flatMap((frame) => frame.alerts);
+  const playbackAlertsAtThreshold = playbackAlerts.filter(
+    (alert) => alert.absoluteDelta >= playbackThreshold
+  );
+  const playbackAlertDivergences = playbackAlertsAtThreshold
+    .map((alert) => alert.absoluteDelta)
+    .filter(Number.isFinite);
+  const playbackAlertRange =
+    playbackAlertDivergences.length > 0
+      ? {
+          max: Math.max(...playbackAlertDivergences),
+          min: Math.min(...playbackAlertDivergences),
+        }
+      : null;
   const historyLink = `/history?date=${encodeURIComponent(
     playbackDate
   )}&family=player-prop`;
@@ -256,12 +351,12 @@ export function PlayerPropAlertsPage() {
             <h1>Player prop alert monitor</h1>
             <p>
               {liveAlerts.isError
-                ? "Live alert feed failed; current player-prop risk is unverified."
+                ? "Current alert feed failed; player-prop risk is unverified."
                 : currentAlerts.length > 0
-                  ? `${currentAlerts.length} live disagreement${
+                  ? `${currentAlerts.length} current disagreement${
                       currentAlerts.length === 1 ? "" : "s"
                     } need review.`
-                  : "Watcher is armed; no live prop disagreement is active."}
+                  : "Watcher is armed; no current prop disagreement is active."}
             </p>
           </div>
           <div className="alert-monitor-actions">
@@ -274,7 +369,7 @@ export function PlayerPropAlertsPage() {
               />
             </label>
             <label>
-              <span>Threshold pp</span>
+              <span>Alert threshold</span>
               <input
                 aria-label="Notification threshold in percentage points"
                 max={100}
@@ -291,13 +386,13 @@ export function PlayerPropAlertsPage() {
               />
             </label>
             <button
-              aria-label="Refresh playback"
+              aria-label="Refresh alert history"
               className="icon-button"
               onClick={() => {
                 void liveAlerts.refetch();
                 void playback.refetch();
               }}
-              title="Refresh playback"
+              title="Refresh alert history"
               type="button"
             >
               <RefreshCw size={16} />
@@ -308,7 +403,7 @@ export function PlayerPropAlertsPage() {
         <section className="alert-monitor-stats" aria-label="Alert summary">
           <div>
             <Bell size={17} />
-            <span>Live queue</span>
+            <span>Current queue</span>
             <strong>{currentAlerts.length}</strong>
           </div>
           <div>
@@ -336,7 +431,7 @@ export function PlayerPropAlertsPage() {
           <div className="alert-monitor-section-head">
             <div>
               <div className="eyebrow">Right now</div>
-              <h2>Live review queue</h2>
+              <h2>Current review queue</h2>
             </div>
             <span>{liveAlerts.isFetching ? "refreshing" : "steady"}</span>
           </div>
@@ -361,15 +456,15 @@ export function PlayerPropAlertsPage() {
         <Panel className="alert-monitor-panel">
           <div className="alert-monitor-section-head">
             <div>
-              <div className="eyebrow">Replay tape</div>
-              <h2>What the watcher saw</h2>
+              <div className="eyebrow">Past checks</div>
+              <h2>Saved alert checks</h2>
             </div>
             <span>{playback.isFetching ? "refreshing" : playbackDate}</span>
           </div>
           <div className="playback-frame-list">
             {playback.isError ? (
               <div className="alert-monitor-error">
-                Player prop alert playback failed to load. Replay history is not
+                Player prop alert history failed to load. Saved checks are not
                 verified.
               </div>
             ) : frames.length > 0 ? (
@@ -382,18 +477,42 @@ export function PlayerPropAlertsPage() {
                         : `${trackedRows.length} tracked player props`}
                     </strong>
                     <p>
-                      {zeroAlertFrameCount} watcher poll
-                      {zeroAlertFrameCount === 1 ? "" : "s"} had no alert. Polls
-                      are threshold evaluations, not video frames.
-                      {notifiedCount === 0
-                        ? ` None reached the notification threshold of ${formatThreshold(
-                            playbackThreshold
-                          )}.`
-                        : ` ${notifiedCount} notification${
-                            notifiedCount === 1 ? "" : "s"
-                          } fired at the saved ${formatThreshold(
-                            playbackThreshold
-                          )} threshold.`}
+                      {zeroAlertFrameCount} watcher check
+                      {zeroAlertFrameCount === 1 ? "" : "s"} had no current
+                      alert.
+                      {trackedPlayerProps.isLoading
+                        ? " Waiting for persisted comparison rows before judging the threshold."
+                        : trackedPlayerProps.isError
+                          ? " Persisted comparison rows failed to load, so the threshold summary is not verified."
+                          : playbackAlertsAtThreshold.length > 0
+                            ? ` ${playbackAlertsAtThreshold.length} saved alert${
+                                playbackAlertsAtThreshold.length === 1
+                                  ? ""
+                                  : "s"
+                              } reached ${formatThreshold(
+                                playbackThreshold
+                              )}; saved alert divergence ranged from ${formatThreshold(
+                                playbackAlertRange?.min ?? playbackThreshold
+                              )} to ${formatThreshold(
+                                playbackAlertRange?.max ?? playbackThreshold
+                              )}.`
+                            : trackedRowsAtPlaybackThreshold.length > 0
+                              ? ` ${trackedRowsAtPlaybackThreshold.length} persisted comparison${
+                                  trackedRowsAtPlaybackThreshold.length === 1
+                                    ? ""
+                                    : "s"
+                                } reached ${formatThreshold(
+                                  playbackThreshold
+                                )} on this date; alert notifications also require quote age and same-time quote rules at each check.`
+                              : notifiedCount === 0
+                                ? ` No persisted comparison is at the ${formatThreshold(
+                                    playbackThreshold
+                                  )} threshold on this date.`
+                                : ` ${notifiedCount} notification${
+                                    notifiedCount === 1 ? "" : "s"
+                                  } fired at the saved ${formatThreshold(
+                                    playbackThreshold
+                                  )} threshold.`}
                     </p>
                   </div>
                   <div className="playback-summary-actions">
@@ -418,7 +537,7 @@ export function PlayerPropAlertsPage() {
               </>
             ) : (
               <div className="alert-monitor-empty">
-                No playback frames have been written for this date.
+                No alert checks have been written for this date.
               </div>
             )}
           </div>

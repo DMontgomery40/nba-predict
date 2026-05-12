@@ -13,12 +13,15 @@ import {
   YAxis,
 } from "recharts";
 
+import { classifyMarketSignal } from "@signal-console/domain";
+
 import { RawSourceDrawer } from "./RawSourceDrawer";
 import { SignalQualityStrip } from "./SignalQualityStrip";
 import {
-  formatTimelineChartData,
+  formatDivergenceChartData,
   formatTimelineTimestamp,
 } from "./timeline-chart";
+import { DivergenceMiniChart } from "../../components/DivergenceMiniChart";
 import { ErrorState, LoadingState } from "../../components/ErrorState";
 import { PageFrame } from "../../components/PageFrame";
 import { Badge, Panel, SectionTitle } from "../../components/Primitives";
@@ -34,8 +37,14 @@ import {
   chartGridColor,
   chartLegendStyle,
   chartTooltipStyle,
-  sourceSeriesColors,
 } from "../../lib/chart-theme";
+import {
+  buildDivergenceTraceSummary,
+  buildLatestComparison,
+} from "../../lib/divergence-history";
+import { getGameOperationalState } from "../../lib/game-state";
+import { formatGapPoints } from "../../lib/market-format";
+import { formatOperatorDateTime } from "../../lib/time-format";
 
 const marketResearchSources = ["bet365", "kalshi", "polymarket"] as const;
 
@@ -57,6 +66,16 @@ function formatMinutes(value?: number | null) {
   return `${(value / 60_000).toFixed(1)} min`;
 }
 
+function formatDuration(value: number) {
+  if (value < 60_000) {
+    return `${Math.round(value / 1000)}s`;
+  }
+  if (value < 60 * 60_000) {
+    return `${Math.round(value / 60_000)}m`;
+  }
+  return `${(value / (60 * 60_000)).toFixed(1)}h`;
+}
+
 function formatProbability(value?: number | null) {
   if (value == null) {
     return "n/a";
@@ -74,34 +93,7 @@ function formatLine(value?: number | null) {
 }
 
 function formatCapturedAt(value?: string | null) {
-  if (!value) {
-    return "n/a";
-  }
-
-  return new Date(value).toLocaleString([], {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatRawPrice(
-  raw: {
-    odds?: string | null;
-    price?: number | null;
-  },
-  source: string
-) {
-  if (raw.odds) {
-    return `odds ${raw.odds}`;
-  }
-
-  if (typeof raw.price === "number") {
-    return source === "polymarket"
-      ? `price ${raw.price.toFixed(3)}`
-      : `price ${raw.price.toFixed(2)}`;
-  }
-
-  return "price n/a";
+  return formatOperatorDateTime(value);
 }
 
 function formatGameStateSummary(
@@ -116,10 +108,7 @@ function formatGameStateSummary(
     status: string;
   } | null
 ) {
-  const scheduledLabel = new Date(game.scheduledStart).toLocaleString([], {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const scheduledLabel = formatOperatorDateTime(game.scheduledStart);
 
   if (!gameState) {
     return `Scheduled ${scheduledLabel}`;
@@ -145,6 +134,7 @@ function describeInstrumentQuestion(
     homeParticipant: { key: string; shortName: string };
   },
   instrument: {
+    displayLabel?: string;
     family: string;
     line?: number | null;
     selection: string;
@@ -175,13 +165,13 @@ function describeInstrumentQuestion(
     return `${direction} ${instrument.line ?? "n/a"}`;
   }
 
-  return instrument.selection;
+  return instrument.displayLabel ?? instrument.selection;
 }
 
 export function EventWorkspacePage() {
   const { gameId = "", instrumentId = "" } = useParams();
   const [rawDrawerOpen, setRawDrawerOpen] = useState(false);
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [selectedSourceId] = useState<string | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const game = useQuery({
@@ -205,22 +195,13 @@ export function EventWorkspacePage() {
     queryFn: () => getInstrumentSources(gameId, instrumentId),
   });
 
-  const chartData = useMemo(
-    () =>
-      formatTimelineChartData(timeline.data?.data.quoteSeriesBySource ?? {}),
-    [timeline.data?.data.quoteSeriesBySource]
+  const divergenceTrace = useMemo(
+    () => buildDivergenceTraceSummary(timeline.data?.data),
+    [timeline.data?.data]
   );
-  const timelinePointCounts = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(timeline.data?.data.quoteSeriesBySource ?? {}).map(
-          ([sourceId, points]) => [
-            sourceId,
-            points.filter((point) => point.impliedProbability != null).length,
-          ]
-        )
-      ),
-    [timeline.data?.data.quoteSeriesBySource]
+  const latestComparison = useMemo(
+    () => buildLatestComparison(timeline.data?.data),
+    [timeline.data?.data]
   );
 
   if (!gameId || !instrumentId) {
@@ -290,6 +271,28 @@ export function EventWorkspacePage() {
 
   const gameData = game.data.data;
   const instrumentData = instrument.data.data;
+  const apiDivergenceSummary =
+    instrumentData.derivedComparison.comparisonSummary;
+  const divergenceSummary = apiDivergenceSummary
+    ? {
+        aboveThresholdDurationMs: apiDivergenceSummary.aboveThresholdDurationMs,
+        currentGap: apiDivergenceSummary.latestGap ?? null,
+        firstAboveThresholdAt:
+          apiDivergenceSummary.firstAboveThresholdAt ?? null,
+        latestAt: apiDivergenceSummary.latestComparisonAt ?? null,
+        maxGap: apiDivergenceSummary.maxGap ?? null,
+        maxGapAt: apiDivergenceSummary.maxGapAt ?? null,
+        minGap: apiDivergenceSummary.minGap ?? null,
+        points: divergenceTrace?.points ?? [],
+        threshold: apiDivergenceSummary.threshold,
+      }
+    : divergenceTrace;
+  const divergenceChartData = formatDivergenceChartData(
+    divergenceSummary?.points ?? []
+  );
+  const divergencePointCount = divergenceChartData.filter(
+    (row) => typeof row.divergence === "number"
+  ).length;
   const diagnosticsData = sourceDiagnostics.data?.data ?? [];
   const exportUrl = getInstrumentTimelineExportUrl(gameId, instrumentId);
   const hasSourceQuotes = instrumentData.latestQuotesBySource.length > 0;
@@ -301,20 +304,11 @@ export function EventWorkspacePage() {
       impliedProbability: number;
     } => quote.impliedProbability != null
   );
-  const highestQuote = [...pricedQuotes].sort(
-    (left, right) => right.impliedProbability - left.impliedProbability
-  )[0];
-  const lowestQuote = [...pricedQuotes].sort(
-    (left, right) => left.impliedProbability - right.impliedProbability
-  )[0];
-  const observedGap =
-    highestQuote && lowestQuote
-      ? highestQuote.impliedProbability - lowestQuote.impliedProbability
-      : null;
   const gameStateSummary = formatGameStateSummary(
     gameData.game,
     gameData.gameState
   );
+  const gameLifecycle = getGameOperationalState(gameData);
   const marketQuestion = describeInstrumentQuestion(
     gameData.game,
     instrumentData.instrument
@@ -323,35 +317,96 @@ export function EventWorkspacePage() {
     (source) => !pricedQuotes.some((quote) => quote.source === source)
   );
   const signalSummary =
-    pricedQuotes.length < 2
-      ? `No comparative signal yet. Only ${pricedQuotes[0]?.source ?? "zero sources"} has a current quote on this exact market.${missingMarketSources.length > 0 ? ` Missing ${missingMarketSources.join(", ")}.` : ""}`
-      : `${highestQuote?.source ?? "A source"} is ${formatProbability(
-          highestQuote?.impliedProbability
-        )} and ${lowestQuote?.source ?? "another source"} is ${formatProbability(
-          lowestQuote?.impliedProbability
-        )}, a ${formatProbability(
-          observedGap
-        )} spread on ${marketQuestion.toLowerCase()}.`;
-  const signalBadge =
-    pricedQuotes.length < 2
+    latestComparison && latestComparison.rows.length >= 2
+      ? `${latestComparison.rows
+          .map(
+            (row) =>
+              `${row.source} ${formatProbability(row.impliedProbability)}`
+          )
+          .join(" · ")} · divergence ${formatGapPoints(
+          latestComparison.gap
+        )} · ${formatCapturedAt(latestComparison.capturedAt)}`
+      : pricedQuotes.length < 2
+        ? `No comparison yet. Only ${pricedQuotes[0]?.source ?? "zero sources"} has a quote on this exact market.${missingMarketSources.length > 0 ? ` Missing ${missingMarketSources.join(", ")}.` : ""}`
+        : "Bet365 and exchange quotes have not overlapped closely enough to measure this market.";
+  const signalState = classifyMarketSignal({
+    comparableState: instrumentData.derivedComparison.comparableState,
+    gameLifecycle,
+    latestSources: instrumentData.latestQuotesBySource,
+    requireBet365PlusPredictionMarket:
+      instrumentData.instrument.family === "player-prop",
+    sourceCount: pricedQuotes.length,
+  });
+  const displaySignalState =
+    signalState.state === "invalid" &&
+    signalState.label === "No comparison yet" &&
+    divergenceSummary?.maxGap != null
       ? {
-          label: "single source",
-          tone: "warning" as const,
+          label:
+            gameLifecycle.kind === "final"
+              ? "Review comparison"
+              : "Earlier comparison",
+          reason:
+            "Latest quotes are not from the same time. Showing the most recent Bet365-vs-exchange comparison.",
+          state: signalState.state,
         }
-      : instrumentData.derivedComparison.lineMismatch
-        ? {
-            label: "line mismatch",
-            tone: "warning" as const,
-          }
-        : {
-            label: "signal live",
-            tone: "positive" as const,
-          };
-
-  function openRawSource(sourceId?: string | null) {
-    setSelectedSourceId(sourceId ?? null);
-    setRawDrawerOpen(true);
-  }
+      : signalState;
+  const showSignalSummary =
+    instrumentData.derivedComparison.comparableState === "comparable" &&
+    latestComparison != null;
+  const signalBadge = (() => {
+    if (signalState.state === "historical") {
+      return { label: displaySignalState.label, tone: "neutral" as const };
+    }
+    if (
+      signalState.state === "invalid" ||
+      signalState.state === "stale" ||
+      instrumentData.derivedComparison.lineMismatch
+    ) {
+      return {
+        label:
+          instrumentData.derivedComparison.lineMismatch &&
+          signalState.state === "actionable-now"
+            ? "line mismatch"
+            : displaySignalState.label,
+        tone: "warning" as const,
+      };
+    }
+    return { label: displaySignalState.label, tone: "positive" as const };
+  })();
+  const comparisonRows =
+    latestComparison?.rows.map((row) => ({
+      capturedAt: row.capturedAt,
+      impliedProbability: row.impliedProbability,
+      line: row.line,
+      marketLabel: instrumentData.instrument.displayLabel,
+      source: row.source,
+    })) ?? [];
+  const comparisonSummary =
+    latestComparison && latestComparison.rows.length >= 2
+      ? `${latestComparison.rows
+          .map(
+            (row) =>
+              `${row.source} ${formatProbability(row.impliedProbability)}`
+          )
+          .join(
+            " · "
+          )} · divergence ${formatGapPoints(latestComparison.gap)} · ${formatCapturedAt(
+          latestComparison.capturedAt
+        )}`
+      : displaySignalState.reason;
+  const divergenceHeadline =
+    divergenceSummary?.maxGap != null
+      ? `${formatGapPoints(divergenceSummary.maxGap)} peak divergence`
+      : displaySignalState.label;
+  const divergenceDetail =
+    divergenceSummary?.maxGapAt != null
+      ? `Peak at ${formatCapturedAt(
+          divergenceSummary.maxGapAt
+        )}. Latest measured divergence ${formatGapPoints(
+          divergenceSummary.currentGap
+        )} at ${formatCapturedAt(divergenceSummary.latestAt)}.`
+      : comparisonSummary;
 
   return (
     <>
@@ -360,7 +415,7 @@ export function EventWorkspacePage() {
           <>
             <Panel>
               <SectionTitle
-                eyebrow="Research Comparison"
+                eyebrow="Comparison"
                 title={instrumentData.instrument.displayLabel}
               />
               <div className="tag-row">
@@ -389,11 +444,11 @@ export function EventWorkspacePage() {
       >
         <section className="hero-strip">
           <div>
-            <div className="eyebrow">Instrument Workspace</div>
+            <div className="eyebrow">Market</div>
             <h1>{instrumentData.instrument.displayLabel}</h1>
             <p>
-              See the market question, who is pricing it right now, and whether
-              there is a real multi-source signal.
+              Bet365 and exchange prices are shown on the same probability
+              scale.
             </p>
           </div>
           <div className="hero-actions">
@@ -406,16 +461,20 @@ export function EventWorkspacePage() {
               onClick={() => setRawDrawerOpen(true)}
               type="button"
             >
-              Inspect raw source payloads
+              Source records
             </button>
           </div>
         </section>
 
-        <SignalQualityStrip gameId={gameId} instrumentId={instrumentId} />
+        <SignalQualityStrip
+          comparisonSummary={apiDivergenceSummary}
+          gameId={gameId}
+          instrumentId={instrumentId}
+        />
 
         <Panel>
           <SectionTitle
-            eyebrow="Current Market Read"
+            eyebrow="Comparison"
             title={marketQuestion}
             body={`${instrumentData.instrument.displayLabel} · ${gameStateSummary}`}
           />
@@ -423,66 +482,83 @@ export function EventWorkspacePage() {
             <div className="stack">
               <div
                 className={`inline-alert ${
-                  pricedQuotes.length >= 2
+                  displaySignalState.state === "actionable-now"
                     ? "inline-alert-positive"
                     : "inline-alert-warning"
                 }`}
               >
-                <strong>
-                  {pricedQuotes.length >= 2
-                    ? "Comparative signal is live on this market."
-                    : "No comparative signal yet on this exact market."}
-                </strong>
-                <span>{signalSummary}</span>
+                <strong>{divergenceHeadline}</strong>
+                <span>
+                  {showSignalSummary ? signalSummary : divergenceDetail}
+                </span>
+                <DivergenceMiniChart summary={divergenceSummary} />
               </div>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Source</th>
-                    <th>Probability</th>
-                    <th>Odds / Price</th>
-                    <th>Freshness</th>
-                    <th>Captured</th>
-                    <th>Inspect</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {instrumentData.latestQuotesBySource.map((quote) => (
-                    <tr key={quote.source}>
-                      <td>
-                        <strong>{quote.source}</strong>
-                        <div className="table-subtle">
-                          <Badge
-                            tone={toneForMappingStatus(quote.mappingStatus)}
-                          >
-                            {quote.mappingStatus}
-                          </Badge>
-                        </div>
-                      </td>
-                      <td className="table-metric">
-                        {formatProbability(quote.impliedProbability)}
-                      </td>
-                      <td>
-                        <div>{formatRawPrice(quote.raw, quote.source)}</div>
-                        <div className="muted">
-                          line {formatLine(quote.raw.line)}
-                        </div>
-                      </td>
-                      <td>{formatMinutes(quote.freshnessMs)}</td>
-                      <td>{formatCapturedAt(quote.capturedAt)}</td>
-                      <td>
-                        <button
-                          className="ghost-button"
-                          onClick={() => openRawSource(quote.source)}
-                          type="button"
-                        >
-                          Open raw
-                        </button>
-                      </td>
+              {divergenceSummary?.maxGap != null ? (
+                <div className="divergence-summary-grid">
+                  <div>
+                    <span>Peak divergence</span>
+                    <strong>{formatGapPoints(divergenceSummary.maxGap)}</strong>
+                    <em>{formatCapturedAt(divergenceSummary.maxGapAt)}</em>
+                  </div>
+                  <div>
+                    <span>Latest measured</span>
+                    <strong>
+                      {formatGapPoints(divergenceSummary.currentGap)}
+                    </strong>
+                    <em>{formatCapturedAt(divergenceSummary.latestAt)}</em>
+                  </div>
+                  <div>
+                    <span>
+                      Above {formatGapPoints(divergenceSummary.threshold)}
+                    </span>
+                    <strong>
+                      {formatDuration(
+                        divergenceSummary.aboveThresholdDurationMs
+                      )}
+                    </strong>
+                    <em>
+                      {divergenceSummary.firstAboveThresholdAt
+                        ? `from ${formatCapturedAt(
+                            divergenceSummary.firstAboveThresholdAt
+                          )}`
+                        : "not reached"}
+                    </em>
+                  </div>
+                </div>
+              ) : null}
+              {comparisonRows.length > 0 ? (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Source</th>
+                      <th>Market</th>
+                      <th>Probability</th>
+                      <th>Line</th>
+                      <th>Captured</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {comparisonRows.map((row) => (
+                      <tr key={`${row.source}:${row.capturedAt ?? "missing"}`}>
+                        <td>
+                          <strong>{row.source}</strong>
+                        </td>
+                        <td>{row.marketLabel}</td>
+                        <td className="table-metric">
+                          {formatProbability(row.impliedProbability)}
+                        </td>
+                        <td>{formatLine(row.line)}</td>
+                        <td>{formatCapturedAt(row.capturedAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="muted">
+                  No Bet365-vs-exchange comparison was measured in the same
+                  quote window.
+                </p>
+              )}
             </div>
           ) : (
             <p className="muted">
@@ -494,12 +570,12 @@ export function EventWorkspacePage() {
         <Panel>
           <SectionTitle
             eyebrow="Timeline"
-            title="How that market moved over time"
-            body="Only priced sources on this exact instrument are plotted. Single observations stay visible as dots."
+            title="Divergence over time"
+            body="Only Bet365-vs-exchange quote windows are plotted. Long unmeasured spans stay disconnected."
           />
           <div className="chart-shell">
             <ResponsiveContainer height={320} width="100%">
-              <LineChart data={chartData}>
+              <LineChart data={divergenceChartData}>
                 {timeline.data.data.lineMismatchWindows.map((window, index) => (
                   <ReferenceArea
                     fill="rgba(214, 132, 86, 0.14)"
@@ -514,39 +590,40 @@ export function EventWorkspacePage() {
                   stroke={chartAxisColor}
                   tickFormatter={formatTimelineTimestamp}
                 />
-                <YAxis stroke={chartAxisColor} />
+                <YAxis
+                  stroke={chartAxisColor}
+                  tickFormatter={(value) => `${value} pp`}
+                />
                 <Tooltip
                   labelFormatter={formatTimelineTimestamp}
                   {...chartTooltipStyle}
                 />
                 <Legend wrapperStyle={chartLegendStyle} />
-                {instrumentData.latestQuotesBySource.map((quote) => (
-                  <Line
-                    dataKey={quote.source}
-                    key={quote.source}
-                    name={quote.source}
-                    dot={
-                      (timelinePointCounts[quote.source] ?? 0) <= 1
-                        ? {
-                            fill: sourceSeriesColors[quote.source] ?? "#69d7a5",
-                            r: 4,
-                            stroke:
-                              sourceSeriesColors[quote.source] ?? "#69d7a5",
-                            strokeWidth: 0,
-                          }
-                        : false
-                    }
-                    activeDot={{
-                      fill: sourceSeriesColors[quote.source] ?? "#69d7a5",
-                      r: 5,
-                      stroke: "#f3f7fb",
-                      strokeWidth: 1,
-                    }}
-                    stroke={sourceSeriesColors[quote.source] ?? "#69d7a5"}
-                    strokeWidth={2}
-                    type="monotone"
-                  />
-                ))}
+                <Line
+                  activeDot={{
+                    fill: "#f4c96f",
+                    r: 5,
+                    stroke: "#f3f7fb",
+                    strokeWidth: 1,
+                  }}
+                  connectNulls={false}
+                  dataKey="divergence"
+                  dot={
+                    divergencePointCount <= 1
+                      ? {
+                          fill: "#f4c96f",
+                          r: 4,
+                          stroke: "#f4c96f",
+                          strokeWidth: 0,
+                        }
+                      : false
+                  }
+                  isAnimationActive={false}
+                  name="divergence"
+                  stroke="#f4c96f"
+                  strokeWidth={2}
+                  type="stepAfter"
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -567,9 +644,9 @@ export function EventWorkspacePage() {
 
         <Panel>
           <SectionTitle
-            eyebrow="Diagnostics"
-            title="Research plumbing"
-            body="Hidden by default so the instrument page stays focused on the actual comparison signal."
+            eyebrow="Details"
+            title="Source records"
+            body="Stored source rows and timing checks stay here so the comparison above uses one canonical probability scale."
           />
           <div className="stack">
             <div className="tag-row">
@@ -578,7 +655,9 @@ export function EventWorkspacePage() {
                 onClick={() => setShowDiagnostics((current) => !current)}
                 type="button"
               >
-                {showDiagnostics ? "Hide diagnostics" : "Show diagnostics"}
+                {showDiagnostics
+                  ? "Hide source records"
+                  : "Show source records"}
               </button>
             </div>
             {showDiagnostics && sourceDiagnostics.isLoading ? (
@@ -586,8 +665,8 @@ export function EventWorkspacePage() {
             ) : null}
             {showDiagnostics && sourceDiagnostics.isError ? (
               <p className="muted">
-                Diagnostics failed to load. The primary comparison data above is
-                still available.
+                Source records failed to load. The comparison above is still
+                available.
               </p>
             ) : null}
             {showDiagnostics && hasSourceDiagnostics ? (
@@ -609,14 +688,14 @@ export function EventWorkspacePage() {
                     </div>
                     <div className="source-compare-body">
                       <span>
-                        source market {entry.sourceMarket.sourceMarketKey}
+                        market id {entry.sourceMarket.sourceMarketKey}
                       </span>
                       <span>
-                        raw label {entry.sourceMarket.rawLabel ?? "n/a"} ·
+                        source label {entry.sourceMarket.rawLabel ?? "n/a"} ·
                         family {entry.sourceMarket.rawFamily ?? "n/a"}
                       </span>
                       <span>
-                        freshness {formatMinutes(entry.freshnessMs)} · lag{" "}
+                        quote age {formatMinutes(entry.freshnessMs)} · lag{" "}
                         {formatMinutes(entry.diagnostics.captureLagMs)}
                       </span>
                       <span>
@@ -628,7 +707,7 @@ export function EventWorkspacePage() {
                         {formatCapturedAt(entry.latestQuote?.capturedAt)}
                       </span>
                       <span>
-                        latest raw payload{" "}
+                        last source record{" "}
                         {entry.latestRawPayload
                           ? `#${entry.latestRawPayload.id} at ${formatCapturedAt(entry.latestRawPayload.capturedAt)}`
                           : "none"}

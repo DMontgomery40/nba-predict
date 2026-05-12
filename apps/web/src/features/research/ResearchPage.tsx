@@ -12,6 +12,10 @@ type Cutoff = "live-final" | "pregame";
 
 const FIXED_SOURCES = ["bet365", "kalshi", "polymarket"] as const;
 
+function cutoffLabel(value: Cutoff) {
+  return value === "live-final" ? "through final" : "pregame";
+}
+
 function formatProbability(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
   return `${(value * 100).toFixed(1)}%`;
@@ -114,7 +118,7 @@ export function ResearchPage() {
       <div className="research-header">
         <div className="research-header-left">
           <div className="eyebrow">Signal Research</div>
-          <h1>How much signal is in prediction markets vs the book?</h1>
+          <h1>How much signal is in exchange prices vs bet365?</h1>
           <span className="muted">
             Moneyline implied-probability comparison across sources, graded
             against actual outcomes.
@@ -128,14 +132,14 @@ export function ResearchPage() {
               onClick={() => setCutoff("pregame")}
               type="button"
             >
-              pregame
+              Pregame
             </button>
             <button
               className={cutoff === "live-final" ? "active" : ""}
               onClick={() => setCutoff("live-final")}
               type="button"
             >
-              live-final
+              Through final
             </button>
           </div>
         </div>
@@ -186,7 +190,7 @@ export function ResearchPage() {
       <section className="research-table-wrap">
         <div className="metrics-head">
           <span className="eyebrow">
-            Closed games — {cutoff} prices vs outcome
+            Closed games — {cutoffLabel(cutoff)} prices vs outcome
           </span>
           <span className="muted">
             {sortedGames.length} game{sortedGames.length === 1 ? "" : "s"}

@@ -1199,6 +1199,7 @@ async function syncOddsApiBookmaker(options: {
       options.games ??
       listResearchGames({
         league: "NBA",
+        referenceNow: now().toISOString(),
         sport: "basketball",
       });
 

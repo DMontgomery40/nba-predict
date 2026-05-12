@@ -11,35 +11,29 @@ import {
   getMarketSources,
   type GameRow,
 } from "../../lib/game-triage";
+import { formatGapPoints } from "../../lib/market-format";
 import {
   formatMarketSourceList,
   hasNbaStateSource,
 } from "../../lib/source-coverage";
+import { formatOperatorDateTime } from "../../lib/time-format";
 
-function scoreLine(
-  gameState?: {
-    awayScore?: number | null;
-    homeScore?: number | null;
-    status: string;
-  } | null
-) {
+function scoreLine(entry: GameRow) {
+  const gameState = entry.gameState;
+  const state = getGameOperationalState(entry);
+  if (state.kind === "final") {
+    const awayScore =
+      entry.outcome?.finalAwayScore ?? gameState?.awayScore ?? "-";
+    const homeScore =
+      entry.outcome?.finalHomeScore ?? gameState?.homeScore ?? "-";
+    return `${awayScore} - ${homeScore} · final`;
+  }
+
   if (!gameState) {
-    return "No state yet";
+    return "No scoreboard yet";
   }
 
   return `${gameState.awayScore ?? "-"} - ${gameState.homeScore ?? "-"} · ${gameState.status}`;
-}
-
-function formatDate(value: string) {
-  const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
-    return "date n/a";
-  }
-
-  return parsed.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-  });
 }
 
 function formatGameName(entry: GameRow) {
@@ -92,9 +86,9 @@ export function GamesPage() {
       <section className="hero-strip">
         <div>
           <div className="eyebrow">Tracked Games</div>
-          <h1>Live NBA research slate</h1>
+          <h1>NBA market work slate</h1>
           <p>
-            Actionable boards first. NBA-state-only and placeholder backfill
+            Market-work boards first. Scoreboard-only and placeholder backfill
             rows are counted below, not repeated forever.
           </p>
         </div>
@@ -102,12 +96,12 @@ export function GamesPage() {
 
       <div className="slate-triage-grid">
         <div className="triage-tile triage-live">
-          <span>Actionable games</span>
+          <span>Market work boards</span>
           <strong>{triage.actionableRows.length.toLocaleString()}</strong>
           <em>market feed, instrument, divergence, or unmapped work</em>
         </div>
         <div className="triage-tile">
-          <span>NBA-state only</span>
+          <span>Scoreboard only</span>
           <strong>{triage.nbaStateOnlyRows.length.toLocaleString()}</strong>
           <em>truth context exists, no market board yet</em>
         </div>
@@ -150,14 +144,14 @@ export function GamesPage() {
 
       <Panel className="slate-workbench">
         <SectionTitle
-          eyebrow="Actionable Slate"
+          eyebrow="Market Work Slate"
           title="Boards with market work"
           body="No empty Away/Home cards. Rows below have market feeds, instruments, ranked divergence, or unresolved mapping work."
         />
         {games.data.data.length === 0 ? (
           <Panel>
             <SectionTitle
-              eyebrow="No Live Slate"
+              eyebrow="No Current Slate"
               title="No canonical games are visible right now"
               body="You can still review persisted history, download exports, or inspect operator status while capture or backfill repopulates the slate."
             />
@@ -175,8 +169,8 @@ export function GamesPage() {
           </Panel>
         ) : visibleRows.length === 0 ? (
           <div className="empty-row">
-            No actionable market boards yet. The database currently contains
-            state-only or placeholder game rows; use History, Research, or
+            No market-work boards yet. The database currently contains
+            scoreboard-only or placeholder game rows; use History, Research, or
             Settings while capture/backfill mapping catches up.
           </div>
         ) : (
@@ -187,6 +181,7 @@ export function GamesPage() {
                   <th>Board</th>
                   <th>State</th>
                   <th>Market feeds</th>
+                  <th>NBA state</th>
                   <th>Instruments</th>
                   <th>Top signal</th>
                   <th>Open</th>
@@ -206,7 +201,7 @@ export function GamesPage() {
                         <strong>{formatGameName(entry)}</strong>
                         <span>
                           {entry.game.league} -{" "}
-                          {formatDate(entry.game.scheduledStart)}
+                          {formatOperatorDateTime(entry.game.scheduledStart)}
                         </span>
                       </td>
                       <td>
@@ -215,14 +210,18 @@ export function GamesPage() {
                         >
                           {stateReadout.label}
                         </span>
-                        <span>{scoreLine(entry.gameState)}</span>
+                        <span>{scoreLine(entry)}</span>
                       </td>
                       <td>
                         <span className="slate-feed-line">
                           {marketSources.length > 0
                             ? formatMarketSourceList(marketSources)
                             : "mapping work only"}
-                          {hasNbaState ? " + NBA" : ""}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="slate-feed-line">
+                          {hasNbaState ? "available" : "missing"}
                         </span>
                       </td>
                       <td className="desk-number">
@@ -233,10 +232,10 @@ export function GamesPage() {
                           <>
                             <strong>{topInstrument.displayLabel}</strong>
                             <span>
-                              {(
-                                topInstrument.impliedProbabilityGap * 100
-                              ).toFixed(1)}
-                              % gap - {topInstrument.severity}
+                              {formatGapPoints(
+                                topInstrument.impliedProbabilityGap
+                              )}{" "}
+                              divergence - {topInstrument.severity}
                             </span>
                           </>
                         ) : entry.hasUnmappedMarkets ? (
@@ -253,7 +252,7 @@ export function GamesPage() {
                             className="desk-link"
                             to={`/games/${entry.game.id}/markets/${topInstrument.instrumentId}`}
                           >
-                            Signal
+                            Review
                           </Link>
                         ) : (
                           <Link

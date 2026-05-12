@@ -2,7 +2,7 @@ import { DatabaseFailureError } from "./errors";
 
 import type Database from "better-sqlite3";
 
-export const currentSchemaVersion = 7;
+export const currentSchemaVersion = 8;
 
 function nowIso() {
   return new Date().toISOString();
@@ -330,6 +330,10 @@ export function applyMigrations(db: Database.Database, dbPath: string) {
   if (getAppliedVersion(db) < 7) {
     applyLatestLookupIndexes(db);
   }
+
+  if (getAppliedVersion(db) < 8) {
+    applyDivergenceLookupIndexes(db);
+  }
 }
 
 function applyCanonicalInstrumentConsolidation(db: Database.Database) {
@@ -494,5 +498,18 @@ function applyLatestLookupIndexes(db: Database.Database) {
     }
 
     insertMigration(db, 7, "latest-lookup-indexes");
+  })();
+}
+
+function applyDivergenceLookupIndexes(db: Database.Database) {
+  db.transaction(() => {
+    if (tableExists(db, "source_markets")) {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_source_markets_instrument_source
+          ON source_markets(instrument_id, source, id);
+      `);
+    }
+
+    insertMigration(db, 8, "divergence-lookup-indexes");
   })();
 }

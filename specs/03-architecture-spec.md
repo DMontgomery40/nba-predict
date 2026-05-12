@@ -14,7 +14,7 @@ Signal Console is composed of:
 
 - persist append-only live game and quote history
 - compose research read models from persisted history
-- compute urgent player-prop attribution alerts from fresh mapped Bet365 and prediction-market quote overlap
+- compute urgent player-prop attribution alerts from fresh mapped Bet365 and Kalshi/Polymarket quote overlap
 - serve player-prop alert playback frames written by the watcher
 - stream data-engineering exports from the persisted SQLite store without requiring browser-side staging
 - expose operator/admin routes for health, coverage, unmapped markets, and source state

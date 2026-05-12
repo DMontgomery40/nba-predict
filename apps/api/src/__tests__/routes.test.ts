@@ -193,6 +193,74 @@ function seedResearchBackend() {
     sourceSelectionKey: "over",
   });
 
+  upsertGame({
+    awayParticipant: {
+      abbreviation: "NYK",
+      key: "nyk",
+      name: "New York Knicks",
+      shortName: "Knicks",
+      side: "away",
+    },
+    homeParticipant: {
+      abbreviation: "BOS",
+      key: "bos",
+      name: "Boston Celtics",
+      shortName: "Celtics",
+      side: "home",
+    },
+    id: "nba-bos-nyk-prop-live-2026-04-21",
+    league: "NBA",
+    scheduledStart: "2026-04-21T23:30:00.000Z",
+    sourceGameKeyNba: "0022600002",
+    sport: "basketball",
+  });
+  recordGameStateObservation({
+    awayScore: 88,
+    capturedAt: "2026-04-21T23:55:00.000Z",
+    clock: "03:12",
+    finalAt: null,
+    gameId: "nba-bos-nyk-prop-live-2026-04-21",
+    homeScore: 91,
+    isFinal: false,
+    period: 4,
+    startedAt: "2026-04-21T23:35:00.000Z",
+    status: "in-play",
+  });
+  upsertMarketInstrument({
+    displayLabel: "Jalen Brunson over 29.5 points",
+    family: "player-prop",
+    gameId: "nba-bos-nyk-prop-live-2026-04-21",
+    id: "live-brunson-over-29_5-points",
+    inPlay: true,
+    line: 29.5,
+    participantKey: "jalen-brunson",
+    selection: "over",
+  });
+  upsertSourceMarket({
+    gameId: "nba-bos-nyk-prop-live-2026-04-21",
+    id: "sm-bet365-live-brunson-points",
+    instrumentId: "live-brunson-over-29_5-points",
+    mappingStatus: "auto",
+    rawFamily: "player-prop",
+    rawLabel: "Jalen Brunson (29.5)",
+    rawMetadata: { market: "player-prop" },
+    source: "bet365",
+    sourceMarketKey: "b365-live-brunson-points",
+    sourceSelectionKey: "over",
+  });
+  upsertSourceMarket({
+    gameId: "nba-bos-nyk-prop-live-2026-04-21",
+    id: "sm-kalshi-live-brunson-points",
+    instrumentId: "live-brunson-over-29_5-points",
+    mappingStatus: "auto",
+    rawFamily: "player-prop",
+    rawLabel: "Jalen Brunson: 30+ points",
+    rawMetadata: { market: "player-prop" },
+    source: "kalshi",
+    sourceMarketKey: "kal-live-brunson-points",
+    sourceSelectionKey: "over",
+  });
+
   recordQuoteObservation({
     bestAsk: null,
     bestBid: null,
@@ -297,6 +365,32 @@ function seedResearchBackend() {
     sourceMarketId: "sm-kalshi-brunson-points",
     volume: 17,
   });
+  recordQuoteObservation({
+    bestAsk: null,
+    bestBid: null,
+    capturedAt: "2026-04-21T23:55:16.000Z",
+    depthScore: 88,
+    heartbeatAfterMs: 60_000,
+    impliedProbability: 0.64,
+    lineRaw: 29.5,
+    oddsRaw: "-178",
+    priceRaw: null,
+    sourceMarketId: "sm-bet365-live-brunson-points",
+    volume: 100,
+  });
+  recordQuoteObservation({
+    bestAsk: 0.36,
+    bestBid: 0.35,
+    capturedAt: "2026-04-21T23:55:18.000Z",
+    depthScore: 42,
+    heartbeatAfterMs: 60_000,
+    impliedProbability: 0.35,
+    lineRaw: 29.5,
+    oddsRaw: null,
+    priceRaw: 0.35,
+    sourceMarketId: "sm-kalshi-live-brunson-points",
+    volume: 17,
+  });
 
   recordRawPayload({
     capturedAt: "2026-04-21T23:55:00.000Z",
@@ -377,7 +471,7 @@ describe("api routes", () => {
     });
     expect(gamesResponse.statusCode).toBe(200);
     expect(gamesResponse.json()).toMatchObject({
-      data: [
+      data: expect.arrayContaining([
         expect.objectContaining({
           activeInstrumentCount: 3,
           coverage: expect.objectContaining({
@@ -389,7 +483,7 @@ describe("api routes", () => {
             sport: "basketball",
           }),
         }),
-      ],
+      ]),
     });
 
     const limitedGamesResponse = await app.inject({
@@ -657,9 +751,19 @@ describe("api routes", () => {
             rawLabel: "Jalen Brunson: 30+ points",
             source: "kalshi",
           }),
+          freshness: expect.objectContaining({
+            quoteTimeGapMs: expect.any(Number),
+          }),
         }),
       ]),
     });
+
+    const strictQuoteTimeResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/player-prop-alerts?includeStale=true&maxQuoteTimeGapMinutes=0.001",
+    });
+    expect(strictQuoteTimeResponse.statusCode).toBe(200);
+    expect(strictQuoteTimeResponse.json()).toMatchObject({ data: [] });
 
     writePlayerPropAlertPlaybackFrame({
       alertCount: 1,
@@ -669,7 +773,7 @@ describe("api routes", () => {
       poll: {
         includeStale: true,
         limit: 25,
-        maxPairGapMinutes: 10,
+        maxQuoteTimeGapMinutes: 10,
         maxQuoteAgeMinutes: 10,
         minDelta: 0.15,
       },
@@ -910,7 +1014,14 @@ describe("api routes", () => {
       url: "/api/v1/games?hasUnmappedMarkets=false",
     });
     expect(gamesResponse.statusCode).toBe(200);
-    expect(gamesResponse.json().data).toEqual([]);
+    expect(gamesResponse.json().data).toEqual([
+      expect.objectContaining({
+        game: expect.objectContaining({
+          id: "nba-bos-nyk-prop-live-2026-04-21",
+        }),
+        hasUnmappedMarkets: false,
+      }),
+    ]);
 
     const divergenceResponse = await app.inject({
       method: "GET",

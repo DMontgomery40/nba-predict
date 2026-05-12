@@ -531,6 +531,7 @@ export async function syncKalshiNbaDirect(options?: {
       options?.games ??
       listResearchGames({
         league: "NBA",
+        referenceNow: now().toISOString(),
         sport: "basketball",
       });
     const gameIndex = buildGameIndex(games);

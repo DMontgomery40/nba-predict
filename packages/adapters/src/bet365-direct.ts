@@ -348,6 +348,7 @@ export async function syncBet365DirectLive(options?: {
   try {
     const games = listResearchGames({
       league: "NBA",
+      referenceNow: now().toISOString(),
       sport: "basketball",
     }).filter(
       (card) =>

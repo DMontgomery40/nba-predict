@@ -1,20 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import { buildGameTriage, type GameRow } from "./game-triage";
+import {
+  buildGameTriage,
+  hasNavigableMarketBoard,
+  type GameRow,
+} from "./game-triage";
 
 function gameRow(
   id: string,
   options: {
+    activeInstrumentCount?: number;
+    availableSources?: string[];
     gap: number;
+    hasUnmappedMarkets?: boolean;
     scheduledStart: string;
     status: string;
+    topDivergences?: GameRow["topDivergences"];
   }
 ): GameRow {
   return {
-    activeInstrumentCount: 1,
+    activeInstrumentCount: options.activeInstrumentCount ?? 1,
     coverage: {
       activeSourceCount: 2,
-      availableSources: ["bet365", "kalshi", "nba"],
+      availableSources: options.availableSources ?? ["bet365", "kalshi", "nba"],
       missingSources: ["polymarket"],
       unmappedSourceMarketCount: 0,
     },
@@ -42,8 +50,8 @@ function gameRow(
       period: options.status === "in-play" ? 4 : null,
       status: options.status,
     },
-    hasUnmappedMarkets: false,
-    topDivergences: [
+    hasUnmappedMarkets: options.hasUnmappedMarkets ?? false,
+    topDivergences: options.topDivergences ?? [
       {
         displayLabel: `${id} signal`,
         family: "player-prop",
@@ -72,5 +80,27 @@ describe("game triage", () => {
     ]);
 
     expect(triage.actionableRows[0]?.game.id).toBe("live-lower-gap");
+  });
+
+  it("does not promote provider coverage alone as a navigable market board", () => {
+    const coverageOnly = gameRow("coverage-only", {
+      activeInstrumentCount: 0,
+      availableSources: ["bet365", "kalshi", "nba"],
+      gap: 0,
+      scheduledStart: "2026-05-12T02:30:00.000Z",
+      status: "scheduled",
+      topDivergences: [],
+    });
+    const scoreboardOnly = gameRow("scoreboard-only", {
+      activeInstrumentCount: 0,
+      availableSources: ["nba"],
+      gap: 0,
+      scheduledStart: "2026-05-12T02:30:00.000Z",
+      status: "scheduled",
+      topDivergences: [],
+    });
+
+    expect(hasNavigableMarketBoard(coverageOnly)).toBe(false);
+    expect(hasNavigableMarketBoard(scoreboardOnly)).toBe(false);
   });
 });
