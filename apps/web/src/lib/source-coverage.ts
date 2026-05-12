@@ -17,7 +17,7 @@ export function formatMarketSourceSummary(sourceIds: string[]) {
   const hasNbaState = hasNbaStateSource(sourceIds);
 
   if (marketSources.length === 0 && hasNbaState) {
-    return "NBA state only";
+    return "Scoreboard only";
   }
 
   if (marketSources.length === 0) {
@@ -30,7 +30,7 @@ export function formatMarketSourceSummary(sourceIds: string[]) {
     "market sources"
   )}`;
 
-  return hasNbaState ? `${marketSourceLabel} + NBA state` : marketSourceLabel;
+  return marketSourceLabel;
 }
 
 export function formatMarketSourceList(sourceIds: string[]) {

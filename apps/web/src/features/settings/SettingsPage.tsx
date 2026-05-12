@@ -21,20 +21,21 @@ import {
   type QueuedAdminActionPayload,
 } from "../../data/api";
 import {
+  formatGapPoints,
+  formatProbabilityPercent,
+} from "../../lib/market-format";
+import {
   formatMarketSourceList,
   hasNbaStateSource,
 } from "../../lib/source-coverage";
+import { formatOperatorDateTime } from "../../lib/time-format";
 
 function todayDateValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
 function formatTimestamp(value?: string | null) {
-  if (!value) {
-    return "n/a";
-  }
-
-  return value.replace("T", " ").replace("Z", "");
+  return formatOperatorDateTime(value);
 }
 
 function formatMinutes(value?: number | null) {
@@ -707,7 +708,7 @@ export function SettingsPage() {
                 <tr>
                   <th>Instrument</th>
                   <th>Game</th>
-                  <th>Gap</th>
+                  <th>Divergence</th>
                   <th>Bet365</th>
                   <th>Kalshi</th>
                   <th>Polymarket</th>
@@ -737,11 +738,19 @@ export function SettingsPage() {
                       <td>
                         {row.impliedProbabilityGap == null
                           ? "n/a"
-                          : `${(row.impliedProbabilityGap * 100).toFixed(1)}%`}
+                          : formatGapPoints(row.impliedProbabilityGap)}
                       </td>
-                      <td>{row.bet365ImpliedProbability ?? "n/a"}</td>
-                      <td>{row.kalshiImpliedProbability ?? "n/a"}</td>
-                      <td>{row.polymarketImpliedProbability ?? "n/a"}</td>
+                      <td>
+                        {formatProbabilityPercent(row.bet365ImpliedProbability)}
+                      </td>
+                      <td>
+                        {formatProbabilityPercent(row.kalshiImpliedProbability)}
+                      </td>
+                      <td>
+                        {formatProbabilityPercent(
+                          row.polymarketImpliedProbability
+                        )}
+                      </td>
                       <td>{row.mappingStatus}</td>
                       <td>{row.lineMismatch ? "line mismatch" : "aligned"}</td>
                     </tr>

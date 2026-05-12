@@ -19,9 +19,15 @@ import {
   getSignalMismatches,
 } from "../../data/api";
 import {
+  formatGapPoints,
+  formatMarketMatchLabel,
+  formatProbabilityPercent,
+} from "../../lib/market-format";
+import {
   formatMarketSourceList,
   hasNbaStateSource,
 } from "../../lib/source-coverage";
+import { formatOperatorDateTime } from "../../lib/time-format";
 
 type SignalMismatchRow = Awaited<
   ReturnType<typeof getSignalMismatches>
@@ -72,19 +78,7 @@ function formatReviewDateLabel(value: string) {
 }
 
 function formatTimestamp(value?: string | null) {
-  if (!value) {
-    return "n/a";
-  }
-
-  return value.replace("T", " ").replace("Z", "");
-}
-
-function formatPercent(value?: number | null) {
-  if (value == null) {
-    return "n/a";
-  }
-
-  return `${(value * 100).toFixed(1)}%`;
+  return formatOperatorDateTime(value);
 }
 
 function averageDefinedNumbers(values: Array<number | null | undefined>) {
@@ -114,13 +108,7 @@ function formatGameContext(row: SignalMismatchRow) {
 
   const scheduledAt = new Date(row.scheduledStart);
   if (Number.isFinite(scheduledAt.getTime())) {
-    return `Scheduled ${scheduledAt.toLocaleString("en-US", {
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      month: "short",
-      year: "numeric",
-    })}`;
+    return `Scheduled ${formatOperatorDateTime(row.scheduledStart)}`;
   }
 
   return row.gameStatus.replace("-", " ");
@@ -177,9 +165,10 @@ function findGameStateAt(
   return current;
 }
 
-function buildHistoricalGapSummary(
+export function buildHistoricalGapSummary(
   timeline: InstrumentTimelineData
 ): HistoricalGapSummary | null {
+  const quoteTimeWindowMs = 10 * 60_000;
   const points = (["bet365", "kalshi", "polymarket"] as const)
     .flatMap((source) =>
       timeline.quoteSeriesBySource[source]
@@ -196,26 +185,52 @@ function buildHistoricalGapSummary(
     return null;
   }
 
-  const latestBySource = new Map<string, number>();
+  const latestBySource = new Map<
+    string,
+    { capturedAtMs: number; value: number }
+  >();
   let openingGap: number | null = null;
   let peakSummary: HistoricalGapSummary | null = null;
 
   for (const point of points) {
-    latestBySource.set(point.source, point.impliedProbability);
+    const pointTime = Date.parse(point.capturedAt);
+    if (!Number.isFinite(pointTime)) {
+      continue;
+    }
+
+    latestBySource.set(point.source, {
+      capturedAtMs: pointTime,
+      value: point.impliedProbability,
+    });
 
     const bet365 = latestBySource.get("bet365");
-    const externalValues = ["kalshi", "polymarket"]
+    const kalshi = latestBySource.get("kalshi");
+    const polymarket = latestBySource.get("polymarket");
+    const externalEntries = ["kalshi", "polymarket"]
       .map((source) => latestBySource.get(source))
-      .filter((value): value is number => typeof value === "number");
+      .filter((entry): entry is { capturedAtMs: number; value: number } =>
+        Boolean(
+          entry &&
+          bet365 &&
+          Math.abs(entry.capturedAtMs - bet365.capturedAtMs) <=
+            quoteTimeWindowMs
+        )
+      );
 
-    if (typeof bet365 !== "number" || externalValues.length === 0) {
+    if (!bet365 || externalEntries.length === 0) {
       continue;
     }
 
     const externalAverage =
-      externalValues.reduce((sum, value) => sum + value, 0) /
-      externalValues.length;
-    const gap = Math.abs(bet365 - externalAverage);
+      externalEntries.reduce((sum, entry) => sum + entry.value, 0) /
+      externalEntries.length;
+    const gap = Math.abs(bet365.value - externalAverage);
+    const comparisonCapturedAt = new Date(
+      Math.max(
+        bet365.capturedAtMs,
+        ...externalEntries.map((entry) => entry.capturedAtMs)
+      )
+    ).toISOString();
 
     if (openingGap == null) {
       openingGap = gap;
@@ -224,15 +239,21 @@ function buildHistoricalGapSummary(
     if (!peakSummary || gap > peakSummary.peakGap) {
       peakSummary = {
         openingGap,
-        peakBet365: bet365,
-        peakCapturedAt: point.capturedAt,
+        peakBet365: bet365.value,
+        peakCapturedAt: comparisonCapturedAt,
         peakGap: gap,
         peakGameState: findGameStateAt(
           timeline.gameStateSeries,
-          point.capturedAt
+          comparisonCapturedAt
         ),
-        peakKalshi: latestBySource.get("kalshi") ?? null,
-        peakPolymarket: latestBySource.get("polymarket") ?? null,
+        peakKalshi:
+          kalshi != null && externalEntries.includes(kalshi)
+            ? kalshi.value
+            : null,
+        peakPolymarket:
+          polymarket != null && externalEntries.includes(polymarket)
+            ? polymarket.value
+            : null,
       };
     }
   }
@@ -250,7 +271,7 @@ function selectHighlightRows(
 
   if (finishedRows.length > 0) {
     return {
-      body: `These are the clearest finished-game mismatches persisted for ${reviewDateLabel}, ranked by gap.`,
+      body: `Finished-game mismatches persisted for ${reviewDateLabel}, ranked by divergence.`,
       rows: finishedRows.slice(0, 3),
       usesFallback: false,
     };
@@ -265,7 +286,7 @@ function selectHighlightRows(
   }
 
   return {
-    body: `No finished-game source history is persisted for ${reviewDateLabel}, so this falls back to live or pregame mismatches on that date.`,
+    body: `Current or pregame mismatches persisted for ${reviewDateLabel}.`,
     rows: rows.filter((row) => !row.lineMismatch).slice(0, 3),
     usesFallback: true,
   };
@@ -412,18 +433,22 @@ export function HistoryPage() {
     (row) => row.directionalDisagreement
   ).length;
   const trackedPlayerPropRows = trackedPlayerProps.data?.data ?? [];
+  const firstHighlight = highlightedRows.rows[0] ?? null;
 
   return (
     <PageFrame
       aside={
         <Panel>
           <SectionTitle
-            eyebrow="Start Here"
-            title={
-              highlightedRows.rows[0]?.displayLabel ??
-              "No weekly highlights yet"
+            eyebrow="Review Date"
+            title={firstHighlight?.displayLabel ?? "No highlighted comparison"}
+            body={
+              firstHighlight
+                ? `${reviewDateLabel} · ${formatGapPoints(
+                    firstHighlight.impliedProbabilityGap
+                  )} peak divergence`
+                : reviewDateLabel
             }
-            body="This page now leads with the clearest persisted source story first, then drops into the archive and operator detail below."
           />
         </Panel>
       }
@@ -431,12 +456,11 @@ export function HistoryPage() {
       <section className="hero-strip">
         <div>
           <div className="eyebrow">History</div>
-          <h1>Persisted market and ingest history</h1>
+          <h1>Persisted market history</h1>
           <p>
-            Start with the clearest source gap for {reviewDateLabel}
-            {selectedFamily ? ` in ${selectedFamily}` : ""}, then drill into the
-            supporting capture history, coverage, and raw persistence underneath
-            it.
+            {reviewDateLabel}
+            {selectedFamily ? ` · ${selectedFamily}` : ""} · source comparisons
+            and ingest evidence.
           </p>
         </div>
         <div className="history-review-actions">
@@ -477,7 +501,7 @@ export function HistoryPage() {
                 ? "Loading tracked player props"
                 : formatPlayerPropCount(trackedPlayerPropRows.length)
             }
-            body="These are persisted player-prop instruments for the selected date, including props that did not reach the notification threshold."
+            body="Includes props below the notification threshold."
           />
           {trackedPlayerProps.isError ? (
             <ErrorState
@@ -504,8 +528,8 @@ export function HistoryPage() {
                     <strong>{row.displayLabel}</strong>
                     <span>{row.gameId}</span>
                   </div>
-                  <em>{formatPercent(row.impliedProbabilityGap)}</em>
-                  <span>{row.comparableState.replace("-", " ")}</span>
+                  <em>{formatGapPoints(row.impliedProbabilityGap)}</em>
+                  <span>{formatMarketMatchLabel(row.comparableState)}</span>
                 </Link>
               ))}
             </div>
@@ -515,8 +539,8 @@ export function HistoryPage() {
 
       <Panel>
         <SectionTitle
-          eyebrow="Review Date"
-          title="Signals worth opening first"
+          eyebrow="Finished Games"
+          title="Largest persisted divergences"
           body={highlightedRows.body}
         />
         {highlightedRows.rows.length === 0 ? (
@@ -551,11 +575,11 @@ export function HistoryPage() {
                       </p>
                     </div>
                     <div className="history-highlight-gap">
-                      <span>Peak gap</span>
+                      <span>Peak divergence</span>
                       <strong>
                         {highlightSummary
-                          ? formatPercent(highlightSummary.peakGap)
-                          : formatPercent(row.impliedProbabilityGap)}
+                          ? formatGapPoints(highlightSummary.peakGap)
+                          : formatGapPoints(row.impliedProbabilityGap)}
                       </strong>
                     </div>
                   </div>
@@ -571,7 +595,7 @@ export function HistoryPage() {
                           <span>Opened</span>
                           <strong>
                             {highlightSummary
-                              ? formatPercent(highlightSummary.openingGap)
+                              ? formatGapPoints(highlightSummary.openingGap)
                               : "n/a"}
                           </strong>
                         </div>
@@ -584,16 +608,16 @@ export function HistoryPage() {
                         <div>
                           <span>bet365</span>
                           <strong>
-                            {formatPercent(
+                            {formatProbabilityPercent(
                               highlightSummary?.peakBet365 ??
                                 row.bet365ImpliedProbability
                             )}
                           </strong>
                         </div>
                         <div>
-                          <span>Prediction books</span>
+                          <span>Exchanges</span>
                           <strong>
-                            {formatPercent(
+                            {formatProbabilityPercent(
                               averageDefinedNumbers([
                                 highlightSummary?.peakKalshi ??
                                   row.kalshiImpliedProbability,
@@ -606,13 +630,13 @@ export function HistoryPage() {
                       </div>
 
                       <p className="history-highlight-summary">
-                        Bet365 ran{" "}
+                        Bet365 differed by{" "}
                         {highlightSummary
-                          ? formatPercent(highlightSummary.peakGap)
-                          : formatPercent(row.impliedProbabilityGap)}{" "}
-                        away from the prediction-market average after opening at{" "}
+                          ? formatGapPoints(highlightSummary.peakGap)
+                          : formatGapPoints(row.impliedProbabilityGap)}{" "}
+                        from the exchange average after opening at{" "}
                         {highlightSummary
-                          ? formatPercent(highlightSummary.openingGap)
+                          ? formatGapPoints(highlightSummary.openingGap)
                           : "n/a"}
                         {highlightSummary
                           ? peakMomentLabel === "Pregame"
@@ -815,7 +839,7 @@ export function HistoryPage() {
       <Panel>
         <SectionTitle
           eyebrow="Mismatch Archive"
-          title="Historical disagreement snapshot"
+          title="Past disagreement snapshot"
           body="This stays available as the denser archive view after the clearer weekly highlights above."
         />
         <div className="stack">
@@ -829,11 +853,13 @@ export function HistoryPage() {
               >
                 <h3>{row.displayLabel}</h3>
                 <p>
-                  {row.gameLabel} · {row.family} · gap{" "}
-                  {formatPercent(row.impliedProbabilityGap)} · bet365{" "}
-                  {formatPercent(row.bet365ImpliedProbability)} · kalshi{" "}
-                  {formatPercent(row.kalshiImpliedProbability)} · polymarket{" "}
-                  {formatPercent(row.polymarketImpliedProbability)}
+                  {row.gameLabel} · {row.family} · divergence{" "}
+                  {formatGapPoints(row.impliedProbabilityGap)} · bet365{" "}
+                  {formatProbabilityPercent(row.bet365ImpliedProbability)} ·
+                  kalshi{" "}
+                  {formatProbabilityPercent(row.kalshiImpliedProbability)} ·
+                  polymarket{" "}
+                  {formatProbabilityPercent(row.polymarketImpliedProbability)}
                 </p>
                 <div className="tag-row">
                   <Badge

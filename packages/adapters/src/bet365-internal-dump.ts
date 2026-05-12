@@ -273,7 +273,11 @@ export function syncBet365InternalDump(options?: {
   }
 
   try {
-    const games = listResearchGames({ league: "NBA", sport: "basketball" });
+    const games = listResearchGames({
+      league: "NBA",
+      scope: "all",
+      sport: "basketball",
+    });
     const gameIndex = buildGameIndex(games);
 
     const entries = readdirSync(dumpDir).filter(isEligibleFile);

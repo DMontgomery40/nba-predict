@@ -12,6 +12,7 @@ import type {
   DivergenceSummary,
   GameOutcome,
   InstrumentComparisonView,
+  InstrumentDivergenceSummary,
   InstrumentSourceDiagnostics,
   InstrumentTimeline,
   InstrumentTimelinePoint,
@@ -40,6 +41,11 @@ import {
   getDatabase,
 } from "./db-core";
 import { DatabaseFailureError } from "./errors";
+import {
+  getInstrumentDeltaSeries,
+  getInstrumentDeltaSummaries,
+  summarizeDeltaSeries,
+} from "./signal-quality";
 
 import type Database from "better-sqlite3";
 
@@ -57,6 +63,8 @@ type GamesFilters = {
   hasUnmappedMarkets?: boolean;
   league?: string;
   limit?: number;
+  referenceNow?: string;
+  scope?: "all" | "currentSlate";
   sourceCoverage?: string;
   sport?: string;
   status?: string;
@@ -84,8 +92,8 @@ type DivergenceFilters = {
 type PlayerPropAlertFilters = {
   includeStale?: boolean;
   limit?: number;
-  maxPairGapMinutes?: number;
   maxQuoteAgeMinutes?: number;
+  maxQuoteTimeGapMinutes?: number;
   minDelta?: number;
   now?: Date | string;
 };
@@ -153,6 +161,176 @@ function lineValuesMatch(
   }
 
   return Math.abs(left - right) < 0.000001;
+}
+
+function normalizeSelectionToken(value: string | null | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function selectionTokenParts(value: string | null | undefined) {
+  return normalizeSelectionToken(value).split(/\s+/).filter(Boolean);
+}
+
+function tokenPartsContainAll(tokens: string[], expected: string[]) {
+  return expected.every((token) => tokens.includes(token));
+}
+
+function participantAliases(
+  participant: CanonicalGame["homeParticipant"],
+  opponent?: CanonicalGame["awayParticipant"]
+) {
+  const aliases = new Set<string>();
+  const directAliases = [
+    participant.key,
+    participant.abbreviation,
+    participant.shortName,
+    participant.name,
+  ];
+
+  for (const value of directAliases) {
+    const normalized = normalizeSelectionToken(value);
+    if (normalized) aliases.add(normalized);
+  }
+
+  const opponentTokens = new Set(
+    [opponent?.key, opponent?.abbreviation, opponent?.shortName, opponent?.name]
+      .flatMap((value) => selectionTokenParts(value))
+      .filter(Boolean)
+  );
+  for (const token of selectionTokenParts(participant.name)) {
+    if (token.length >= 3 && !opponentTokens.has(token)) {
+      aliases.add(token);
+    }
+  }
+
+  return aliases;
+}
+
+function resolveGameParticipantAliases(
+  game: CanonicalGame | undefined,
+  participantKey: string | null | undefined
+) {
+  if (!game || !participantKey) {
+    return null;
+  }
+
+  const normalizedParticipant = normalizeSelectionToken(participantKey);
+  const homeAliases = participantAliases(
+    game.homeParticipant,
+    game.awayParticipant
+  );
+  const awayAliases = participantAliases(
+    game.awayParticipant,
+    game.homeParticipant
+  );
+
+  if (homeAliases.has(normalizedParticipant)) {
+    return {
+      canonical: homeAliases,
+      opposing: awayAliases,
+    };
+  }
+
+  if (awayAliases.has(normalizedParticipant)) {
+    return {
+      canonical: awayAliases,
+      opposing: homeAliases,
+    };
+  }
+
+  return null;
+}
+
+function textMatchesAlias(sourceMarket: string, alias: string) {
+  if (!alias) {
+    return false;
+  }
+  if (sourceMarket === alias) {
+    return true;
+  }
+
+  const sourceTokens = sourceMarket.split(/\s+/).filter(Boolean);
+  const aliasParts = alias.split(/\s+/).filter(Boolean);
+  return (
+    aliasParts.length > 0 && tokenPartsContainAll(sourceTokens, aliasParts)
+  );
+}
+
+function sourceTextMatchesAliases(sourceMarket: string, aliases: Set<string>) {
+  return [...aliases].some((alias) => textMatchesAlias(sourceMarket, alias));
+}
+
+function sourceSelectionMatchesInstrument(
+  instrument: MarketInstrument,
+  source: LatestSourceView,
+  game?: CanonicalGame
+) {
+  const sourceMarket = normalizeSelectionToken(
+    `${source.raw.selectionKey ?? ""} ${source.raw.label ?? ""}`
+  );
+  if (!sourceMarket) {
+    return true;
+  }
+
+  const expected = normalizeSelectionToken(
+    instrument.participantKey ?? instrument.selection
+  );
+  const selection = normalizeSelectionToken(instrument.selection);
+  const tokens = sourceMarket.split(/\s+/).filter(Boolean);
+  const expectedParts = selectionTokenParts(
+    instrument.participantKey ?? instrument.selection
+  );
+  const hasExpectedParts =
+    expectedParts.length === 0 || tokenPartsContainAll(tokens, expectedParts);
+
+  const participantAliases = resolveGameParticipantAliases(
+    game,
+    instrument.participantKey ?? instrument.selection
+  );
+  if (participantAliases) {
+    const matchesCanonical = sourceTextMatchesAliases(
+      sourceMarket,
+      participantAliases.canonical
+    );
+    const matchesOpposing = sourceTextMatchesAliases(
+      sourceMarket,
+      participantAliases.opposing
+    );
+    if (matchesCanonical) {
+      return true;
+    }
+    if (matchesOpposing) {
+      return false;
+    }
+  }
+
+  if (expected && sourceMarket === expected) {
+    return true;
+  }
+
+  if (selection && sourceMarket === selection) {
+    return true;
+  }
+
+  if (
+    (instrument.family === "player-prop" ||
+      instrument.family === "team-prop") &&
+    (selection === "over" || selection === "under")
+  ) {
+    return hasExpectedParts && tokens.includes(selection);
+  }
+
+  if (
+    instrument.family === "total" &&
+    (selection === "over" || selection === "under")
+  ) {
+    return tokens.includes(selection);
+  }
+
+  return expected ? hasExpectedParts : false;
 }
 
 function gapToSeverity(gap: number, lineMismatch: boolean) {
@@ -226,10 +404,19 @@ function computeMappingStatus(sourceMarkets: SourceMarket[]): MappingStatus {
 function computeComparableState(
   instrument: MarketInstrument,
   mappingStatus: MappingStatus,
-  latestSources: LatestSourceView[]
+  latestSources: LatestSourceView[],
+  game?: CanonicalGame
 ): ComparableState {
   if (mappingStatus === "unmapped") {
     return "unmapped";
+  }
+
+  if (
+    latestSources.some(
+      (source) => !sourceSelectionMatchesInstrument(instrument, source, game)
+    )
+  ) {
+    return "selection-mismatch";
   }
 
   if (
@@ -246,14 +433,58 @@ function computeComparableState(
 
 function computeImpliedProbabilityGap(latestSources: LatestSourceView[]) {
   const comparable = latestSources
-    .map((source) => source.impliedProbability)
-    .filter((value): value is number => typeof value === "number");
+    .map((source) => ({
+      capturedAt: timestampValue(source.capturedAt),
+      impliedProbability: source.impliedProbability,
+      source: source.source,
+    }))
+    .filter(
+      (
+        source
+      ): source is {
+        capturedAt: number;
+        impliedProbability: number;
+        source: ResearchSourceId;
+      } =>
+        source.capturedAt >= 0 && typeof source.impliedProbability === "number"
+    );
 
   if (comparable.length < 2) {
     return null;
   }
 
-  return Math.max(...comparable) - Math.min(...comparable);
+  const sameTimeWindowMs = 10 * 60_000;
+  const bet365Rows = comparable.filter((source) => source.source === "bet365");
+  const exchangeRows = comparable.filter(
+    (source) => source.source === "kalshi" || source.source === "polymarket"
+  );
+  if (bet365Rows.length === 0 || exchangeRows.length === 0) {
+    return null;
+  }
+
+  let maxGap: number | null = null;
+  for (const book of bet365Rows) {
+    for (const exchange of exchangeRows) {
+      if (Math.abs(book.capturedAt - exchange.capturedAt) > sameTimeWindowMs) {
+        continue;
+      }
+      const gap = Math.abs(
+        book.impliedProbability - exchange.impliedProbability
+      );
+      maxGap = maxGap == null ? gap : Math.max(maxGap, gap);
+    }
+  }
+
+  return maxGap;
+}
+
+function buildInstrumentDivergenceSummary(instrumentId: string) {
+  return summarizeDeltaSeries(
+    getInstrumentDeltaSeries({
+      bucketSeconds: 60,
+      instrumentId,
+    })
+  );
 }
 
 function freshnessMsFromSourceViews(latestSources: LatestSourceView[]) {
@@ -291,7 +522,12 @@ function computeSignalPriority(
   const gapScore = Math.round((impliedProbabilityGap ?? 0) * 1000);
   const coverageBonus =
     latestSources.filter((source) => source.capturedAt).length * 5;
-  const mismatchPenalty = comparableState === "line-mismatch" ? -8 : 0;
+  const mismatchPenalty =
+    comparableState === "line-mismatch"
+      ? -8
+      : comparableState === "selection-mismatch"
+        ? -80
+        : 0;
   const inPlayBonus = inPlay ? 12 : 0;
 
   return Math.max(0, gapScore + coverageBonus + mismatchPenalty + inPlayBonus);
@@ -309,6 +545,21 @@ function quotedResearchSources(latestSources: LatestSourceView[]) {
 
 function hasPlayerPropComparisonSource(latestSources: LatestSourceView[]) {
   const sources = new Set(quotedResearchSources(latestSources));
+  return (
+    sources.has("bet365") &&
+    (sources.has("kalshi") || sources.has("polymarket"))
+  );
+}
+
+function hasBet365PlusExchangeSourceMarkets(
+  instrumentId: string,
+  sourceMarkets: SourceMarket[]
+) {
+  const sources = new Set(
+    sourceMarkets
+      .filter((sourceMarket) => sourceMarket.instrumentId === instrumentId)
+      .map((sourceMarket) => sourceMarket.source)
+  );
   return (
     sources.has("bet365") &&
     (sources.has("kalshi") || sources.has("polymarket"))
@@ -746,6 +997,7 @@ function buildLatestSourceViews(
         line: latestTick?.lineRaw ?? null,
         odds: latestTick?.oddsRaw ?? null,
         price: latestTick?.priceRaw ?? null,
+        selectionKey: sourceMarket.sourceSelectionKey ?? null,
         volume: latestTick?.volume ?? null,
       },
       source: sourceMarket.source,
@@ -782,7 +1034,8 @@ function buildMarketInstrumentView(
   instrument: MarketInstrument,
   sourceMarkets: SourceMarket[],
   latestTicks: Map<string, QuoteTick>,
-  latestPayloads: Map<string, RawPayloadAttachment>
+  latestPayloads: Map<string, RawPayloadAttachment>,
+  options: { game?: CanonicalGame; includeDivergenceSummary?: boolean } = {}
 ) {
   const latestSources = buildLatestSourceViews(
     sourceMarkets,
@@ -793,19 +1046,27 @@ function buildMarketInstrumentView(
   const comparableState = computeComparableState(
     instrument,
     mappingStatus,
-    latestSources
+    latestSources,
+    options.game
   );
   const impliedProbabilityGap =
     comparableState === "comparable"
       ? computeImpliedProbabilityGap(latestSources)
-      : computeImpliedProbabilityGap(
-          latestSources.filter((source) =>
-            lineValuesMatch(source.raw.line, instrument.line)
+      : comparableState === "line-mismatch"
+        ? computeImpliedProbabilityGap(
+            latestSources.filter((source) =>
+              lineValuesMatch(source.raw.line, instrument.line)
+            )
           )
-        );
+        : null;
+  const comparisonSummary =
+    options.includeDivergenceSummary && comparableState === "comparable"
+      ? buildInstrumentDivergenceSummary(instrument.id)
+      : null;
 
   return {
     comparableState,
+    comparisonSummary,
     impliedProbabilityGap,
     instrument,
     lineMismatch: comparableState === "line-mismatch",
@@ -822,28 +1083,46 @@ function buildMarketInstrumentView(
 
 function buildDivergenceRow(
   game: CanonicalGame,
+  gameStatus: ResearchGameStatus,
   instrumentView: MarketInstrumentView
 ) {
   const freshnessMs = freshnessMsFromSourceViews(instrumentView.sources);
+  const comparisonGap =
+    gameStatus === "final"
+      ? (instrumentView.comparisonSummary?.maxGap ??
+        instrumentView.impliedProbabilityGap ??
+        null)
+      : (instrumentView.comparisonSummary?.latestGap ??
+        instrumentView.impliedProbabilityGap ??
+        null);
   const severity = gapToSeverity(
-    instrumentView.impliedProbabilityGap ?? 0,
+    comparisonGap ?? 0,
     instrumentView.lineMismatch
+  );
+  const signalPriority = computeSignalPriority(
+    comparisonGap,
+    instrumentView.sources,
+    instrumentView.comparableState,
+    gameStatus === "in-play" && instrumentView.instrument.inPlay
   );
 
   return {
     captureRecencyMs: freshnessMs,
     comparableState: instrumentView.comparableState,
+    comparisonSummary: instrumentView.comparisonSummary,
     displayLabel: instrumentView.instrument.displayLabel,
     family: instrumentView.instrument.family,
     gameId: game.id,
-    impliedProbabilityGap: instrumentView.impliedProbabilityGap,
+    gameStatus,
+    impliedProbabilityGap: comparisonGap,
     inPlay: instrumentView.instrument.inPlay,
     instrumentId: instrumentView.instrument.id,
     league: game.league,
     lineMismatch: instrumentView.lineMismatch,
     mappingStatus: instrumentView.mappingStatus,
+    scheduledStart: game.scheduledStart,
     severity,
-    signalPriority: instrumentView.signalPriority,
+    signalPriority,
     sources: quotedResearchSources(instrumentView.sources),
     sport: game.sport,
   } satisfies DivergenceRow;
@@ -911,31 +1190,50 @@ function selectGameBundle(db: Database.Database, gameId: string) {
 }
 
 function buildGameCard(
-  bundle: NonNullable<ReturnType<typeof selectGameBundle>>
+  bundle: NonNullable<ReturnType<typeof selectGameBundle>>,
+  comparisonSummaries: Map<string, InstrumentDivergenceSummary> = new Map()
 ) {
-  const instrumentViews = bundle.instruments.map((instrument) =>
-    buildMarketInstrumentView(
+  const instrumentViews = bundle.instruments.map((instrument) => {
+    const instrumentView = buildMarketInstrumentView(
       instrument,
       bundle.sourceMarkets.filter(
         (sourceMarket) => sourceMarket.instrumentId === instrument.id
       ),
       bundle.latestTicks,
-      bundle.latestPayloads
-    )
-  );
+      bundle.latestPayloads,
+      { game: bundle.game }
+    );
+    return {
+      ...instrumentView,
+      comparisonSummary:
+        instrumentView.comparableState === "comparable"
+          ? (comparisonSummaries.get(instrument.id) ?? null)
+          : null,
+    } satisfies MarketInstrumentView;
+  });
 
   const topDivergences = instrumentViews
     .filter(isVisibleDivergenceInstrument)
-    .map((instrumentView) => {
-      const divergence = buildDivergenceRow(bundle.game, instrumentView);
-      return {
-        displayLabel: divergence.displayLabel,
-        family: divergence.family,
-        impliedProbabilityGap: divergence.impliedProbabilityGap ?? 0,
-        instrumentId: divergence.instrumentId,
-        lineMismatch: divergence.lineMismatch,
-        severity: divergence.severity,
-      } satisfies DivergenceSummary;
+    .flatMap((instrumentView): DivergenceSummary[] => {
+      const divergence = buildDivergenceRow(
+        bundle.game,
+        deriveResearchGameStatus(bundle),
+        instrumentView
+      );
+      if (divergence.impliedProbabilityGap == null) {
+        return [];
+      }
+      return [
+        {
+          displayLabel: divergence.displayLabel,
+          family: divergence.family,
+          impliedProbabilityGap: divergence.impliedProbabilityGap,
+          instrumentId: divergence.instrumentId,
+          lineMismatch: divergence.lineMismatch,
+          severity: divergence.severity,
+          comparisonSummary: divergence.comparisonSummary,
+        },
+      ];
     })
     .sort(
       (left, right) => right.impliedProbabilityGap - left.impliedProbabilityGap
@@ -967,13 +1265,18 @@ type ResearchDivergenceEntry = {
 
 function selectFilteredGameBundles(
   db: Database.Database,
-  filters: Pick<GamesFilters, "date" | "league" | "limit" | "sport"> & {
+  filters: Pick<
+    GamesFilters,
+    "date" | "league" | "limit" | "referenceNow" | "sport"
+  > & {
     family?: MarketFamily;
     order?: "currentSlate" | "scheduledAsc";
   }
 ) {
   const clauses: string[] = [];
   const params: unknown[] = [];
+  const orderParams: unknown[] = [];
+  const referenceNow = filters.referenceNow ?? new Date().toISOString();
 
   if (filters.sport) {
     clauses.push("sport = ?");
@@ -986,6 +1289,29 @@ function selectFilteredGameBundles(
   if (filters.date) {
     clauses.push("substr(scheduled_start, 1, 10) = ?");
     params.push(filters.date);
+  } else if (filters.order === "currentSlate") {
+    clauses.push(`
+      (
+        (
+          datetime(scheduled_start) >= datetime(?, '-8 hours')
+          AND datetime(scheduled_start) <= datetime(?, '+48 hours')
+        )
+        OR (
+          SELECT gs.status
+          FROM game_states gs
+          WHERE gs.game_id = games.id
+          ORDER BY
+            CASE
+              WHEN datetime(gs.captured_at) > datetime(?, '+10 minutes') THEN 1
+              ELSE 0
+            END,
+            datetime(gs.captured_at) DESC,
+            gs.id DESC
+          LIMIT 1
+        ) = 'in-play'
+      )
+    `);
+    params.push(referenceNow, referenceNow, referenceNow);
   }
   if (filters.family) {
     clauses.push(
@@ -1005,7 +1331,7 @@ function selectFilteredGameBundles(
               WHERE gs.game_id = games.id
               ORDER BY
                 CASE
-                  WHEN datetime(gs.captured_at) > datetime('now', '+10 minutes') THEN 1
+                  WHEN datetime(gs.captured_at) > datetime(?, '+10 minutes') THEN 1
                   ELSE 0
                 END,
                 datetime(gs.captured_at) DESC,
@@ -1013,18 +1339,27 @@ function selectFilteredGameBundles(
               LIMIT 1
             ) = 'in-play'
               THEN 0
-            WHEN datetime(scheduled_start) >= datetime('now', '-8 hours')
-              AND datetime(scheduled_start) <= datetime('now', '+48 hours')
+            WHEN datetime(scheduled_start) >= datetime(?, '-8 hours')
+              AND datetime(scheduled_start) <= datetime(?, '+48 hours')
               THEN 1
-            WHEN datetime(scheduled_start) >= datetime('now', '-8 hours')
+            WHEN datetime(scheduled_start) >= datetime(?, '-8 hours')
               THEN 2
             ELSE 3
           END,
-          ABS(strftime('%s', scheduled_start) - strftime('%s', 'now')) ASC,
+          ABS(strftime('%s', scheduled_start) - strftime('%s', ?)) ASC,
           scheduled_start ASC,
           id ASC
       `
       : "ORDER BY scheduled_start ASC, id ASC";
+  if (filters.order === "currentSlate") {
+    orderParams.push(
+      referenceNow,
+      referenceNow,
+      referenceNow,
+      referenceNow,
+      referenceNow
+    );
+  }
 
   const gameRows = db
     .prepare(
@@ -1047,7 +1382,7 @@ function selectFilteredGameBundles(
         }
       `
     )
-    .all(...params) as Record<string, unknown>[];
+    .all(...params, ...orderParams) as Record<string, unknown>[];
 
   if (gameRows.length === 0) return [];
 
@@ -1074,7 +1409,7 @@ function selectFilteredGameBundles(
               PARTITION BY game_id
               ORDER BY
                 CASE
-                  WHEN datetime(captured_at) > datetime('now', '+10 minutes') THEN 1
+                  WHEN datetime(captured_at) > datetime(?, '+10 minutes') THEN 1
                   ELSE 0
                 END,
                 datetime(captured_at) DESC,
@@ -1086,7 +1421,7 @@ function selectFilteredGameBundles(
         SELECT * FROM ranked WHERE rn = 1
       `
     )
-    .all(...gameIds) as Record<string, unknown>[];
+    .all(referenceNow, ...gameIds) as Record<string, unknown>[];
   const latestStateByGame = new Map<string, CanonicalGameState>();
   for (const row of gameStateRows) {
     const state = rowToGameState(row);
@@ -1242,14 +1577,46 @@ function compareDivergenceRows(
 
 function buildResearchDivergenceEntries(filters: DivergenceFilters = {}) {
   const db = getDatabase();
-  let entries = selectFilteredGameBundles(db, {
+  const currentSlateGameLimit = filters.date ? undefined : 48;
+  const bundles = selectFilteredGameBundles(db, {
     date: filters.date,
     family: filters.family,
     league: filters.league,
+    limit: currentSlateGameLimit,
+    order: filters.date ? "scheduledAsc" : "currentSlate",
     sport: filters.sport,
-  }).flatMap((bundle) =>
+  });
+  const candidateInstrumentIds = bundles.flatMap((bundle) =>
     bundle.instruments
       .filter((instrument) => {
+        if (filters.family && instrument.family !== filters.family) {
+          return false;
+        }
+        if (
+          typeof filters.inPlay === "boolean" &&
+          instrument.inPlay !== filters.inPlay
+        ) {
+          return false;
+        }
+        return hasBet365PlusExchangeSourceMarkets(
+          instrument.id,
+          bundle.sourceMarkets
+        );
+      })
+      .map((instrument) => instrument.id)
+  );
+  const candidateInstrumentIdSet = new Set(candidateInstrumentIds);
+  const comparisonSummaries = getInstrumentDeltaSummaries({
+    bucketSeconds: 60,
+    instrumentIds: candidateInstrumentIds,
+  });
+
+  let entries = bundles.flatMap((bundle) =>
+    bundle.instruments
+      .filter((instrument) => {
+        if (!candidateInstrumentIdSet.has(instrument.id)) {
+          return false;
+        }
         if (filters.family && instrument.family !== filters.family) {
           return false;
         }
@@ -1268,18 +1635,38 @@ function buildResearchDivergenceEntries(filters: DivergenceFilters = {}) {
             (sourceMarket) => sourceMarket.instrumentId === instrument.id
           ),
           bundle.latestTicks,
-          bundle.latestPayloads
+          bundle.latestPayloads,
+          { game: bundle.game }
         );
+        const comparisonSummary =
+          instrumentView.comparableState === "comparable"
+            ? (comparisonSummaries.get(instrument.id) ?? null)
+            : null;
+        const enrichedInstrumentView = {
+          ...instrumentView,
+          comparisonSummary,
+        } satisfies MarketInstrumentView;
 
-        if (!isVisibleDivergenceInstrument(instrumentView)) {
+        if (!isVisibleDivergenceInstrument(enrichedInstrumentView)) {
+          return [];
+        }
+
+        const row = buildDivergenceRow(
+          bundle.game,
+          deriveResearchGameStatus(bundle),
+          enrichedInstrumentView
+        );
+        const keepLineMismatchEvidence =
+          row.lineMismatch && instrument.family !== "player-prop";
+        if (row.impliedProbabilityGap == null && !keepLineMismatchEvidence) {
           return [];
         }
 
         return [
           {
             bundle,
-            instrumentView,
-            row: buildDivergenceRow(bundle.game, instrumentView),
+            instrumentView: enrichedInstrumentView,
+            row,
           } satisfies ResearchDivergenceEntry,
         ];
       })
@@ -1332,9 +1719,23 @@ function buildSignalMismatchRow(entry: ResearchDivergenceEntry) {
   const bySource = new Map(
     entry.instrumentView.sources.map((quote) => [quote.source, quote])
   );
-  const bet365 = bySource.get("bet365")?.impliedProbability ?? null;
-  const kalshi = bySource.get("kalshi")?.impliedProbability ?? null;
-  const polymarket = bySource.get("polymarket")?.impliedProbability ?? null;
+  const gameStatus = deriveResearchGameStatus(entry.bundle);
+  const comparisonSources =
+    gameStatus === "final"
+      ? entry.instrumentView.comparisonSummary?.maxGapSourceProbabilities
+      : entry.instrumentView.comparisonSummary?.latestSourceProbabilities;
+  const bet365 =
+    comparisonSources?.bet365 ??
+    bySource.get("bet365")?.impliedProbability ??
+    null;
+  const kalshi =
+    comparisonSources?.kalshi ??
+    bySource.get("kalshi")?.impliedProbability ??
+    null;
+  const polymarket =
+    comparisonSources?.polymarket ??
+    bySource.get("polymarket")?.impliedProbability ??
+    null;
   const externalValues = [kalshi, polymarket].filter(
     (value): value is number => typeof value === "number"
   );
@@ -1355,7 +1756,7 @@ function buildSignalMismatchRow(entry: ResearchDivergenceEntry) {
     finalAwayScore: entry.bundle.outcome?.finalAwayScore ?? null,
     finalHomeScore: entry.bundle.outcome?.finalHomeScore ?? null,
     gameLabel: formatGameLabel(entry.bundle.game),
-    gameStatus: deriveResearchGameStatus(entry.bundle),
+    gameStatus,
     kalshiImpliedProbability: kalshi ?? null,
     polymarketImpliedProbability: polymarket ?? null,
     scheduledStart: entry.bundle.game.scheduledStart,
@@ -1418,7 +1819,7 @@ function buildPlayerPropAlert(
       PlayerPropAlertFilters,
       | "includeStale"
       | "limit"
-      | "maxPairGapMinutes"
+      | "maxQuoteTimeGapMinutes"
       | "maxQuoteAgeMinutes"
       | "minDelta"
     >
@@ -1447,8 +1848,8 @@ function buildPlayerPropAlert(
     return null;
   }
 
-  const pairGapMs = Math.abs(predictionTimestamp - bet365Timestamp);
-  if (pairGapMs > options.maxPairGapMinutes * 60_000) {
+  const quoteTimeGapMs = Math.abs(predictionTimestamp - bet365Timestamp);
+  if (quoteTimeGapMs > options.maxQuoteTimeGapMinutes * 60_000) {
     return null;
   }
 
@@ -1463,10 +1864,59 @@ function buildPlayerPropAlert(
   }
 
   const line = nullableNumber(row.line);
+  const inPlay = toBoolean(row.inPlay as number | boolean | null | undefined);
+  const gameId = String(row.gameId);
+  const instrumentId = String(row.instrumentId);
+  const instrumentForMatch = {
+    displayLabel: String(row.displayLabel),
+    family: "player-prop",
+    gameId,
+    id: instrumentId,
+    inPlay,
+    line,
+    participantKey:
+      row.participantKey == null ? null : String(row.participantKey),
+    selection: String(row.selection),
+  } satisfies MarketInstrument;
+  const bet365View = {
+    capturedAt: bet365.capturedAt,
+    impliedProbability: bet365.impliedProbability,
+    mappingStatus: bet365.mappingStatus,
+    raw: {
+      label: bet365.rawLabel ?? null,
+      line: bet365.lineRaw ?? null,
+      selectionKey: bet365.sourceSelectionKey ?? null,
+    },
+    source: bet365.source,
+    sourceMarketId: bet365.sourceMarketId,
+  } satisfies LatestSourceView;
+  const predictionMarketView = {
+    capturedAt: predictionMarket.capturedAt,
+    impliedProbability: predictionMarket.impliedProbability,
+    mappingStatus: predictionMarket.mappingStatus,
+    raw: {
+      label: predictionMarket.rawLabel ?? null,
+      line: predictionMarket.lineRaw ?? null,
+      selectionKey: predictionMarket.sourceSelectionKey ?? null,
+    },
+    source: predictionMarket.source,
+    sourceMarketId: predictionMarket.sourceMarketId,
+  } satisfies LatestSourceView;
+
+  if (
+    !sourceSelectionMatchesInstrument(instrumentForMatch, bet365View) ||
+    !sourceSelectionMatchesInstrument(instrumentForMatch, predictionMarketView)
+  ) {
+    return null;
+  }
+
   const lineMismatch =
     !lineValuesMatch(bet365.lineRaw, line) ||
     !lineValuesMatch(predictionMarket.lineRaw, line) ||
     !lineValuesMatch(bet365.lineRaw, predictionMarket.lineRaw);
+  if (lineMismatch) {
+    return null;
+  }
   const detectedAt = new Date(
     Math.max(bet365Timestamp, predictionTimestamp)
   ).toISOString();
@@ -1475,20 +1925,16 @@ function buildPlayerPropAlert(
   const direction =
     signedDelta > 0 ? "prediction-market-higher" : "bet365-higher";
   const severity = gapToSeverity(absoluteDelta, lineMismatch);
-  const inPlay = toBoolean(row.inPlay as number | boolean | null | undefined);
   const riskScore = Math.max(
     0,
     Math.round(
       absoluteDelta * 1000 +
         (lineMismatch ? 120 : 0) +
         (inPlay ? 40 : 0) -
-        pairGapMs / 60_000 -
+        quoteTimeGapMs / 60_000 -
         Math.min(bet365AgeMs, predictionMarketAgeMs) / 600_000
     )
   );
-  const gameId = String(row.gameId);
-  const instrumentId = String(row.instrumentId);
-
   return {
     absoluteDelta,
     action: "manual-review",
@@ -1498,8 +1944,8 @@ function buildPlayerPropAlert(
     displayLabel: String(row.displayLabel),
     freshness: {
       bet365AgeMs,
-      pairGapMs,
       predictionMarketAgeMs,
+      quoteTimeGapMs,
     },
     gameId,
     gameLabel: String(row.gameLabel),
@@ -1542,8 +1988,8 @@ export function listPlayerPropDisagreementAlerts(
       const options = {
         includeStale: filters.includeStale ?? false,
         limit: clampAlertLimit(filters.limit),
-        maxPairGapMinutes: normalizeAlertNumber(
-          filters.maxPairGapMinutes,
+        maxQuoteTimeGapMinutes: normalizeAlertNumber(
+          filters.maxQuoteTimeGapMinutes,
           10,
           0
         ),
@@ -1576,6 +2022,24 @@ export function listPlayerPropDisagreementAlerts(
               FROM market_instruments mi
               JOIN games g ON g.id = mi.game_id
               WHERE mi.family = 'player-prop'
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM game_outcomes go
+                  WHERE go.game_id = mi.game_id
+                )
+                AND COALESCE((
+                  SELECT gs.status
+                  FROM game_states gs
+                  WHERE gs.game_id = mi.game_id
+                  ORDER BY
+                    CASE
+                      WHEN datetime(gs.captured_at) > datetime('now', '+10 minutes') THEN 1
+                      ELSE 0
+                    END,
+                    datetime(gs.captured_at) DESC,
+                    gs.id DESC
+                  LIMIT 1
+                ), 'scheduled') != 'final'
             ),
             latest_source_ticks AS (
               SELECT
@@ -1606,6 +2070,7 @@ export function listPlayerPropDisagreementAlerts(
                 FROM quote_ticks q2
                 WHERE q2.source_market_id = sm.id
                   AND q2.implied_probability IS NOT NULL
+                  AND datetime(q2.captured_at) <= datetime(?)
                 ORDER BY q2.captured_at DESC, q2.id DESC
                 LIMIT 1
               )
@@ -1664,7 +2129,7 @@ export function listPlayerPropDisagreementAlerts(
             JOIN external_latest e ON e.instrumentId = b.instrumentId
           `
         )
-        .all() as Record<string, unknown>[];
+        .all(options.nowIso) as Record<string, unknown>[];
 
       return rows
         .map((row) => buildPlayerPropAlert(row, options))
@@ -2381,7 +2846,13 @@ export function listResearchGames(filters: GamesFilters = {}) {
         date: filters.date,
         league: filters.league,
         limit: hasPostBundleFilter ? undefined : filters.limit,
-        order: filters.date ? "scheduledAsc" : "currentSlate",
+        order:
+          filters.scope === "all"
+            ? "scheduledAsc"
+            : filters.date
+              ? "scheduledAsc"
+              : "currentSlate",
+        referenceNow: filters.referenceNow,
         sport: filters.sport,
       })
         .map((bundle) => buildGameCard(bundle))
@@ -2501,7 +2972,8 @@ export function listGameMarkets(gameId: string, filters: MarketFilters = {}) {
               return true;
             }),
             bundle.latestTicks,
-            bundle.latestPayloads
+            bundle.latestPayloads,
+            { game: bundle.game }
           )
         )
         .filter((instrumentView) =>
@@ -2546,20 +3018,33 @@ export function getInstrumentComparison(gameId: string, instrumentId: string) {
       const comparableState = computeComparableState(
         instrument,
         mappingStatus,
-        latestQuotesBySource
+        latestQuotesBySource,
+        bundle.game
       );
-      const impliedProbabilityGap = computeImpliedProbabilityGap(
-        comparableState === "line-mismatch"
-          ? latestQuotesBySource.filter((source) =>
-              lineValuesMatch(source.raw.line, instrument.line)
-            )
-          : latestQuotesBySource
-      );
+      const impliedProbabilityGap =
+        comparableState === "comparable"
+          ? computeImpliedProbabilityGap(latestQuotesBySource)
+          : comparableState === "line-mismatch"
+            ? computeImpliedProbabilityGap(
+                latestQuotesBySource.filter((source) =>
+                  lineValuesMatch(source.raw.line, instrument.line)
+                )
+              )
+            : null;
+      const comparisonSummary =
+        comparableState === "comparable"
+          ? buildInstrumentDivergenceSummary(instrument.id)
+          : null;
+      const comparisonGap =
+        comparableState === "comparable"
+          ? (comparisonSummary?.latestGap ?? impliedProbabilityGap ?? null)
+          : impliedProbabilityGap;
 
       return {
         derivedComparison: {
           comparableState,
-          impliedProbabilityGap,
+          comparisonSummary,
+          impliedProbabilityGap: comparisonGap,
           lineMismatch: comparableState === "line-mismatch",
           sourceCount: latestQuotesBySource.length,
         },

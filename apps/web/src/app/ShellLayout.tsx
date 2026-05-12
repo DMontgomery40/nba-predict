@@ -27,7 +27,7 @@ function workspaceStatus(pathname: string, activeGameCount: number) {
     return "Ranked trader work queue";
   }
   if (pathname.startsWith("/prop-alerts")) {
-    return "Player-prop alert monitor and replay tape";
+    return "Player-prop alert monitor and saved checks";
   }
   if (pathname === "/games") {
     return `${activeGameCount} tracked game${activeGameCount === 1 ? "" : "s"}`;
@@ -36,7 +36,7 @@ function workspaceStatus(pathname: string, activeGameCount: number) {
     return "Instrument-first disagreement";
   }
   if (pathname.startsWith("/research")) {
-    return "Signal quality of prediction markets vs book";
+    return "Signal quality of exchange prices vs bet365";
   }
   if (pathname.startsWith("/history")) {
     return "Persisted market history";
@@ -47,7 +47,26 @@ function workspaceStatus(pathname: string, activeGameCount: number) {
   if (pathname.startsWith("/settings")) {
     return "Operator controls and ingest state";
   }
-  return "Game and instrument workspace";
+  if (pathname.includes("/markets/")) {
+    return "Same-time comparison and quote history";
+  }
+  return "Game state and market coverage";
+}
+
+function workspaceTitle(pathname: string) {
+  if (pathname.includes("/markets/")) {
+    return "Market review";
+  }
+  if (pathname.startsWith("/prop-alerts")) {
+    return "Prop alert desk";
+  }
+  if (pathname.startsWith("/divergence")) {
+    return "Divergence review";
+  }
+  if (pathname.startsWith("/history")) {
+    return "Market history";
+  }
+  return "Signal Console";
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -143,7 +162,7 @@ export function ShellLayout() {
           <div className="brand-badge">365</div>
           <div>
             <strong>Signal Console</strong>
-            <span>Live market research</span>
+            <span>Market comparison desk</span>
           </div>
         </Link>
         <div className="nav-section">
@@ -163,7 +182,7 @@ export function ShellLayout() {
 
         <div className="command-box" onClick={openCommand}>
           <span>Cmd/Ctrl + K</span>
-          <strong>Search routes, games, and instruments</strong>
+          <strong>Search routes and market boards</strong>
         </div>
       </aside>
 
@@ -172,7 +191,7 @@ export function ShellLayout() {
           <header className="topbar">
             <div>
               <div className="eyebrow">Current workspace</div>
-              <strong>Live research console</strong>
+              <strong>{workspaceTitle(location.pathname)}</strong>
               <span className="muted">
                 {workspaceStatus(location.pathname, activeGameCount)}
               </span>

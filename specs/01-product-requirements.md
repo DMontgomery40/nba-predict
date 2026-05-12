@@ -2,7 +2,7 @@
 
 ## Product Thesis
 
-Signal Console is a research system for live in-game market comparison. It should help an operator understand where book structure, prediction-market prices, and actual game context disagree, with full provenance and no synthetic fallback path.
+Signal Console is a research system for live in-game market comparison. It should help an operator understand where bet365, exchange prices, and actual game context disagree, with full provenance and no synthetic fallback path.
 
 ## Functional Requirements
 
@@ -18,8 +18,8 @@ Signal Console is a research system for live in-game market comparison. It shoul
 - `FR-010` The product shall expose a game-level workspace with market-family switching, grouped instruments, and direct navigation into one instrument timeline.
 - `FR-011` The product shall export instrument timeline research artifacts with provenance and timestamps.
 - `FR-012` The product shall ingest live Polymarket NBA game markets through official APIs into canonical instruments, source markets, quote ticks, raw payloads, and adapter runs.
-- `FR-013` The product shall expose first-class player-prop attribution risk alerts when mapped Bet365 props and mapped prediction-market props materially disagree inside a fresh quote window. These alerts are manual-review signals, not automatic source correction or settlement decisions.
-- `FR-014` The product shall support live player-prop alert monitoring with desktop notification emission and a persisted replay tape so trading can inspect what the alert surface looked like at the time it fired.
+- `FR-013` The product shall expose first-class player-prop attribution risk alerts when mapped Bet365 props and mapped Kalshi/Polymarket props materially disagree inside a fresh quote window. These alerts are manual-review signals, not automatic source correction or settlement decisions.
+- `FR-014` The product shall support live player-prop alert monitoring with desktop notification emission and persisted alert checks so trading can inspect what the alert surface showed at the time it fired.
 
 ## Non-Functional Requirements
 

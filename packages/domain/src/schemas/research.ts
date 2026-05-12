@@ -4,6 +4,7 @@ import { severityBandSchema } from "./core";
 import {
   canonicalGameSchema,
   canonicalGameStateSchema,
+  comparableStateSchema,
   gameOutcomeSchema,
   marketFamilySchema,
   marketInstrumentSchema,
@@ -51,6 +52,28 @@ export const divergenceSummarySchema = z.object({
   impliedProbabilityGap: z.number().nonnegative(),
   lineMismatch: z.boolean(),
   severity: severityBandSchema,
+  comparisonSummary: z
+    .object({
+      threshold: z.number().nonnegative(),
+      comparisonCount: z.number().int().nonnegative(),
+      firstComparisonAt: z.string().nullable().optional(),
+      latestComparisonAt: z.string().nullable().optional(),
+      latestGap: z.number().nonnegative().nullable().optional(),
+      latestSignedGap: z.number().nullable().optional(),
+      latestSourceProbabilities: z
+        .record(z.string(), z.number().nullable())
+        .optional(),
+      maxGap: z.number().nonnegative().nullable().optional(),
+      maxGapAt: z.string().nullable().optional(),
+      maxGapSourceProbabilities: z
+        .record(z.string(), z.number().nullable())
+        .optional(),
+      minGap: z.number().nonnegative().nullable().optional(),
+      firstAboveThresholdAt: z.string().nullable().optional(),
+      aboveThresholdDurationMs: z.number().nonnegative(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const latestSourceViewSchema = z.object({
@@ -62,6 +85,7 @@ export const latestSourceViewSchema = z.object({
     line: z.number().nullable().optional(),
     odds: z.string().nullable().optional(),
     price: z.number().nullable().optional(),
+    selectionKey: z.string().nullable().optional(),
     bestBid: z.number().nullable().optional(),
     bestAsk: z.number().nullable().optional(),
     volume: z.number().nullable().optional(),
@@ -76,10 +100,11 @@ export const latestSourceViewSchema = z.object({
 export const marketInstrumentViewSchema = z.object({
   instrument: marketInstrumentSchema,
   mappingStatus: mappingStatusSchema,
-  comparableState: z.enum(["comparable", "line-mismatch", "unmapped"]),
+  comparableState: comparableStateSchema,
   lineMismatch: z.boolean(),
   signalPriority: z.number().min(0),
   impliedProbabilityGap: z.number().nonnegative().nullable().optional(),
+  comparisonSummary: divergenceSummarySchema.shape.comparisonSummary,
   sources: z.array(latestSourceViewSchema),
 });
 
@@ -111,7 +136,7 @@ export const instrumentComparisonViewSchema = z.object({
   gameState: canonicalGameStateSchema.nullable().optional(),
   latestQuotesBySource: z.array(latestSourceViewSchema),
   derivedComparison: z.object({
-    comparableState: z.enum(["comparable", "line-mismatch", "unmapped"]),
+    comparableState: comparableStateSchema,
     lineMismatch: z.boolean(),
     impliedProbabilityGap: z.number().nonnegative().nullable().optional(),
     sourceCount: z.number().int().nonnegative(),
@@ -179,16 +204,19 @@ export const instrumentSourceDiagnosticsSchema = z.object({
 
 export const divergenceRowSchema = z.object({
   gameId: z.string(),
+  gameStatus: researchGameStatusSchema,
   instrumentId: z.string(),
   displayLabel: z.string(),
   sport: z.string(),
   league: z.string(),
+  scheduledStart: z.string(),
   family: marketFamilySchema,
   inPlay: z.boolean(),
-  comparableState: z.enum(["comparable", "line-mismatch", "unmapped"]),
+  comparableState: comparableStateSchema,
   mappingStatus: mappingStatusSchema,
   lineMismatch: z.boolean(),
   impliedProbabilityGap: z.number().nonnegative().nullable().optional(),
+  comparisonSummary: divergenceSummarySchema.shape.comparisonSummary,
   sources: z.array(researchSourceIdSchema),
   signalPriority: z.number().min(0),
   captureRecencyMs: z.number().nullable().optional(),
@@ -249,7 +277,7 @@ export const playerPropDisagreementAlertSchema = z.object({
   freshness: z.object({
     bet365AgeMs: z.number().min(0),
     predictionMarketAgeMs: z.number().min(0),
-    pairGapMs: z.number().min(0),
+    quoteTimeGapMs: z.number().min(0).optional(),
   }),
   action: z.literal("manual-review"),
 });
@@ -351,7 +379,7 @@ export const researchDivergenceQuerySchema = z.object({
   severity: severityBandSchema.optional(),
   freshness: z.string().optional(),
   limit: positiveIntegerQueryParamSchema.optional(),
-  mappedState: z.enum(["comparable", "line-mismatch", "unmapped"]).optional(),
+  mappedState: comparableStateSchema.optional(),
   sort: z
     .enum([
       "divergence",

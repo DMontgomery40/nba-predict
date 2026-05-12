@@ -23,10 +23,16 @@ import {
   marketChartPalette,
 } from "../../lib/chart-theme";
 import {
+  formatGapPoints,
+  formatMarketMatchLabel,
+  formatProbabilityPercent,
+} from "../../lib/market-format";
+import {
   formatMarketSourceList,
   formatMarketSourceSummary,
   hasNbaStateSource,
 } from "../../lib/source-coverage";
+import { formatOperatorDateTime } from "../../lib/time-format";
 
 function toneForComparableState(state: string) {
   if (state === "comparable") {
@@ -71,7 +77,15 @@ function formatTimestamp(value?: string | null) {
     return "No quote";
   }
 
-  return value.replace("T", " ").replace("Z", "");
+  return formatOperatorDateTime(value);
+}
+
+function formatLine(value?: number | null) {
+  if (value == null || !Number.isFinite(value)) {
+    return "line n/a";
+  }
+
+  return `line ${value > 0 ? `+${value}` : value}`;
 }
 
 export function GameWorkspacePage() {
@@ -341,15 +355,15 @@ export function GameWorkspacePage() {
                 <div className="eyebrow">{item.instrument.family}</div>
                 <h3>{item.instrument.displayLabel}</h3>
                 <p className="muted">
-                  Signal priority {item.signalPriority}
+                  Review priority {item.signalPriority}
                   {item.impliedProbabilityGap != null
-                    ? ` · ${(item.impliedProbabilityGap * 100).toFixed(1)}% gap`
+                    ? ` · ${formatGapPoints(item.impliedProbabilityGap)} divergence`
                     : ""}
                 </p>
               </div>
               <div className="tag-row">
                 <Badge tone={toneForComparableState(item.comparableState)}>
-                  {item.comparableState}
+                  {formatMarketMatchLabel(item.comparableState)}
                 </Badge>
                 <Badge tone={toneForMappingStatus(item.mappingStatus)}>
                   {item.mappingStatus}
@@ -376,13 +390,12 @@ export function GameWorkspacePage() {
                     <span>
                       {source.impliedProbability == null
                         ? "n/a"
-                        : `${(source.impliedProbability * 100).toFixed(1)}%`}
+                        : formatProbabilityPercent(source.impliedProbability)}
                     </span>
                     <span>
-                      {source.raw.line == null
-                        ? (source.raw.label ?? "No raw label")
-                        : `${source.raw.label ?? source.source} · ${source.raw.line}`}
+                      {formatLine(source.raw.line ?? item.instrument.line)}
                     </span>
+                    <span>{formatTimestamp(source.capturedAt)}</span>
                   </div>
                 </div>
               ))}

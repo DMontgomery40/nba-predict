@@ -17,7 +17,7 @@ type WatcherSettings = {
   includeStale: boolean;
   intervalMs: number;
   limit: number;
-  maxPairGapMinutes: number;
+  maxQuoteTimeGapMinutes: number;
   maxQuoteAgeMinutes: number;
   minDelta: number;
   notify: boolean;
@@ -73,9 +73,9 @@ function resolveSettings(options?: Partial<WatcherSettings>): WatcherSettings {
       options?.intervalMs ??
       numberFromEnv("PLAYER_PROP_ALERT_WATCH_INTERVAL_MS", 10_000),
     limit: options?.limit ?? numberFromEnv("PLAYER_PROP_ALERT_LIMIT", 25),
-    maxPairGapMinutes:
-      options?.maxPairGapMinutes ??
-      numberFromEnv("PLAYER_PROP_ALERT_MAX_PAIR_GAP_MINUTES", 10),
+    maxQuoteTimeGapMinutes:
+      options?.maxQuoteTimeGapMinutes ??
+      numberFromEnv("PLAYER_PROP_ALERT_MAX_QUOTE_TIME_GAP_MINUTES", 10),
     maxQuoteAgeMinutes:
       options?.maxQuoteAgeMinutes ??
       numberFromEnv("PLAYER_PROP_ALERT_MAX_QUOTE_AGE_MINUTES", 10),
@@ -176,7 +176,7 @@ export function startPlayerPropAlertWatcher(options?: {
       const alerts = listPlayerPropDisagreementAlerts({
         includeStale: settings.includeStale,
         limit: settings.limit,
-        maxPairGapMinutes: settings.maxPairGapMinutes,
+        maxQuoteTimeGapMinutes: settings.maxQuoteTimeGapMinutes,
         maxQuoteAgeMinutes: settings.maxQuoteAgeMinutes,
         minDelta: settings.minDelta,
       });
@@ -193,7 +193,7 @@ export function startPlayerPropAlertWatcher(options?: {
         poll: {
           includeStale: settings.includeStale,
           limit: settings.limit,
-          maxPairGapMinutes: settings.maxPairGapMinutes,
+          maxQuoteTimeGapMinutes: settings.maxQuoteTimeGapMinutes,
           maxQuoteAgeMinutes: settings.maxQuoteAgeMinutes,
           minDelta: settings.minDelta,
         },
@@ -235,7 +235,7 @@ export function startPlayerPropAlertWatcher(options?: {
         poll: {
           includeStale: settings.includeStale,
           limit: settings.limit,
-          maxPairGapMinutes: settings.maxPairGapMinutes,
+          maxQuoteTimeGapMinutes: settings.maxQuoteTimeGapMinutes,
           maxQuoteAgeMinutes: settings.maxQuoteAgeMinutes,
           minDelta: settings.minDelta,
         },
@@ -256,7 +256,7 @@ export function startPlayerPropAlertWatcher(options?: {
       includeStale: settings.includeStale,
       intervalMs: settings.intervalMs,
       limit: settings.limit,
-      maxPairGapMinutes: settings.maxPairGapMinutes,
+      maxQuoteTimeGapMinutes: settings.maxQuoteTimeGapMinutes,
       maxQuoteAgeMinutes: settings.maxQuoteAgeMinutes,
       minDelta: settings.minDelta,
       notify: settings.notify,

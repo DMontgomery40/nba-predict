@@ -37,6 +37,7 @@ export type MappingStatus = (typeof mappingStatuses)[number];
 export const comparableStates = [
   "comparable",
   "line-mismatch",
+  "selection-mismatch",
   "unmapped",
 ] as const;
 
@@ -179,6 +180,23 @@ export type DivergenceSummary = {
   impliedProbabilityGap: number;
   lineMismatch: boolean;
   severity: SeverityBand;
+  comparisonSummary?: InstrumentDivergenceSummary | null;
+};
+
+export type InstrumentDivergenceSummary = {
+  threshold: number;
+  comparisonCount: number;
+  firstComparisonAt?: string | null;
+  latestComparisonAt?: string | null;
+  latestGap?: number | null;
+  latestSignedGap?: number | null;
+  latestSourceProbabilities?: Record<string, number | null>;
+  maxGap?: number | null;
+  maxGapAt?: string | null;
+  maxGapSourceProbabilities?: Record<string, number | null>;
+  minGap?: number | null;
+  firstAboveThresholdAt?: string | null;
+  aboveThresholdDurationMs: number;
 };
 
 export type LatestSourceView = {
@@ -190,6 +208,7 @@ export type LatestSourceView = {
     line?: number | null;
     odds?: string | null;
     price?: number | null;
+    selectionKey?: string | null;
     bestBid?: number | null;
     bestAsk?: number | null;
     volume?: number | null;
@@ -208,6 +227,7 @@ export type MarketInstrumentView = {
   lineMismatch: boolean;
   signalPriority: number;
   impliedProbabilityGap?: number | null;
+  comparisonSummary?: InstrumentDivergenceSummary | null;
   sources: LatestSourceView[];
 };
 
@@ -240,6 +260,7 @@ export type InstrumentComparisonView = {
     comparableState: ComparableState;
     lineMismatch: boolean;
     impliedProbabilityGap?: number | null;
+    comparisonSummary?: InstrumentDivergenceSummary | null;
     sourceCount: number;
   };
   latestRawReferences: Array<{
@@ -292,16 +313,19 @@ export type InstrumentSourceDiagnostics = {
 
 export type DivergenceRow = {
   gameId: string;
+  gameStatus: ResearchGameStatus;
   instrumentId: string;
   displayLabel: string;
   sport: string;
   league: string;
+  scheduledStart: string;
   family: MarketFamily;
   inPlay: boolean;
   comparableState: ComparableState;
   mappingStatus: MappingStatus;
   lineMismatch: boolean;
   impliedProbabilityGap?: number | null;
+  comparisonSummary?: InstrumentDivergenceSummary | null;
   sources: ResearchSourceId[];
   signalPriority: number;
   captureRecencyMs?: number | null;
@@ -362,7 +386,7 @@ export type PlayerPropDisagreementAlert = {
   freshness: {
     bet365AgeMs: number;
     predictionMarketAgeMs: number;
-    pairGapMs: number;
+    quoteTimeGapMs?: number;
   };
   action: "manual-review";
 };
@@ -376,7 +400,7 @@ export type PlayerPropAlertPlaybackFrame = {
   poll: {
     includeStale: boolean;
     limit: number;
-    maxPairGapMinutes: number;
+    maxQuoteTimeGapMinutes: number;
     maxQuoteAgeMinutes: number;
     minDelta: number;
   };

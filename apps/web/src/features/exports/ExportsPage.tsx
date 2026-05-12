@@ -10,6 +10,7 @@ import {
   getFullPackageExportUrl,
   getSqliteExportUrl,
 } from "../../data/api";
+import { formatOperatorDateTime } from "../../lib/time-format";
 
 import type { ExportCatalogPayload } from "../../data/api";
 
@@ -164,7 +165,7 @@ export function ExportsPage() {
   );
 
   const packageStatus = catalog.data
-    ? `Catalog ready at ${new Date(catalog.data.meta.generatedAt).toLocaleTimeString()}`
+    ? `Catalog ready at ${formatOperatorDateTime(catalog.data.meta.generatedAt)}`
     : catalog.isError
       ? "Catalog counts unavailable"
       : "Catalog counts loading";

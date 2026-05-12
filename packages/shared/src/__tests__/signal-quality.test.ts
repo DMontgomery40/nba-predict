@@ -19,6 +19,7 @@ import {
   getSignalQualityReport,
   getSourceLeadLagReport,
   listClosedGameSummaries,
+  summarizeDeltaSeries,
 } from "../signal-quality";
 
 let tempDir = "";
@@ -214,6 +215,30 @@ describe("signal quality analytics", () => {
         point.perSource.kalshi != null && point.perSource.polymarket != null
     );
     expect(overlapping.length).toBeGreaterThan(5);
+  });
+
+  it("does not carry above-threshold duration across an overnight comparison gap", () => {
+    const summary = summarizeDeltaSeries([
+      {
+        absoluteDelta: 0.68,
+        bet365Probability: 0.71,
+        bucketAt: "2026-05-10T23:09:00.000Z",
+        externalAverage: 0.03,
+        perSource: { bet365: 0.71, kalshi: 0.03 },
+        signedDelta: -0.68,
+      },
+      {
+        absoluteDelta: 0.67,
+        bet365Probability: 0.72,
+        bucketAt: "2026-05-12T07:30:00.000Z",
+        externalAverage: 0.05,
+        perSource: { bet365: 0.72, kalshi: 0.05 },
+        signedDelta: -0.67,
+      },
+    ]);
+
+    expect(summary?.maxGap).toBe(0.68);
+    expect(summary?.aboveThresholdDurationMs).toBe(60_000);
   });
 
   it("reports lead-lag correlation between sources", () => {

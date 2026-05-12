@@ -38,8 +38,8 @@ function sampleAlert(id: string): PlayerPropDisagreementAlert {
     displayLabel: "Jalen Brunson points over 29.5",
     freshness: {
       bet365AgeMs: 5_000,
-      pairGapMs: 5_000,
       predictionMarketAgeMs: 0,
+      quoteTimeGapMs: 5_000,
     },
     gameId: "nba-bos-nyk-2026-05-10",
     gameLabel: "Knicks at Celtics",
@@ -85,7 +85,7 @@ function sampleFrame(
     poll: {
       includeStale: false,
       limit: 25,
-      maxPairGapMinutes: 10,
+      maxQuoteTimeGapMinutes: 10,
       maxQuoteAgeMinutes: 10,
       minDelta: 0.15,
     },

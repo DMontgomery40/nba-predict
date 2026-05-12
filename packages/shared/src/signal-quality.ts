@@ -1,10 +1,16 @@
-import type { MarketFamily, ResearchSourceId } from "@signal-console/domain";
+import type {
+  InstrumentDivergenceSummary,
+  MarketFamily,
+  ResearchSourceId,
+} from "@signal-console/domain";
 
 import { executeDatabaseOperation, getDatabase } from "./db-core";
 
 type Row = Record<string, unknown>;
 
 const MONEYLINE_FAMILY: MarketFamily = "moneyline";
+const DEFAULT_COMPARISON_INTERVAL_MS = 60_000;
+const MAX_COMPARISON_CONTINUITY_MS = 10 * 60_000;
 
 export type SourceClosingProbability = {
   source: ResearchSourceId | string;
@@ -50,6 +56,99 @@ export type DeltaSeriesPoint = {
   signedDelta: number | null;
 };
 
+export function summarizeDeltaSeries(
+  series: DeltaSeriesPoint[],
+  threshold = 0.15
+): InstrumentDivergenceSummary | null {
+  const orderedSeries = [...series].sort((left, right) =>
+    left.bucketAt.localeCompare(right.bucketAt)
+  );
+  const compared = orderedSeries.filter(
+    (
+      point
+    ): point is DeltaSeriesPoint & {
+      absoluteDelta: number;
+      signedDelta: number;
+    } =>
+      typeof point.absoluteDelta === "number" &&
+      typeof point.signedDelta === "number"
+  );
+
+  if (compared.length === 0) {
+    return null;
+  }
+
+  const continuityWindowMs = inferComparisonContinuityWindowMs(orderedSeries);
+  let maxPoint = compared[0];
+  let minPoint = compared[0];
+  let aboveThresholdDurationMs = 0;
+  let firstAboveThresholdAt: string | null = null;
+
+  for (const point of compared) {
+    if (point.absoluteDelta > maxPoint.absoluteDelta) {
+      maxPoint = point;
+    }
+    if (point.absoluteDelta < minPoint.absoluteDelta) {
+      minPoint = point;
+    }
+  }
+
+  orderedSeries.forEach((point, index) => {
+    if (typeof point.absoluteDelta !== "number") {
+      return;
+    }
+    if (point.absoluteDelta >= threshold) {
+      firstAboveThresholdAt ??= point.bucketAt;
+      const next = orderedSeries[index + 1];
+      const start = Date.parse(point.bucketAt);
+      const end = next ? Date.parse(next.bucketAt) : start;
+      if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+        aboveThresholdDurationMs += Math.min(end - start, continuityWindowMs);
+      }
+    }
+  });
+
+  const latestPoint = compared[compared.length - 1];
+
+  return {
+    aboveThresholdDurationMs,
+    comparisonCount: compared.length,
+    firstAboveThresholdAt,
+    firstComparisonAt: compared[0].bucketAt,
+    latestComparisonAt: latestPoint.bucketAt,
+    latestGap: latestPoint.absoluteDelta,
+    latestSignedGap: latestPoint.signedDelta,
+    latestSourceProbabilities: latestPoint.perSource,
+    maxGap: maxPoint.absoluteDelta,
+    maxGapAt: maxPoint.bucketAt,
+    maxGapSourceProbabilities: maxPoint.perSource,
+    minGap: minPoint.absoluteDelta,
+    threshold,
+  };
+}
+
+function inferComparisonContinuityWindowMs(series: DeltaSeriesPoint[]) {
+  const timestamps = series
+    .map((point) => Date.parse(point.bucketAt))
+    .filter(Number.isFinite)
+    .sort((left, right) => left - right);
+  const deltas = timestamps
+    .slice(1)
+    .map((timestamp, index) => timestamp - timestamps[index])
+    .filter((delta) => delta > 0 && delta <= MAX_COMPARISON_CONTINUITY_MS)
+    .sort((left, right) => left - right);
+
+  if (deltas.length === 0) {
+    return DEFAULT_COMPARISON_INTERVAL_MS;
+  }
+
+  const median = deltas[Math.floor(deltas.length / 2)];
+  return Math.min(
+    Math.max(DEFAULT_COMPARISON_INTERVAL_MS, median * 2),
+    MAX_COMPARISON_CONTINUITY_MS
+  );
+}
+
 export type SignalQualityReport = {
   sampleCount: number;
   perSource: Array<{
@@ -61,6 +160,12 @@ export type SignalQualityReport = {
     calibrationSlope: number | null;
     calibrationIntercept: number | null;
   }>;
+};
+
+type DeltaBucketRow = {
+  bucketAt: string;
+  impliedProbability: number;
+  source: string;
 };
 
 function asNumber(value: unknown): number | null {
@@ -94,6 +199,87 @@ function bucketStartIso(iso: string, bucketSeconds: number) {
   const bucketMs = bucketSeconds * 1000;
   const floored = Math.floor(ms / bucketMs) * bucketMs;
   return new Date(floored).toISOString();
+}
+
+function buildDeltaSeriesFromBucketRows(rows: DeltaBucketRow[]) {
+  type BucketEntry = Map<string, { sum: number; count: number }>;
+  const buckets = new Map<string, BucketEntry>();
+
+  for (const row of rows) {
+    const capturedAt = row.bucketAt;
+    const source = row.source;
+    const implied = row.impliedProbability;
+    if (!capturedAt || !source || implied == null) continue;
+
+    const bucket = buckets.get(capturedAt) ?? new Map();
+    const entry = bucket.get(source) ?? { count: 0, sum: 0 };
+    entry.sum += implied;
+    entry.count += 1;
+    bucket.set(source, entry);
+    buckets.set(capturedAt, bucket);
+  }
+
+  const bucketAts = Array.from(buckets.keys()).sort();
+  const maxCarryForwardMs = 10 * 60_000;
+  const lastSeenBySource = new Map<
+    string,
+    { bucketAtMs: number; value: number }
+  >();
+  const result: DeltaSeriesPoint[] = [];
+
+  for (const bucketAt of bucketAts) {
+    const entry = buckets.get(bucketAt);
+    if (!entry) continue;
+
+    const bucketAtMs = Date.parse(bucketAt);
+    const perSource: Record<string, number | null> = {};
+    for (const [source, agg] of entry.entries()) {
+      const avg = agg.sum / agg.count;
+      perSource[source] = avg;
+      if (Number.isFinite(bucketAtMs)) {
+        lastSeenBySource.set(source, { bucketAtMs, value: avg });
+      }
+    }
+
+    for (const [source, lastSeen] of lastSeenBySource.entries()) {
+      if (
+        perSource[source] == null &&
+        Number.isFinite(bucketAtMs) &&
+        bucketAtMs - lastSeen.bucketAtMs <= maxCarryForwardMs
+      ) {
+        perSource[source] = lastSeen.value;
+      }
+    }
+
+    const bet365 = perSource.bet365 ?? null;
+    const externals = [perSource.kalshi, perSource.polymarket].filter(
+      (value): value is number => typeof value === "number"
+    );
+    const externalAverage =
+      externals.length > 0
+        ? externals.reduce((sum, value) => sum + value, 0) / externals.length
+        : null;
+
+    const absoluteDelta =
+      bet365 != null && externalAverage != null
+        ? Math.abs(bet365 - externalAverage)
+        : null;
+    const signedDelta =
+      bet365 != null && externalAverage != null
+        ? externalAverage - bet365
+        : null;
+
+    result.push({
+      absoluteDelta,
+      bet365Probability: bet365,
+      bucketAt,
+      externalAverage,
+      perSource,
+      signedDelta,
+    });
+  }
+
+  return result;
 }
 
 function clampProbability(value: number | null) {
@@ -331,9 +517,11 @@ export function getInstrumentDeltaSeries(options: {
             sm.source AS source,
             q.implied_probability AS impliedProbability,
             q.captured_at AS capturedAt
-          FROM source_markets sm
-          JOIN quote_ticks q ON q.source_market_id = sm.id
+          FROM source_markets sm INDEXED BY idx_source_markets_instrument_source
+          JOIN quote_ticks q INDEXED BY idx_quote_ticks_source_market_captured
+            ON q.source_market_id = sm.id
           WHERE sm.instrument_id = ?
+            AND sm.source IN ('bet365', 'kalshi', 'polymarket')
             AND q.implied_probability IS NOT NULL
           ORDER BY q.captured_at ASC
         `
@@ -342,72 +530,96 @@ export function getInstrumentDeltaSeries(options: {
 
     if (rows.length === 0) return [] as DeltaSeriesPoint[];
 
-    type BucketEntry = Map<string, { sum: number; count: number }>;
-    const buckets = new Map<string, BucketEntry>();
-
+    const bucketRows: DeltaBucketRow[] = [];
     for (const row of rows) {
       const capturedAt = asString(row.capturedAt);
       const source = asString(row.source);
       const implied = asNumber(row.impliedProbability);
       if (!capturedAt || !source || implied == null) continue;
 
-      const bucketAt = bucketStartIso(capturedAt, bucketSeconds);
-      const bucket = buckets.get(bucketAt) ?? new Map();
-      const entry = bucket.get(source) ?? { count: 0, sum: 0 };
-      entry.sum += implied;
-      entry.count += 1;
-      bucket.set(source, entry);
-      buckets.set(bucketAt, bucket);
-    }
-
-    const bucketAts = Array.from(buckets.keys()).sort();
-    const lastSeenBySource = new Map<string, number>();
-    const result: DeltaSeriesPoint[] = [];
-
-    for (const bucketAt of bucketAts) {
-      const entry = buckets.get(bucketAt);
-      if (!entry) continue;
-
-      const perSource: Record<string, number | null> = {};
-      for (const [source, agg] of entry.entries()) {
-        const avg = agg.sum / agg.count;
-        perSource[source] = avg;
-        lastSeenBySource.set(source, avg);
-      }
-
-      for (const [source, lastValue] of lastSeenBySource.entries()) {
-        if (perSource[source] == null) perSource[source] = lastValue;
-      }
-
-      const bet365 = perSource.bet365 ?? null;
-      const externals = [perSource.kalshi, perSource.polymarket].filter(
-        (value): value is number => typeof value === "number"
-      );
-      const externalAverage =
-        externals.length > 0
-          ? externals.reduce((sum, value) => sum + value, 0) / externals.length
-          : null;
-
-      const absoluteDelta =
-        bet365 != null && externalAverage != null
-          ? Math.abs(bet365 - externalAverage)
-          : null;
-      const signedDelta =
-        bet365 != null && externalAverage != null
-          ? externalAverage - bet365
-          : null;
-
-      result.push({
-        absoluteDelta,
-        bet365Probability: bet365,
-        bucketAt,
-        externalAverage,
-        perSource,
-        signedDelta,
+      bucketRows.push({
+        bucketAt: bucketStartIso(capturedAt, bucketSeconds),
+        impliedProbability: implied,
+        source,
       });
     }
 
-    return result;
+    return buildDeltaSeriesFromBucketRows(bucketRows);
+  });
+}
+
+export function getInstrumentDeltaSummaries(options: {
+  instrumentIds: string[];
+  bucketSeconds?: number;
+  threshold?: number;
+}) {
+  return executeDatabaseOperation("signalQuality.deltaSummaries.list", () => {
+    const db = getDatabase();
+    const instrumentIds = Array.from(new Set(options.instrumentIds)).filter(
+      Boolean
+    );
+    if (instrumentIds.length === 0) {
+      return new Map<string, InstrumentDivergenceSummary>();
+    }
+
+    const bucketSeconds = options.bucketSeconds ?? 60;
+    const placeholders = instrumentIds.map(() => "?").join(",");
+    const rows = db
+      .prepare(
+        `
+          SELECT
+            sm.instrument_id AS instrumentId,
+            sm.source AS source,
+            ((CAST(strftime('%s', q.captured_at) AS INTEGER) / ?) * ?) AS bucketEpoch,
+            AVG(q.implied_probability) AS impliedProbability
+          FROM source_markets sm INDEXED BY idx_source_markets_instrument_source
+          JOIN quote_ticks q INDEXED BY idx_quote_ticks_source_market_captured
+            ON q.source_market_id = sm.id
+          WHERE sm.instrument_id IN (${placeholders})
+            AND sm.source IN ('bet365', 'kalshi', 'polymarket')
+            AND q.implied_probability IS NOT NULL
+          GROUP BY sm.instrument_id, sm.source, bucketEpoch
+          ORDER BY sm.instrument_id ASC, bucketEpoch ASC
+        `
+      )
+      .all(bucketSeconds, bucketSeconds, ...instrumentIds) as Row[];
+
+    const rowsByInstrument = new Map<string, DeltaBucketRow[]>();
+    for (const row of rows) {
+      const instrumentId = asString(row.instrumentId);
+      const source = asString(row.source);
+      const impliedProbability = asNumber(row.impliedProbability);
+      const bucketEpoch = asNumber(row.bucketEpoch);
+      if (
+        !instrumentId ||
+        !source ||
+        impliedProbability == null ||
+        bucketEpoch == null
+      ) {
+        continue;
+      }
+
+      const bucketRows = rowsByInstrument.get(instrumentId) ?? [];
+      bucketRows.push({
+        bucketAt: new Date(bucketEpoch * 1000).toISOString(),
+        impliedProbability,
+        source,
+      });
+      rowsByInstrument.set(instrumentId, bucketRows);
+    }
+
+    const summaries = new Map<string, InstrumentDivergenceSummary>();
+    for (const [instrumentId, bucketRows] of rowsByInstrument.entries()) {
+      const summary = summarizeDeltaSeries(
+        buildDeltaSeriesFromBucketRows(bucketRows),
+        options.threshold
+      );
+      if (summary) {
+        summaries.set(instrumentId, summary);
+      }
+    }
+
+    return summaries;
   });
 }
 

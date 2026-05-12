@@ -394,6 +394,72 @@ describe("live repository", () => {
     ).toBe("nba-old-history-game");
   });
 
+  it("does not manufacture a top signal when no Bet365-vs-market comparison exists", () => {
+    upsertGame({
+      awayParticipant: {
+        key: "phi",
+        name: "Philadelphia 76ers",
+        shortName: "76ers",
+        side: "away",
+      },
+      homeParticipant: {
+        key: "nyk",
+        name: "New York Knicks",
+        shortName: "Knicks",
+        side: "home",
+      },
+      id: "nba-single-source-game",
+      league: "NBA",
+      scheduledStart: "2026-04-21T23:00:00.000Z",
+      sport: "basketball",
+    });
+
+    upsertMarketInstrument({
+      displayLabel: "76ers moneyline",
+      family: "moneyline",
+      gameId: "nba-single-source-game",
+      id: "single-source-moneyline",
+      inPlay: false,
+      line: null,
+      participantKey: "phi",
+      selection: "phi",
+    });
+    upsertSourceMarket({
+      gameId: "nba-single-source-game",
+      id: "sm-polymarket-phi-moneyline",
+      instrumentId: "single-source-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Philadelphia",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-phi-ml",
+      sourceSelectionKey: "phi",
+    });
+    recordQuoteObservation({
+      bestAsk: 0.44,
+      bestBid: 0.43,
+      capturedAt: "2026-04-21T23:40:00.000Z",
+      depthScore: 80,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.44,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.44,
+      sourceMarketId: "sm-polymarket-phi-moneyline",
+      volume: 12,
+    });
+
+    const singleSourceCard = listResearchGames({ date: "2026-04-21" }).find(
+      (card) => card.game.id === "nba-single-source-game"
+    );
+
+    expect(singleSourceCard).toMatchObject({
+      activeInstrumentCount: 1,
+    });
+    expect(singleSourceCard?.topDivergences).toEqual([]);
+  });
+
   it("counts storage coverage without multiplying quote ticks by raw payloads", () => {
     seedLiveRepositoryGame();
 
@@ -459,6 +525,319 @@ describe("live repository", () => {
     expect(spread).toMatchObject({
       comparableState: "line-mismatch",
       lineMismatch: true,
+    });
+  });
+
+  it("canonicalizes team source labels when provider selection keys are display text", () => {
+    seedLiveRepositoryGame();
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-bet365-bos-moneyline",
+      instrumentId: "bos-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Boston Celtics",
+      rawMetadata: { source: "bet365" },
+      source: "bet365",
+      sourceMarketKey: "b365-bos-ml",
+      sourceSelectionKey: null,
+    });
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-kalshi-bos-moneyline",
+      instrumentId: "bos-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Boston wins",
+      rawMetadata: { source: "kalshi" },
+      source: "kalshi",
+      sourceMarketKey: "kal-bos-ml",
+      sourceSelectionKey: null,
+    });
+
+    const moneyline = listGameMarkets("nba-bos-nyk-2026-04-21").find(
+      (market) => market.instrument.id === "bos-moneyline"
+    );
+
+    expect(moneyline).toMatchObject({
+      comparableState: "comparable",
+      impliedProbabilityGap: expect.closeTo(0.07, 5),
+      lineMismatch: false,
+    });
+    expect(listResearchDivergence({ date: "2026-04-21" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayLabel: "Boston moneyline",
+          impliedProbabilityGap: expect.closeTo(0.07, 5),
+        }),
+      ])
+    );
+  });
+
+  it("fails closed when source mappings point at different selections on the same instrument", () => {
+    seedLiveRepositoryGame();
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-kalshi-bos-moneyline",
+      instrumentId: "bos-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "NYK win",
+      rawMetadata: { source: "kalshi" },
+      source: "kalshi",
+      sourceMarketKey: "kal-nyk-ml",
+      sourceSelectionKey: "nyk",
+    });
+
+    const markets = listGameMarkets("nba-bos-nyk-2026-04-21");
+    const moneyline = markets.find(
+      (market) => market.instrument.id === "bos-moneyline"
+    );
+
+    expect(moneyline).toMatchObject({
+      comparableState: "selection-mismatch",
+      impliedProbabilityGap: null,
+      lineMismatch: false,
+    });
+    expect(
+      getInstrumentComparison("nba-bos-nyk-2026-04-21", "bos-moneyline")
+        ?.derivedComparison
+    ).toMatchObject({
+      comparableState: "selection-mismatch",
+      impliedProbabilityGap: null,
+    });
+    expect(
+      listResearchDivergence({ date: "2026-04-21" }).some(
+        (row) => row.instrumentId === "bos-moneyline"
+      )
+    ).toBe(false);
+  });
+
+  it("anchors latest divergence on Bet365 versus exchange sources", () => {
+    seedLiveRepositoryGame();
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-bos-moneyline",
+      instrumentId: "bos-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Boston wins",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-bos-ml",
+      sourceSelectionKey: "bos",
+    });
+    recordQuoteObservation({
+      bestAsk: 0.11,
+      bestBid: 0.1,
+      capturedAt: "2026-04-21T23:40:06.000Z",
+      depthScore: 70,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.1,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.1,
+      sourceMarketId: "sm-polymarket-bos-moneyline",
+      volume: 40,
+    });
+
+    const moneyline = listGameMarkets("nba-bos-nyk-2026-04-21").find(
+      (market) => market.instrument.id === "bos-moneyline"
+    );
+
+    expect(moneyline).toMatchObject({
+      comparableState: "comparable",
+      impliedProbabilityGap: expect.closeTo(0.51, 5),
+    });
+    expect(moneyline?.impliedProbabilityGap).not.toBeCloseTo(0.58, 5);
+
+    upsertMarketInstrument({
+      displayLabel: "New York moneyline external only",
+      family: "moneyline",
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "nyk-moneyline-external-only",
+      inPlay: true,
+      line: null,
+      participantKey: "nyk",
+      selection: "nyk",
+    });
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-kalshi-nyk-moneyline",
+      instrumentId: "nyk-moneyline-external-only",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "NYK wins",
+      rawMetadata: { source: "kalshi" },
+      source: "kalshi",
+      sourceMarketKey: "kal-nyk-ml",
+      sourceSelectionKey: "nyk",
+    });
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-nyk-moneyline",
+      instrumentId: "nyk-moneyline-external-only",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "NYK wins",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-nyk-ml",
+      sourceSelectionKey: "nyk",
+    });
+    recordQuoteObservation({
+      bestAsk: 0.9,
+      bestBid: 0.89,
+      capturedAt: "2026-04-21T23:40:06.000Z",
+      depthScore: 70,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.9,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.9,
+      sourceMarketId: "sm-kalshi-nyk-moneyline",
+      volume: 40,
+    });
+    recordQuoteObservation({
+      bestAsk: 0.1,
+      bestBid: 0.09,
+      capturedAt: "2026-04-21T23:40:07.000Z",
+      depthScore: 70,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.1,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.1,
+      sourceMarketId: "sm-polymarket-nyk-moneyline",
+      volume: 40,
+    });
+
+    expect(
+      listGameMarkets("nba-bos-nyk-2026-04-21").find(
+        (market) => market.instrument.id === "nyk-moneyline-external-only"
+      )
+    ).toMatchObject({
+      comparableState: "comparable",
+      impliedProbabilityGap: null,
+    });
+    expect(
+      listResearchDivergence({}).some(
+        (row) => row.instrumentId === "nyk-moneyline-external-only"
+      )
+    ).toBe(false);
+  });
+
+  it("requires player-prop source labels to match the canonical player and outcome", () => {
+    seedLiveRepositoryGame();
+
+    upsertMarketInstrument({
+      displayLabel: "Victor Wembanyama over 0.5 steals",
+      family: "player-prop",
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "wemby-steals-over",
+      inPlay: true,
+      line: 0.5,
+      participantKey: "victor-wembanyama",
+      selection: "over",
+    });
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-bet365-wemby-steals",
+      instrumentId: "wemby-steals-over",
+      mappingStatus: "auto",
+      rawFamily: "steals",
+      rawLabel: "Victor Wembanyama (1) (0.5)",
+      rawMetadata: { source: "bet365" },
+      source: "bet365",
+      sourceMarketKey: "bet365-wemby-steals",
+      sourceSelectionKey: "victor-wembanyama-over",
+    });
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-kalshi-wemby-steals",
+      instrumentId: "wemby-steals-over",
+      mappingStatus: "auto",
+      rawFamily: "steals",
+      rawLabel: "Victor Wembanyama: 1+ steals",
+      rawMetadata: { source: "kalshi" },
+      source: "kalshi",
+      sourceMarketKey: "kalshi-wemby-steals",
+      sourceSelectionKey: "over",
+    });
+
+    recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-04-21T23:41:00.000Z",
+      depthScore: 90,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.71,
+      lineRaw: 0.5,
+      oddsRaw: "1.40",
+      priceRaw: 1.4,
+      sourceMarketId: "sm-bet365-wemby-steals",
+      volume: 100,
+    });
+    recordQuoteObservation({
+      bestAsk: 0.73,
+      bestBid: 0.72,
+      capturedAt: "2026-04-21T23:41:05.000Z",
+      depthScore: 70,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.73,
+      lineRaw: 0.5,
+      oddsRaw: null,
+      priceRaw: 0.73,
+      sourceMarketId: "sm-kalshi-wemby-steals",
+      volume: 40,
+    });
+
+    expect(
+      listGameMarkets("nba-bos-nyk-2026-04-21").find(
+        (market) => market.instrument.id === "wemby-steals-over"
+      )
+    ).toMatchObject({
+      comparableState: "comparable",
+      impliedProbabilityGap: expect.closeTo(0.02, 5),
+    });
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-kalshi-lebron-steals",
+      instrumentId: "wemby-steals-over",
+      mappingStatus: "auto",
+      rawFamily: "steals",
+      rawLabel: "LeBron James: 1+ steals",
+      rawMetadata: { source: "kalshi" },
+      source: "kalshi",
+      sourceMarketKey: "kalshi-lebron-steals",
+      sourceSelectionKey: "over",
+    });
+    recordQuoteObservation({
+      bestAsk: 0.55,
+      bestBid: 0.54,
+      capturedAt: "2026-04-21T23:41:10.000Z",
+      depthScore: 70,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.55,
+      lineRaw: 0.5,
+      oddsRaw: null,
+      priceRaw: 0.55,
+      sourceMarketId: "sm-kalshi-lebron-steals",
+      volume: 40,
+    });
+
+    expect(
+      listGameMarkets("nba-bos-nyk-2026-04-21").find(
+        (market) => market.instrument.id === "wemby-steals-over"
+      )
+    ).toMatchObject({
+      comparableState: "selection-mismatch",
+      impliedProbabilityGap: null,
     });
   });
 
@@ -617,6 +996,20 @@ describe("live repository", () => {
       lineRaw: null,
       oddsRaw: null,
       priceRaw: 0.49,
+      sourceMarketId: "sm-kalshi-bos-moneyline",
+      volume: 40,
+    });
+
+    recordQuoteObservation({
+      bestAsk: 0.02,
+      bestBid: 0.01,
+      capturedAt: "2026-04-22T04:30:25.000Z",
+      depthScore: 81,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.01,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.01,
       sourceMarketId: "sm-kalshi-bos-moneyline",
       volume: 40,
     });
@@ -859,13 +1252,6 @@ describe("live repository", () => {
 
     expect(
       listPlayerPropDisagreementAlerts({
-        minDelta: 0.3,
-        now: "2026-04-21T23:41:00.000Z",
-      })
-    ).toEqual([]);
-
-    expect(
-      listPlayerPropDisagreementAlerts({
         now: "2026-04-22T00:30:00.000Z",
       })
     ).toEqual([]);
@@ -876,6 +1262,77 @@ describe("live repository", () => {
         now: "2026-04-22T00:30:00.000Z",
       })
     ).toHaveLength(1);
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-poly-lebron-points-miswired",
+      instrumentId: "brunson-points-over-29_5",
+      mappingStatus: "auto",
+      rawFamily: "player-prop",
+      rawLabel: "LeBron James: Points O/U 29.5",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-lebron-points-miswired",
+      sourceSelectionKey: "over",
+    });
+    recordQuoteObservation({
+      bestAsk: 0.06,
+      bestBid: 0.05,
+      capturedAt: "2026-04-21T23:43:20.000Z",
+      depthScore: 44,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.05,
+      lineRaw: 29.5,
+      oddsRaw: null,
+      priceRaw: 0.05,
+      sourceMarketId: "sm-poly-lebron-points-miswired",
+      volume: 19,
+    });
+
+    expect(
+      listPlayerPropDisagreementAlerts({
+        now: "2026-04-21T23:43:30.000Z",
+      })
+    ).toEqual([]);
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-poly-brunson-points-wrong-line",
+      instrumentId: "brunson-points-over-29_5",
+      mappingStatus: "auto",
+      rawFamily: "player-prop",
+      rawLabel: "Jalen Brunson: Points O/U 30.5",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-brunson-points-wrong-line",
+      sourceSelectionKey: "over",
+    });
+    recordQuoteObservation({
+      bestAsk: 0.43,
+      bestBid: 0.42,
+      capturedAt: "2026-04-21T23:44:20.000Z",
+      depthScore: 44,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.42,
+      lineRaw: 30.5,
+      oddsRaw: null,
+      priceRaw: 0.42,
+      sourceMarketId: "sm-poly-brunson-points-wrong-line",
+      volume: 19,
+    });
+
+    expect(
+      listPlayerPropDisagreementAlerts({
+        now: "2026-04-21T23:44:30.000Z",
+      })
+    ).toEqual([]);
+
+    expect(
+      listPlayerPropDisagreementAlerts({
+        minDelta: 0.3,
+        now: "2026-04-21T23:41:00.000Z",
+      })
+    ).toEqual([]);
   });
 
   it("marks bet365 session exports invalid until the configured file exists", () => {

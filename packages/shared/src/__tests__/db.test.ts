@@ -53,7 +53,7 @@ describe("shared db", () => {
       counts: {
         watchlistCount: 1,
       },
-      schemaVersion: 7,
+      schemaVersion: 8,
       status: "ok",
     });
 
@@ -66,6 +66,7 @@ describe("shared db", () => {
         "idx_games_scheduled_date",
         "idx_quote_ticks_source_market_latest",
         "idx_raw_payloads_entity_latest",
+        "idx_source_markets_instrument_source",
       ])
     );
   });
@@ -183,7 +184,7 @@ describe("shared db", () => {
         .prepare("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
         .pluck()
         .get()
-    ).toBe(7);
+    ).toBe(8);
   });
 
   it("creates a readable SQLite backup that includes WAL writes", async () => {

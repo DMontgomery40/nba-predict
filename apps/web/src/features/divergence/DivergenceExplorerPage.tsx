@@ -1,10 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { getDivergence, type DivergenceQuery } from "../../data/api";
+import {
+  getDivergence,
+  type DivergencePayload,
+  type DivergenceQuery,
+} from "../../data/api";
+import { formatGapPoints } from "../../lib/market-format";
+import { formatOperatorDateTime } from "../../lib/time-format";
 
 const severityOptions = ["", "critical", "high", "medium", "low"] as const;
-const freshnessOptions = ["", "fresh", "aging", "stale", "offline"] as const;
+const freshnessOptions = [
+  { label: "All", value: "" },
+  { label: "Under 1m", value: "fresh" },
+  { label: "1-5m", value: "aging" },
+  { label: "Over 5m", value: "stale" },
+  { label: "No quote", value: "offline" },
+] as const;
 const familyOptions = [
   { label: "All", value: "" },
   { label: "Moneyline", value: "moneyline" },
@@ -15,16 +27,17 @@ const familyOptions = [
   { label: "Other", value: "other" },
 ] as const;
 const mappedStateOptions = [
-  "",
-  "comparable",
-  "line-mismatch",
-  "unmapped",
+  { label: "All", value: "" },
+  { label: "Matched", value: "comparable" },
+  { label: "Line mismatch", value: "line-mismatch" },
+  { label: "Selection mismatch", value: "selection-mismatch" },
+  { label: "Unmapped", value: "unmapped" },
 ] as const;
 const sortOptions = [
   { label: "Divergence", value: "divergence" },
-  { label: "Signal Priority", value: "signalPriority" },
-  { label: "Freshness", value: "freshness" },
-  { label: "Capture Recency", value: "captureRecency" },
+  { label: "Board priority", value: "signalPriority" },
+  { label: "Quote age", value: "freshness" },
+  { label: "Last quote time", value: "captureRecency" },
   { label: "Line Mismatch", value: "lineMismatch" },
 ] as const;
 
@@ -83,10 +96,64 @@ function sourceLabel(source: string) {
   }
 }
 
+function formatDuration(value?: number | null) {
+  if (value == null || value <= 0) {
+    return "none";
+  }
+  if (value < 60_000) {
+    return `${Math.round(value / 1000)}s`;
+  }
+  if (value < 60 * 60_000) {
+    return `${Math.round(value / 60_000)}m`;
+  }
+  return `${(value / (60 * 60_000)).toFixed(1)}h`;
+}
+
+function marketTimingLabel(row: {
+  comparableState: string;
+  gameStatus?: string;
+  inPlay: boolean;
+}) {
+  if (row.gameStatus === "final") {
+    return "finished game";
+  }
+  if (row.gameStatus === "in-play") {
+    return "game in progress";
+  }
+  if (row.gameStatus === "scheduled") {
+    return "scheduled game";
+  }
+  return matchLabel(row.comparableState);
+}
+
+function matchLabel(state: string) {
+  switch (state) {
+    case "comparable":
+      return "matched";
+    case "line-mismatch":
+      return "line mismatch";
+    case "selection-mismatch":
+      return "selection mismatch";
+    case "unmapped":
+      return "unmapped";
+    default:
+      return state;
+  }
+}
+
+function rowPeakGap(row: DivergencePayload["data"][number]) {
+  return row.comparisonSummary?.maxGap ?? row.impliedProbabilityGap ?? null;
+}
+
+function rowLatestGap(row: DivergencePayload["data"][number]) {
+  return row.comparisonSummary?.latestGap ?? row.impliedProbabilityGap ?? null;
+}
+
 export function DivergenceExplorerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filters: DivergenceQuery = {
+    date: searchParams.get("date") ?? undefined,
     family:
       (searchParams.get("family") as DivergenceQuery["family"] | null) ??
       undefined,
@@ -117,6 +184,7 @@ export function DivergenceExplorerPage() {
   function showAllPlayerProps() {
     setSearchParams(
       buildSearchParams({
+        date: filters.date ?? "",
         family: "player-prop",
         sort: "divergence",
       })
@@ -126,6 +194,7 @@ export function DivergenceExplorerPage() {
   function resetFilters() {
     setSearchParams(
       buildSearchParams({
+        date: filters.date ?? "",
         sort: "divergence",
       })
     );
@@ -134,9 +203,9 @@ export function DivergenceExplorerPage() {
   const rows = divergence.data?.data ?? [];
   const rowSummary = !divergence.data
     ? divergence.isError
-      ? "Rows unavailable"
-      : "Loading rows"
-    : `${rows.length} row${rows.length === 1 ? "" : "s"}`;
+      ? "Comparisons unavailable"
+      : "Loading comparisons"
+    : `${rows.length} comparison${rows.length === 1 ? "" : "s"}`;
   const activeFilters = [
     filters.family,
     filters.severity,
@@ -158,10 +227,8 @@ export function DivergenceExplorerPage() {
             </span>
             {divergence.data?.meta.generatedAt ? (
               <span className="mono">
-                API{" "}
-                {new Date(
-                  divergence.data.meta.generatedAt
-                ).toLocaleTimeString()}
+                loaded{" "}
+                {formatOperatorDateTime(divergence.data.meta.generatedAt)}
               </span>
             ) : null}
           </div>
@@ -186,6 +253,15 @@ export function DivergenceExplorerPage() {
       </div>
 
       <div className="filter-strip">
+        <label className="filter-inline" htmlFor="divergence-date">
+          <span>slate date</span>
+          <input
+            id="divergence-date"
+            type="date"
+            value={filters.date ?? ""}
+            onChange={(event) => updateFilters({ date: event.target.value })}
+          />
+        </label>
         <label className="filter-inline" htmlFor="divergence-family">
           <span>family</span>
           <select
@@ -217,7 +293,7 @@ export function DivergenceExplorerPage() {
           </select>
         </label>
         <label className="filter-inline" htmlFor="divergence-freshness">
-          <span>freshness</span>
+          <span>quote age</span>
           <select
             id="divergence-freshness"
             value={filters.freshness ?? ""}
@@ -226,14 +302,14 @@ export function DivergenceExplorerPage() {
             }
           >
             {freshnessOptions.map((o) => (
-              <option key={o || "all"} value={o}>
-                {o || "all"}
+              <option key={o.value || "all"} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>
         </label>
         <label className="filter-inline" htmlFor="divergence-mapped-state">
-          <span>state</span>
+          <span>market match</span>
           <select
             id="divergence-mapped-state"
             value={filters.mappedState ?? ""}
@@ -242,8 +318,8 @@ export function DivergenceExplorerPage() {
             }
           >
             {mappedStateOptions.map((o) => (
-              <option key={o || "all"} value={o}>
-                {o || "all"}
+              <option key={o.value || "all"} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>
@@ -265,7 +341,7 @@ export function DivergenceExplorerPage() {
       </div>
 
       {divergence.isLoading ? (
-        <div className="loading-panel">Loading divergence from the API…</div>
+        <div className="loading-panel">Loading persisted comparisons…</div>
       ) : divergence.isError ? (
         <div className="empty-row divergence-error">
           <strong>Failed to load divergence.</strong>
@@ -280,11 +356,11 @@ export function DivergenceExplorerPage() {
         </div>
       ) : rows.length === 0 ? (
         <div className="empty-row divergence-empty">
-          <strong>No DB rows match this filter set.</strong>
+          <strong>No persisted comparisons match this filter set.</strong>
           <span>
-            Player props are shown when Bet365 has at least one comparison
-            provider; stricter severity, freshness, or state filters can hide
-            them.
+            Player props are shown when Bet365 has a same-time Kalshi or
+            Polymarket comparison; stricter severity, quote-age, or match
+            filters can hide them.
           </span>
           <div className="divergence-actions">
             <button
@@ -309,12 +385,17 @@ export function DivergenceExplorerPage() {
             <thead>
               <tr>
                 <th scope="col">Instrument</th>
-                <th scope="col">Family</th>
                 <th scope="col">Sources</th>
                 <th className="num" scope="col">
-                  Gap
+                  Peak
                 </th>
-                <th scope="col">Mapping</th>
+                <th className="num" scope="col">
+                  Latest
+                </th>
+                <th className="num" scope="col">
+                  Above Alert
+                </th>
+                <th scope="col">Match</th>
                 <th scope="col">Severity</th>
                 <th className="num" scope="col">
                   Priority
@@ -333,10 +414,10 @@ export function DivergenceExplorerPage() {
                       {row.displayLabel}
                     </Link>
                     <span className="divergence-row-meta mono">
-                      {row.inPlay ? "live" : "pregame"} · {row.gameId}
+                      {marketTimingLabel(row)} · {row.family} ·{" "}
+                      {formatOperatorDateTime(row.scheduledStart)}
                     </span>
                   </td>
-                  <td className="mono muted">{row.family}</td>
                   <td>
                     <div className="source-pills">
                       {(row.sources ?? []).map((source) => (
@@ -347,15 +428,40 @@ export function DivergenceExplorerPage() {
                     </div>
                   </td>
                   <td className="num mono">
-                    {row.impliedProbabilityGap == null
-                      ? "—"
-                      : `${(row.impliedProbabilityGap * 100).toFixed(1)}%`}
+                    <strong>{formatGapPoints(rowPeakGap(row))}</strong>
+                    {row.comparisonSummary?.maxGapAt ? (
+                      <em>
+                        {formatOperatorDateTime(row.comparisonSummary.maxGapAt)}
+                      </em>
+                    ) : null}
+                  </td>
+                  <td className="num mono">
+                    <strong>{formatGapPoints(rowLatestGap(row))}</strong>
+                    {row.comparisonSummary?.latestComparisonAt ? (
+                      <em>
+                        {formatOperatorDateTime(
+                          row.comparisonSummary.latestComparisonAt
+                        )}
+                      </em>
+                    ) : null}
+                  </td>
+                  <td className="num mono">
+                    <strong>
+                      {formatDuration(
+                        row.comparisonSummary?.aboveThresholdDurationMs
+                      )}
+                    </strong>
+                    {row.comparisonSummary ? (
+                      <em>
+                        &gt;= {formatGapPoints(row.comparisonSummary.threshold)}
+                      </em>
+                    ) : null}
                   </td>
                   <td>
                     <span
                       className={`map-pill ${row.lineMismatch ? "map-pill-critical" : ""}`}
                     >
-                      {row.comparableState}
+                      {matchLabel(row.comparableState)}
                     </span>
                   </td>
                   <td>

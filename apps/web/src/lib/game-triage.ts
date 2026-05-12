@@ -28,6 +28,14 @@ export function hasMarketSignal(row: GameRow) {
   );
 }
 
+export function hasNavigableMarketBoard(row: GameRow) {
+  return (
+    row.activeInstrumentCount > 0 ||
+    row.topDivergences.length > 0 ||
+    row.hasUnmappedMarkets
+  );
+}
+
 export function isActionableGame(row: GameRow) {
   return hasMarketSignal(row) && !isPlaceholderGame(row);
 }

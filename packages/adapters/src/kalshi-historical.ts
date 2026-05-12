@@ -405,6 +405,7 @@ export async function syncKalshiNbaHistorical(options?: {
       options?.games ??
       listResearchGames({
         league: "NBA",
+        scope: "all",
         sport: "basketball",
       });
     const gameIndex = buildGameIndex(games);

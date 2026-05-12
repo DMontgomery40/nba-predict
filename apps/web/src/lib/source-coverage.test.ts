@@ -15,15 +15,15 @@ describe("source coverage helpers", () => {
 
   it("summarizes mixed market and nba coverage without overstating books", () => {
     expect(formatMarketSourceSummary(["polymarket", "nba"])).toBe(
-      "1 market source + NBA state"
+      "1 market source"
     );
     expect(
       formatMarketSourceSummary(["bet365", "kalshi", "polymarket", "nba"])
-    ).toBe("3 market sources + NBA state");
+    ).toBe("3 market sources");
   });
 
   it("handles nba-only and empty market coverage honestly", () => {
-    expect(formatMarketSourceSummary(["nba"])).toBe("NBA state only");
+    expect(formatMarketSourceSummary(["nba"])).toBe("Scoreboard only");
     expect(formatMarketSourceSummary([])).toBe("No market sources");
     expect(formatMarketSourceList(["nba"])).toBe("none");
   });

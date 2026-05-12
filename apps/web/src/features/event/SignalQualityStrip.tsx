@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { getInstrumentDeltaSeries, getInstrumentLeadLag } from "../../data/api";
-
-function formatPercent(value: number | null | undefined) {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return `${(value * 100).toFixed(1)}%`;
-}
+import {
+  getInstrumentDeltaSeries,
+  getInstrumentLeadLag,
+  type InstrumentDivergenceSummary,
+} from "../../data/api";
+import { formatGapPoints } from "../../lib/market-format";
+import { formatOperatorDateTime } from "../../lib/time-format";
 
 function formatNumber(value: number | null | undefined, digits = 3) {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -14,9 +15,11 @@ function formatNumber(value: number | null | undefined, digits = 3) {
 }
 
 export function SignalQualityStrip({
+  comparisonSummary,
   gameId,
   instrumentId,
 }: {
+  comparisonSummary?: InstrumentDivergenceSummary | null;
   gameId: string;
   instrumentId: string;
 }) {
@@ -37,6 +40,17 @@ export function SignalQualityStrip({
   });
 
   const deltaSummary = useMemo(() => {
+    if (comparisonSummary) {
+      return {
+        bucketsWithDelta: comparisonSummary.comparisonCount,
+        overlap: comparisonSummary.comparisonCount,
+        peak: {
+          absoluteDelta: comparisonSummary.maxGap ?? null,
+          bucketAt: comparisonSummary.maxGapAt ?? null,
+        },
+      };
+    }
+
     const points = delta.data?.data ?? [];
     const withDelta = points.filter((p) => typeof p.absoluteDelta === "number");
     if (withDelta.length === 0) {
@@ -56,45 +70,64 @@ export function SignalQualityStrip({
       overlap,
       peak,
     };
-  }, [delta.data]);
+  }, [comparisonSummary, delta.data]);
 
   const topPair = leadLag.data?.data.pairs?.[0];
   const insufficient = leadLag.data?.data.insufficientData ?? false;
+  const summaryLoading = !comparisonSummary && delta.isLoading;
+  const hasFirstMove =
+    topPair != null &&
+    topPair.bestLagBuckets !== 0 &&
+    Math.abs(topPair.bestCorrelation) >= 0.3 &&
+    topPair.sampleCount >= 10;
 
   return (
     <div className="sq-strip">
       <div className="sq-cell">
-        <span className="sq-label">overlap buckets</span>
+        <span className="sq-label">same-time samples</span>
         <span className="sq-value mono">
-          {delta.isLoading ? "…" : deltaSummary.overlap.toLocaleString()}
+          {summaryLoading ? "…" : deltaSummary.overlap.toLocaleString()}
         </span>
       </div>
       <div className="sq-cell">
-        <span className="sq-label">peak |Δ| bet365↔ext</span>
+        <span className="sq-label">peak divergence</span>
         <span className="sq-value mono">
-          {delta.isLoading
+          {summaryLoading
             ? "…"
-            : formatPercent(deltaSummary.peak?.absoluteDelta ?? null)}
+            : formatGapPoints(deltaSummary.peak?.absoluteDelta ?? null)}
         </span>
         <span className="sq-sub mono muted">
-          {deltaSummary.peak?.bucketAt?.slice(0, 16).replace("T", " ") ?? ""}
+          {formatOperatorDateTime(deltaSummary.peak?.bucketAt)}
         </span>
       </div>
       <div className="sq-cell">
-        <span className="sq-label">lead/lag</span>
+        <span className="sq-label">first move</span>
         {leadLag.isLoading ? (
           <span className="sq-value mono">…</span>
         ) : insufficient || !topPair ? (
           <span className="sq-value mono muted">n/a</span>
+        ) : topPair.bestLagBuckets === 0 ? (
+          <>
+            <span className="sq-value mono">same minute</span>
+            <span className="sq-sub mono muted">
+              {topPair.sampleCount} samples
+            </span>
+          </>
+        ) : !hasFirstMove ? (
+          <>
+            <span className="sq-value mono muted">n/a</span>
+            <span className="sq-sub mono muted">
+              {topPair.sampleCount} samples
+            </span>
+          </>
         ) : (
           <>
             <span className="sq-value mono">
               {topPair.leadSource} → {topPair.lagSource}
-              {topPair.bestLagBuckets === 0 ? " (lockstep)" : ""}
             </span>
             <span className="sq-sub mono muted">
-              r={formatNumber(topPair.bestCorrelation)} · lag=
-              {topPair.bestLagBuckets}m · n={topPair.sampleCount}
+              match {formatNumber(topPair.bestCorrelation)} ·{" "}
+              {topPair.bestLagBuckets}m · {topPair.sampleCount} samples
             </span>
           </>
         )}
