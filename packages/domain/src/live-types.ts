@@ -47,6 +47,10 @@ export const adapterRunStatuses = ["queued", "running", "ok", "error"] as const;
 
 export type AdapterRunStatus = (typeof adapterRunStatuses)[number];
 
+export const adapterCaptureModes = ["discovery", "historical", "live"] as const;
+
+export type AdapterCaptureMode = (typeof adapterCaptureModes)[number];
+
 export const adminActionStatuses = [
   "queued",
   "accepted",
@@ -151,6 +155,7 @@ export type AdapterRun = {
   startedAt: string;
   finishedAt?: string | null;
   status: AdapterRunStatus;
+  captureMode?: AdapterCaptureMode;
   errorCode?: string | null;
   errorMessage?: string | null;
   recordsSeen: number;

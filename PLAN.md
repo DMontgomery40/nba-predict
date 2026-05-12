@@ -13,6 +13,7 @@ Build a real research backend and operator console for live market comparison ac
 - Fail-honest readiness checks for missing sidecar/auth/session/live-data inputs
 - Python `nba_api` sidecar scaffold with normalized scoreboard, box score, and play-by-play endpoints
 - Worker-side NBA sidecar ingest seam and tests
+- NBA sidecar window syncs now preserve isolated date failures while failing honestly on full-window outages
 - Repo-wide removal of presentation-only runtime paths from source, docs, specs, and regenerated build output
 - Shared repo-root env loading for Node runtime entrypoints
 - SQLite cleanup migration that removes legacy storyline tables and stale replay/demo `app_state` keys

@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { basename } from "node:path";
 
 import type {
   AdminSourceHealth,
@@ -39,6 +40,8 @@ import {
   currentTimestamp,
   executeDatabaseOperation,
   getDatabase,
+  getDatabasePath,
+  getDatabaseSchemaVersion,
 } from "./db-core";
 import { DatabaseFailureError } from "./errors";
 import {
@@ -3728,6 +3731,7 @@ function latestSuccessfulRun(source: string) {
         errorCode: row.errorCode == null ? null : String(row.errorCode),
         errorMessage:
           row.errorMessage == null ? null : String(row.errorMessage),
+        captureMode: row.captureMode == null ? "live" : String(row.captureMode),
         finishedAt: row.finishedAt == null ? null : String(row.finishedAt),
         id: Number(row.id),
         recordsSeen: Number(row.recordsSeen),
@@ -3768,6 +3772,7 @@ function latestRun(source: string) {
         errorCode: row.errorCode == null ? null : String(row.errorCode),
         errorMessage:
           row.errorMessage == null ? null : String(row.errorMessage),
+        captureMode: row.captureMode == null ? "live" : String(row.captureMode),
         finishedAt: row.finishedAt == null ? null : String(row.finishedAt),
         id: Number(row.id),
         recordsSeen: Number(row.recordsSeen),
@@ -4075,5 +4080,329 @@ export function getStorageCoverage() {
         ),
         sport: String((row as { sport: string }).sport),
       })) satisfies StorageCoverageRow[];
+  });
+}
+
+function safeCountTableForAudit(db: Database.Database, tableName: string) {
+  const row = db.prepare(`SELECT COUNT(*) AS count FROM ${tableName}`).get() as
+    | { count: number }
+    | undefined;
+  return Number(row?.count ?? 0);
+}
+
+function auditTimestampAgeMs(value: string | null) {
+  if (!value) {
+    return null;
+  }
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp)
+    ? Math.max(0, Date.now() - timestamp)
+    : null;
+}
+
+function classifyAuditDataState(counts: {
+  gameCount: number;
+  quoteTickCount: number;
+  rawPayloadCount: number;
+  sourceMarketCount: number;
+}) {
+  if (counts.quoteTickCount === 0 && counts.rawPayloadCount === 0) {
+    return "empty" as const;
+  }
+
+  if (
+    counts.gameCount <= 5 &&
+    counts.sourceMarketCount <= 25 &&
+    counts.quoteTickCount <= 1000
+  ) {
+    return "seed-or-test" as const;
+  }
+
+  if (counts.quoteTickCount >= 10_000 && counts.sourceMarketCount >= 100) {
+    return "persisted-live" as const;
+  }
+
+  return "partial-live" as const;
+}
+
+function inferRuntimeWarnings(input: {
+  dataState: "empty" | "partial-live" | "persisted-live" | "seed-or-test";
+  dbPath: string;
+  sourceBreakdown: Array<{
+    source: string;
+    quoteTickCount: number;
+  }>;
+}) {
+  const warnings: string[] = [];
+
+  if (input.dataState === "empty") {
+    warnings.push(
+      "The selected SQLite database has schema but no quote or raw payload rows. Point SIGNAL_CONSOLE_DB_PATH at the persisted live database before a demo."
+    );
+  }
+
+  if (input.dataState === "seed-or-test") {
+    warnings.push(
+      "The selected database looks like a seed or e2e fixture. Do not present it as live evidence."
+    );
+  }
+
+  if (input.dbPath.includes(".e2e.")) {
+    warnings.push(
+      "The active database path contains .e2e.; this is test data by convention."
+    );
+  }
+
+  if (!process.env.SIGNAL_CONSOLE_DB_PATH) {
+    warnings.push(
+      "SIGNAL_CONSOLE_DB_PATH is not set, so the runtime is using the repo default database path."
+    );
+  }
+
+  const bet365 = input.sourceBreakdown.find((row) => row.source === "bet365");
+  if (!bet365 || bet365.quoteTickCount === 0) {
+    warnings.push(
+      "No persisted Bet365 quotes were found in the active DB. The trader desk can still compare external markets, but the book leg is not evidence-backed yet."
+    );
+  }
+
+  if (bet365 && bet365.quoteTickCount > 0 && process.env.ODDS_API_KEY) {
+    warnings.push(
+      "Bet365 ticks are currently sourced through ODDS_API_KEY provider plumbing, not a direct internal book feed. Label this as proxy sportsbook pricing until the internal feed is wired."
+    );
+  }
+
+  return warnings;
+}
+
+export function getRuntimeAudit() {
+  return executeDatabaseOperation("admin.runtimeAudit.get", () => {
+    const db = getDatabase();
+    const dbPath = getDatabasePath();
+    const counts = {
+      adapterRunCount: safeCountTableForAudit(db, "adapter_runs"),
+      adminActionCount: safeCountTableForAudit(db, "admin_actions"),
+      gameCount: safeCountTableForAudit(db, "games"),
+      gameStateCount: safeCountTableForAudit(db, "game_states"),
+      marketInstrumentCount: safeCountTableForAudit(db, "market_instruments"),
+      outcomeCount: safeCountTableForAudit(db, "game_outcomes"),
+      quoteTickCount: safeCountTableForAudit(db, "quote_ticks"),
+      rawPayloadCount: safeCountTableForAudit(db, "raw_payloads"),
+      sourceMarketCount: safeCountTableForAudit(db, "source_markets"),
+    };
+
+    const sourceRows = db
+      .prepare(
+        `
+          SELECT
+            sm.source AS source,
+            COUNT(DISTINCT sm.id) AS sourceMarketCount,
+            COUNT(DISTINCT sm.game_id) AS gameCount,
+            COUNT(qt.id) AS quoteTickCount,
+            MAX(qt.captured_at) AS latestQuoteAt
+          FROM source_markets sm
+          LEFT JOIN quote_ticks qt ON qt.source_market_id = sm.id
+          GROUP BY sm.source
+          ORDER BY quoteTickCount DESC, sm.source ASC
+        `
+      )
+      .all() as Array<{
+      gameCount: number;
+      latestQuoteAt: string | null;
+      quoteTickCount: number;
+      source: string;
+      sourceMarketCount: number;
+    }>;
+
+    const rawPayloadRows = new Map(
+      (
+        db
+          .prepare(
+            `
+              SELECT
+                source,
+                COUNT(*) AS rawPayloadCount,
+                MAX(captured_at) AS latestRawPayloadAt
+              FROM raw_payloads
+              GROUP BY source
+            `
+          )
+          .all() as Array<{
+          latestRawPayloadAt: string | null;
+          rawPayloadCount: number;
+          source: string;
+        }>
+      ).map((row) => [row.source, row])
+    );
+
+    const latestRunRows = new Map(
+      (
+        db
+          .prepare(
+            `
+              WITH ranked AS (
+                SELECT
+                  source,
+                  started_at AS startedAt,
+                  finished_at AS finishedAt,
+                  status,
+                  capture_mode AS captureMode,
+                  records_seen AS recordsSeen,
+                  records_written AS recordsWritten,
+                  ROW_NUMBER() OVER (
+                    PARTITION BY source
+                    ORDER BY started_at DESC, id DESC
+                  ) AS rn
+                FROM adapter_runs
+              )
+              SELECT * FROM ranked WHERE rn = 1
+            `
+          )
+          .all() as Array<{
+          captureMode: string | null;
+          finishedAt: string | null;
+          recordsSeen: number;
+          recordsWritten: number;
+          source: string;
+          startedAt: string;
+          status: string;
+        }>
+      ).map((row) => [row.source, row])
+    );
+
+    const captureModesBySource = new Map(
+      (
+        db
+          .prepare(
+            `
+              SELECT source, GROUP_CONCAT(DISTINCT capture_mode) AS captureModes
+              FROM adapter_runs
+              GROUP BY source
+            `
+          )
+          .all() as Array<{ captureModes: string | null; source: string }>
+      ).map((row) => [
+        row.source,
+        row.captureModes
+          ? row.captureModes.split(",").filter((value) => value.length > 0)
+          : [],
+      ])
+    );
+
+    const sourceBreakdown = sourceRows.map((row) => {
+      const raw = rawPayloadRows.get(row.source);
+      const latestRun = latestRunRows.get(row.source);
+      return {
+        captureModes: captureModesBySource.get(row.source) ?? [],
+        gameCount: Number(row.gameCount ?? 0),
+        latestQuoteAgeMs: auditTimestampAgeMs(row.latestQuoteAt),
+        latestQuoteAt: row.latestQuoteAt ?? null,
+        latestRawPayloadAgeMs: auditTimestampAgeMs(
+          raw?.latestRawPayloadAt ?? null
+        ),
+        latestRawPayloadAt: raw?.latestRawPayloadAt ?? null,
+        latestRun: latestRun
+          ? {
+              captureMode: latestRun.captureMode ?? null,
+              finishedAt: latestRun.finishedAt ?? null,
+              recordsSeen: Number(latestRun.recordsSeen ?? 0),
+              recordsWritten: Number(latestRun.recordsWritten ?? 0),
+              startedAt: latestRun.startedAt,
+              status: latestRun.status,
+            }
+          : null,
+        quoteTickCount: Number(row.quoteTickCount ?? 0),
+        rawPayloadCount: Number(raw?.rawPayloadCount ?? 0),
+        source: row.source,
+        sourceMarketCount: Number(row.sourceMarketCount ?? 0),
+      };
+    });
+
+    const dataState = classifyAuditDataState(counts);
+    const warnings = inferRuntimeWarnings({
+      dataState,
+      dbPath,
+      sourceBreakdown,
+    });
+
+    const hasExternalMarkets = sourceBreakdown.some(
+      (row) =>
+        (row.source === "kalshi" || row.source === "polymarket") &&
+        row.quoteTickCount > 0
+    );
+    const hasBookProxy = sourceBreakdown.some(
+      (row) => row.source === "bet365" && row.quoteTickCount > 0
+    );
+    const hasOutcomes = counts.outcomeCount > 0;
+    const hasRawPayloads = counts.rawPayloadCount > 0;
+
+    return {
+      database: {
+        basename: basename(dbPath),
+        path: dbPath,
+        schemaVersion: getDatabaseSchemaVersion(),
+        wal: {
+          mainExists: existsSync(dbPath),
+          shmExists: existsSync(`${dbPath}-shm`),
+          walExists: existsSync(`${dbPath}-wal`),
+        },
+      },
+      generatedAt: new Date().toISOString(),
+      productReadiness: {
+        checklist: [
+          {
+            detail:
+              dataState === "persisted-live"
+                ? "Large persisted quote history is present."
+                : "Use a persisted live DB before demoing the desk as evidence-backed.",
+            id: "persisted-live-db",
+            label: "Persisted live DB selected",
+            status: dataState === "persisted-live" ? "pass" : "fail",
+          },
+          {
+            detail: hasExternalMarkets
+              ? "Kalshi or Polymarket ticks are available."
+              : "No external prediction-market ticks were found.",
+            id: "external-market-feed",
+            label: "External market feed present",
+            status: hasExternalMarkets ? "pass" : "fail",
+          },
+          {
+            detail: hasBookProxy
+              ? "Book-side proxy quotes are present. Label source provenance clearly."
+              : "No Bet365/book-side quote rows were found.",
+            id: "book-side-feed",
+            label: "Book-side feed present",
+            status: hasBookProxy ? "warn" : "fail",
+          },
+          {
+            detail: hasOutcomes
+              ? "Outcomes exist, so calibration can be computed."
+              : "No outcomes exist, so calibration surfaces will be weak.",
+            id: "closed-game-outcomes",
+            label: "Closed-game outcomes present",
+            status: hasOutcomes ? "pass" : "warn",
+          },
+          {
+            detail: hasRawPayloads
+              ? "Raw payloads exist for audit and provenance drawers."
+              : "No raw payloads were found. Every displayed number should be traceable to raw source data.",
+            id: "raw-payload-provenance",
+            label: "Raw payload provenance present",
+            status: hasRawPayloads ? "pass" : "fail",
+          },
+        ],
+        dataState,
+        status:
+          warnings.length === 0 && dataState === "persisted-live"
+            ? "ready"
+            : dataState === "persisted-live"
+              ? "usable-with-warnings"
+              : "not-ready",
+        warnings,
+      },
+      sourceBreakdown,
+      tableCounts: counts,
+    };
   });
 }

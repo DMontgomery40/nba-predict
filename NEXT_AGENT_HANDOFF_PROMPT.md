@@ -1,3 +1,30 @@
+# Current Correction Block, 2026-04-23 productization pass
+
+This handoff was stale in one important way: the repo now has real ingestion seams and live-data audit surfaces.
+
+Verified in this zip/worktree:
+
+- `packages/adapters/src/polymarket.ts` exists and ingests NBA-related Polymarket Gamma data.
+- `packages/adapters/src/odds-api.ts` exists and supports Odds-API-backed Bet365/Kalshi market ingestion.
+- `packages/adapters/src/kalshi-historical.ts` and `packages/adapters/src/polymarket-historical.ts` exist for historical price backfill.
+- `apps/nba-sidecar` exists as the Python `nba_api` sidecar.
+- The packaged `data/signal-console.sqlite` is schema-only and not the live DB.
+- The packaged `data/signal-console.e2e.sqlite` is seeded e2e data and must never be presented as live evidence.
+- David's running desk on port 4121 was using `/Users/davidmontgomery/nba-predict/data/signal-console.sqlite`, not the packaged worktree DB.
+- The live DB David reported had 761,407 quote ticks, 65,382 raw payloads, 1,237 games, 1,560 market instruments, and 807 outcomes.
+
+New hardening added in this pass:
+
+- API route: `GET /api/v1/admin/runtime-audit`
+- Shared repo function: `getRuntimeAudit()`
+- Settings page panel: `Runtime evidence / Active database audit`
+- CLI: `pnpm db:audit`
+- Docs: `docs/live-db-handoff.md`, `docs/product-readiness-gap-analysis.md`, `docs/demo-runbook.md`
+
+The next agent must not regress this back into a mock/demo app. The next product task is not a prettier dashboard. It is source provenance, contract clarity, and internal-feed replacement for proxy Bet365 pricing.
+
+---
+
 # Next Agent Handoff Prompt
 
 You are taking over `Signal Console` in `/Users/davidmontgomery/nba-predict`.

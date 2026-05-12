@@ -22,7 +22,7 @@ Signal Console is composed of:
 
 ## Worker Responsibilities
 
-- ingest normalized NBA sidecar payloads across a recent-plus-lookahead date window
+- ingest normalized NBA sidecar payloads across a recent-plus-lookahead date window and preserve partial-date failures without hiding full-window outages
 - ingest Polymarket NBA game markets through the official Gamma API
 - ingest Bet365 NBA markets through the backend-only Odds-API.io backup provider when `ODDS_API_KEY` is present, bounded to pending/live NBA events around the active target slate before requesting odds for matched event ids
 - ingest direct Kalshi NBA market data through `KALSHI_API_KEY`, including milestone-related game, spread, total, team-prop, player-prop, period, overtime, and related event families
@@ -45,3 +45,4 @@ Signal Console is composed of:
 - The NBA sidecar normalizes raw upstream payloads; the worker owns persistence.
 - Admin actions should enqueue explicit operational work rather than mutating state implicitly inside request handlers.
 - Generated build output must remain downstream of the live-only source tree; stale artifacts should be rebuilt or removed rather than treated as a separate runtime surface.
+- User-behavior anomaly metrics must stay pending until user event data is persisted and queryable.

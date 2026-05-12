@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  adapterCaptureModes,
   adapterRunStatuses,
   adminActionStatuses,
   comparableStates,
@@ -16,6 +17,7 @@ export const researchGameStatusSchema = z.enum(researchGameStatuses);
 export const mappingStatusSchema = z.enum(mappingStatuses);
 export const comparableStateSchema = z.enum(comparableStates);
 export const adapterRunStatusSchema = z.enum(adapterRunStatuses);
+export const adapterCaptureModeSchema = z.enum(adapterCaptureModes);
 export const adminActionStatusSchema = z.enum(adminActionStatuses);
 
 export const gameParticipantSchema = z.object({
@@ -113,6 +115,7 @@ export const adapterRunSchema = z.object({
   startedAt: z.string(),
   finishedAt: z.string().nullable().optional(),
   status: adapterRunStatusSchema,
+  captureMode: adapterCaptureModeSchema.optional(),
   errorCode: z.string().nullable().optional(),
   errorMessage: z.string().nullable().optional(),
   recordsSeen: z.number().int().nonnegative(),

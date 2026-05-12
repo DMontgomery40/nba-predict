@@ -1,3 +1,24 @@
+# Productization update, 2026-04-23
+
+This zip has a hardening pass focused on making the live-data claim auditable.
+
+New pieces:
+
+- `GET /api/v1/admin/runtime-audit`
+- Settings page `Runtime evidence` panel
+- `pnpm db:audit`
+- `docs/live-db-handoff.md`
+- `docs/product-readiness-gap-analysis.md`
+- `docs/demo-runbook.md`
+
+Important: the packaged `data/signal-console.sqlite` is schema-only, and `data/signal-console.e2e.sqlite` is seeded test data. David's live desk must be pointed at `/Users/davidmontgomery/nba-predict/data/signal-console.sqlite` with `SIGNAL_CONSOLE_DB_PATH` before presenting the dashboard as live-data-backed.
+
+```bash
+cd /Users/davidmontgomery/nba-predict && printf '%s\n' 'SIGNAL_CONSOLE_DB_PATH=/Users/davidmontgomery/nba-predict/data/signal-console.sqlite' 'PORT=8788' 'VITE_API_BASE_URL=http://localhost:8788' >> .env.local && pnpm db:audit
+```
+
+---
+
 # Signal Console
 
 Signal Console is a live research system for in-game market comparison. It captures bet365, Kalshi, Polymarket, and NBA game-state data, persists append-only quote and game-state history, and exposes instrument-first APIs and operator surfaces for divergence analysis.
@@ -101,6 +122,21 @@ cd apps/nba-sidecar && uv run pytest
 ```
 
 `pnpm verify` runs the repo standard format, lint, typecheck, and test path for the TypeScript workspace.
+
+Historical backfills use the live-only persistence model and never load synthetic packs:
+
+```bash
+pnpm backfill nba --lookbackDays 365 --lookaheadDays 0
+pnpm backfill kalshi --maxEvents 200 --periodInterval 60
+pnpm backfill polymarket --since 2024-10-01 --maxEvents 200 --fidelity 1
+pnpm backfill bet365-internal
+pnpm backfill all
+```
+
+The NBA sidecar window backfill records per-date failures in the adapter run
+error fields and continues when at least one requested date succeeds. If every
+requested date fails, it fails the run honestly instead of writing a fake-green
+zero-row window.
 
 ## Runtime Surface
 
