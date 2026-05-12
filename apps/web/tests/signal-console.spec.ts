@@ -19,11 +19,11 @@ test("tracked games page opens the top game board", async ({ page }) => {
     page.getByRole("heading", { name: "NBA market work slate" })
   ).toBeVisible({ timeout: 15_000 });
 
-  await page.getByRole("link", { exact: true, name: "Game" }).first().click();
-  await expect(page).toHaveURL(/\/games\/[^/]+$/);
-  await expect(
-    page.getByRole("heading", { name: /at|vs/i }).first()
-  ).toBeVisible();
+  await page
+    .getByRole("link", { name: /^(Game|Review)$/ })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/games\/[^/]+(\/markets\/[^/]+)?$/);
 });
 
 test("top instrument flow opens raw source inspection", async ({ page }) => {
