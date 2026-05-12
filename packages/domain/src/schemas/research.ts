@@ -189,6 +189,7 @@ export const divergenceRowSchema = z.object({
   mappingStatus: mappingStatusSchema,
   lineMismatch: z.boolean(),
   impliedProbabilityGap: z.number().nonnegative().nullable().optional(),
+  sources: z.array(researchSourceIdSchema),
   signalPriority: z.number().min(0),
   captureRecencyMs: z.number().nullable().optional(),
   severity: severityBandSchema,
@@ -274,6 +275,29 @@ export const adminSourceHealthSchema = z.object({
   currentBackoffMs: z.number().nullable().optional(),
   subscriptionState: z.enum(["active", "inactive", "unknown"]).optional(),
   status: z.enum(["ok", "error"]),
+});
+
+export const adminRuntimeConfigItemSchema = z.object({
+  category: z.string(),
+  configured: z.boolean(),
+  defaultValue: z.string().nullable().optional(),
+  description: z.string(),
+  inputType: z.enum([
+    "boolean",
+    "number",
+    "password",
+    "path",
+    "select",
+    "text",
+    "url",
+  ]),
+  key: z.string(),
+  label: z.string(),
+  options: z.array(z.string()).optional(),
+  restartRequired: z.boolean(),
+  sensitive: z.boolean(),
+  source: z.literal("env"),
+  valuePreview: z.string().nullable().optional(),
 });
 
 export const adminUnmappedMarketSchema = z.object({

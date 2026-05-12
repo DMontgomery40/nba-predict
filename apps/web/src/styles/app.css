@@ -2438,6 +2438,224 @@ input {
   letter-spacing: 0;
 }
 
+.state-attention-strip,
+.ops-state-alert {
+  border-top: 1px solid rgba(255, 142, 120, 0.28);
+  border-bottom: 1px solid rgba(255, 142, 120, 0.2);
+  background: rgba(255, 142, 120, 0.045);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.state-attention-strip {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.35fr) minmax(0, 1fr);
+}
+
+.state-attention-strip header,
+.ops-state-alert > div:first-child {
+  padding: 0.85rem;
+  border-right: 1px solid rgba(255, 142, 120, 0.18);
+}
+
+.state-attention-strip header span,
+.ops-state-alert span {
+  display: block;
+  color: #f4c96f;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.state-attention-strip header strong,
+.ops-state-alert strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: #fff4de;
+}
+
+.state-attention-strip > div,
+.ops-state-alert > div:last-child {
+  display: grid;
+}
+
+.state-attention-row,
+.ops-state-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.8fr) minmax(8rem, 0.35fr) minmax(
+      0,
+      1fr
+    );
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid rgba(255, 142, 120, 0.14);
+  color: #d8e0e8;
+  text-decoration: none;
+}
+
+.state-attention-row:last-child,
+.ops-state-row:last-child {
+  border-bottom: 0;
+}
+
+.state-attention-row em,
+.ops-state-row em {
+  color: #aeb9c4;
+  font-style: normal;
+}
+
+.state-label {
+  display: block;
+  color: #8291a1;
+}
+
+.state-label-live {
+  color: #9ee8c3;
+}
+
+.state-label-warning {
+  color: #f4c96f;
+}
+
+.state-label-critical {
+  color: #ff9d86;
+}
+
+.settings-hero h1 {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+}
+
+.settings-console {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.settings-alert {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+  padding: 0.65rem 0;
+  border-top: 1px solid rgba(159, 178, 197, 0.18);
+  border-bottom: 1px solid rgba(159, 178, 197, 0.18);
+  color: #dce6f1;
+}
+
+.settings-alert strong {
+  color: #f8fbff;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.settings-alert-positive {
+  border-color: rgba(72, 196, 131, 0.38);
+}
+
+.settings-alert-warning {
+  border-color: rgba(244, 201, 111, 0.42);
+}
+
+.settings-alert-critical {
+  border-color: rgba(255, 126, 107, 0.48);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(159, 178, 197, 0.18);
+}
+
+.settings-section-head {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.18fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.settings-section-head span,
+.settings-config-group h3 {
+  margin: 0;
+  color: #8291a1;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.settings-section-head h2 {
+  margin: 0;
+  color: #f8fbff;
+  font-size: 1.18rem;
+}
+
+.settings-control-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.7rem;
+  align-items: end;
+}
+
+.settings-control-action {
+  display: flex;
+  min-width: 0;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.settings-console .primary-button,
+.settings-console .ghost-button,
+.settings-console .filter-select,
+.settings-console .filter-field input,
+.settings-console .filter-field select {
+  border-radius: 8px;
+}
+
+.settings-two-actions {
+  grid-column: span 2;
+}
+
+.settings-config-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.settings-table-shell {
+  max-height: 30rem;
+  border-radius: 0;
+}
+
+.settings-table th {
+  background: #080d11;
+}
+
+.settings-table {
+  min-width: 72rem;
+}
+
+.settings-table td {
+  vertical-align: top;
+}
+
+.settings-table td span {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.settings-map-table .search-input {
+  min-width: 12rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.35rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+}
+
 .research-surface {
   display: flex;
   flex-direction: column;
@@ -2612,6 +2830,293 @@ input {
   color: #ffb09f;
 }
 
+.divergence-surface {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.divergence-header {
+  align-items: flex-end;
+  padding: 0.85rem 0.2rem 0.25rem;
+}
+
+.divergence-summary {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 0.55rem;
+  color: var(--text-subtle);
+  font-size: 0.86rem;
+}
+
+.divergence-summary span {
+  padding: 0.28rem 0.55rem;
+  border: 1px solid rgba(159, 178, 197, 0.12);
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.divergence-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ghost-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.filter-strip {
+  display: grid;
+  grid-template-columns:
+    minmax(8rem, 1fr) minmax(8rem, 0.9fr) minmax(8rem, 0.9fr)
+    minmax(9rem, 1fr) minmax(10rem, 1fr);
+  gap: 0.65rem;
+  align-items: end;
+  padding: 0.75rem;
+  border: 1px solid rgba(159, 178, 197, 0.12);
+  border-radius: 0.55rem;
+  background: rgba(9, 13, 18, 0.82);
+}
+
+.filter-inline {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+}
+
+.filter-inline span {
+  color: #7f8b98;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.filter-inline select {
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(159, 178, 197, 0.22);
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
+  font:
+    0.86rem "IBM Plex Mono",
+    monospace;
+  letter-spacing: 0;
+}
+
+.divergence-table-shell {
+  min-width: 0;
+  max-height: calc(100vh - 18rem);
+  overflow: auto;
+  border: 1px solid rgba(159, 178, 197, 0.12);
+  border-radius: 0.55rem;
+  background: rgba(9, 13, 18, 0.82);
+}
+
+.divergence-table {
+  width: 100%;
+  min-width: 66rem;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.divergence-table th,
+.divergence-table td {
+  padding: 0.62rem 0.75rem;
+  border-bottom: 1px solid rgba(159, 178, 197, 0.08);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.divergence-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(8, 12, 17, 0.98);
+  color: #73808e;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.divergence-table th:nth-child(1),
+.divergence-table td:nth-child(1) {
+  width: 34%;
+}
+
+.divergence-table th:nth-child(2),
+.divergence-table td:nth-child(2) {
+  width: 9rem;
+}
+
+.divergence-table th:nth-child(3),
+.divergence-table td:nth-child(3) {
+  width: 12rem;
+}
+
+.divergence-table th:nth-child(4),
+.divergence-table td:nth-child(4) {
+  width: 6.5rem;
+}
+
+.divergence-table th:nth-child(5),
+.divergence-table td:nth-child(5) {
+  width: 9.5rem;
+}
+
+.divergence-table th:nth-child(6),
+.divergence-table td:nth-child(6) {
+  width: 7.5rem;
+}
+
+.divergence-table th:nth-child(7),
+.divergence-table td:nth-child(7) {
+  width: 6.5rem;
+}
+
+.divergence-table th:nth-child(8),
+.divergence-table td:nth-child(8) {
+  width: 5.5rem;
+}
+
+.divergence-table tbody tr:hover {
+  background: rgba(105, 215, 165, 0.045);
+}
+
+.divergence-table .num {
+  text-align: right;
+}
+
+.divergence-instrument-cell {
+  min-width: 0;
+}
+
+.divergence-instrument-cell .matchup-link,
+.divergence-row-meta {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.divergence-row-meta {
+  margin-top: 0.18rem;
+  color: #748493;
+  font-size: 0.68rem;
+}
+
+.source-pills {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.source-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid rgba(105, 215, 165, 0.18);
+  border-radius: 999px;
+  color: #d9fff0;
+  background: rgba(105, 215, 165, 0.055);
+  font:
+    0.68rem "IBM Plex Mono",
+    monospace;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.map-pill,
+.sev-chip {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.map-pill {
+  border: 1px solid rgba(159, 178, 197, 0.18);
+  color: var(--text-subtle);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.map-pill-critical {
+  border-color: rgba(255, 142, 120, 0.28);
+  color: #ffd2c8;
+  background: rgba(255, 142, 120, 0.08);
+}
+
+.sev-chip {
+  border: 1px solid rgba(159, 178, 197, 0.18);
+  color: #d7e1eb;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.sev-critical {
+  border-color: rgba(255, 142, 120, 0.35);
+  color: #ffd2c8;
+  background: rgba(255, 142, 120, 0.1);
+}
+
+.sev-high {
+  border-color: rgba(255, 190, 104, 0.32);
+  color: #ffe0aa;
+  background: rgba(255, 190, 104, 0.09);
+}
+
+.sev-medium {
+  border-color: rgba(244, 201, 111, 0.28);
+  color: #f8dea0;
+  background: rgba(244, 201, 111, 0.08);
+}
+
+.sev-low {
+  color: var(--text-subtle);
+}
+
+.row-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.4rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(105, 215, 165, 0.22);
+  border-radius: 0.32rem;
+  color: #d9fff0;
+  background: rgba(105, 215, 165, 0.06);
+  font-size: 0.78rem;
+}
+
+.divergence-empty,
+.divergence-error {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  border-radius: 0.55rem;
+}
+
+.divergence-error strong {
+  color: #ffd2c8;
+}
+
 @media (max-width: 1100px) {
   .shell {
     grid-template-columns: 1fr;
@@ -2652,7 +3157,11 @@ input {
   .ops-thesis-copy,
   .ops-thesis-metrics,
   .ops-topline,
+  .ops-state-alert,
   .slate-triage-grid,
+  .settings-control-grid,
+  .settings-section-head,
+  .state-attention-strip,
   .sq-strip,
   .trader-hero,
   .raw-drawer-body,
@@ -2672,6 +3181,15 @@ input {
 
   .cgt-head {
     display: none;
+  }
+
+  .state-attention-row,
+  .ops-state-row {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-two-actions {
+    grid-column: auto;
   }
 
   .metrics-row .num,
@@ -2720,6 +3238,15 @@ input {
 
   .filter-actions {
     justify-content: flex-start;
+  }
+
+  .divergence-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .filter-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .history-highlight-head {

@@ -1,4 +1,9 @@
-import { researchSourceIdSchema } from "@signal-console/domain";
+import { existsSync } from "node:fs";
+
+import {
+  researchSourceIdSchema,
+  type AdminRuntimeConfigItem,
+} from "@signal-console/domain";
 import {
   createAppLogger,
   enqueueCaptureRestart,
@@ -83,6 +88,476 @@ function generatedMeta() {
   };
 }
 
+type RuntimeConfigDefinition = Omit<
+  AdminRuntimeConfigItem,
+  "configured" | "source" | "valuePreview"
+> & {
+  envKey?: string;
+  validates?: (value: string) => boolean;
+};
+
+const runtimeConfigDefinitions: RuntimeConfigDefinition[] = [
+  {
+    category: "Runtime",
+    defaultValue: "8787",
+    description: "HTTP port for the Fastify API.",
+    inputType: "number",
+    key: "PORT",
+    label: "API port",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Runtime",
+    defaultValue: "0.1.0",
+    description: "Version string returned by health probes.",
+    inputType: "text",
+    key: "SIGNAL_CONSOLE_VERSION",
+    label: "Console version",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Runtime",
+    description: "SQLite database file used by the live repository.",
+    inputType: "path",
+    key: "SIGNAL_CONSOLE_DB_PATH",
+    label: "SQLite database path",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "NBA sidecar",
+    description: "Base URL for the Python NBA game-state sidecar.",
+    inputType: "url",
+    key: "NBA_SIDECAR_BASE_URL",
+    label: "NBA sidecar URL",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "NBA sidecar",
+    defaultValue: "1",
+    description: "Worker lookback window for NBA state sync.",
+    inputType: "number",
+    key: "NBA_SIDECAR_LOOKBACK_DAYS",
+    label: "NBA lookback days",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "NBA sidecar",
+    defaultValue: "3",
+    description: "Worker lookahead window for NBA state sync.",
+    inputType: "number",
+    key: "NBA_SIDECAR_LOOKAHEAD_DAYS",
+    label: "NBA lookahead days",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Bet365",
+    description: "Odds-API.io key for the current Bet365 ingestion path.",
+    inputType: "password",
+    key: "ODDS_API_KEY",
+    label: "Odds API key",
+    restartRequired: true,
+    sensitive: true,
+  },
+  {
+    category: "Bet365",
+    description: "Alternate Odds-API.io key name supported by adapters.",
+    inputType: "password",
+    key: "ODDS_API_IO_KEY",
+    label: "Odds API alternate key",
+    restartRequired: true,
+    sensitive: true,
+  },
+  {
+    category: "Bet365",
+    defaultValue: "8",
+    description: "Future NBA event window for Bet365 backup discovery.",
+    inputType: "number",
+    key: "ODDS_API_TARGET_LOOKAHEAD_HOURS",
+    label: "Bet365 discovery lookahead hours",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Bet365",
+    defaultValue: "90",
+    description: "Recent NBA event window for Bet365 backup discovery.",
+    inputType: "number",
+    key: "ODDS_API_TARGET_LOOKBACK_MINUTES",
+    label: "Bet365 discovery lookback minutes",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Bet365",
+    description: "Legacy Playwright session export for direct Bet365 capture.",
+    inputType: "path",
+    key: "BET365_SESSION_STATE_PATH",
+    label: "Bet365 session state path",
+    restartRequired: true,
+    sensitive: true,
+    validates: (value) => existsSync(value),
+  },
+  {
+    category: "Bet365",
+    description: "Directory for internal Bet365 JSONL dump ingestion.",
+    inputType: "path",
+    key: "BET365_INTERNAL_DUMP_DIR",
+    label: "Bet365 internal dump directory",
+    restartRequired: true,
+    sensitive: false,
+    validates: (value) => existsSync(value),
+  },
+  {
+    category: "Kalshi",
+    description: "Direct Kalshi NBA market-data API key.",
+    inputType: "password",
+    key: "KALSHI_API_KEY",
+    label: "Kalshi API key",
+    restartRequired: true,
+    sensitive: true,
+  },
+  {
+    category: "Kalshi",
+    description: "Optional Kalshi secret for authenticated routes.",
+    inputType: "password",
+    key: "KALSHI_API_SECRET",
+    label: "Kalshi API secret",
+    restartRequired: true,
+    sensitive: true,
+  },
+  {
+    category: "Kalshi",
+    defaultValue: "200",
+    description: "Maximum Kalshi events scanned per live worker cycle.",
+    inputType: "number",
+    key: "KALSHI_LIVE_MAX_EVENTS",
+    label: "Kalshi live max events",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Kalshi",
+    defaultValue: "2",
+    description: "Recent Kalshi event lookback window for live scans.",
+    inputType: "number",
+    key: "KALSHI_LIVE_LOOKBACK_DAYS",
+    label: "Kalshi live lookback days",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Polymarket",
+    description: "Polymarket CLOB API key.",
+    inputType: "password",
+    key: "POLYMARKET_API_KEY",
+    label: "Polymarket API key",
+    restartRequired: true,
+    sensitive: true,
+  },
+  {
+    category: "Polymarket",
+    description: "Polymarket CLOB API secret.",
+    inputType: "password",
+    key: "POLYMARKET_API_SECRET",
+    label: "Polymarket API secret",
+    restartRequired: true,
+    sensitive: true,
+  },
+  {
+    category: "Polymarket",
+    description: "Polymarket CLOB API passphrase.",
+    inputType: "password",
+    key: "POLYMARKET_API_PASSPHRASE",
+    label: "Polymarket passphrase",
+    restartRequired: true,
+    sensitive: true,
+  },
+  {
+    category: "Worker",
+    defaultValue: "30000",
+    description: "Worker loop interval in milliseconds.",
+    inputType: "number",
+    key: "WORKER_INTERVAL_MS",
+    label: "Worker interval",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Worker",
+    description: "Maximum worker provider-backoff interval in milliseconds.",
+    inputType: "number",
+    key: "WORKER_MAX_BACKOFF_MS",
+    label: "Worker max backoff",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Player prop alerts",
+    defaultValue: "10000",
+    description: "Player-prop alert watcher poll interval in milliseconds.",
+    inputType: "number",
+    key: "PLAYER_PROP_ALERT_WATCH_INTERVAL_MS",
+    label: "Watcher interval",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Player prop alerts",
+    defaultValue: "21600000",
+    description: "Watcher run duration in milliseconds.",
+    inputType: "number",
+    key: "PLAYER_PROP_ALERT_WATCH_DURATION_MS",
+    label: "Watcher duration",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Player prop alerts",
+    defaultValue: "25",
+    description: "Maximum live alert rows returned per watcher poll.",
+    inputType: "number",
+    key: "PLAYER_PROP_ALERT_LIMIT",
+    label: "Watcher alert limit",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Player prop alerts",
+    defaultValue: "0.15",
+    description: "Minimum Bet365-vs-prediction-market prop delta.",
+    inputType: "number",
+    key: "PLAYER_PROP_ALERT_MIN_DELTA",
+    label: "Minimum prop delta",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Player prop alerts",
+    defaultValue: "10",
+    description: "Maximum timestamp gap between paired provider quotes.",
+    inputType: "number",
+    key: "PLAYER_PROP_ALERT_MAX_PAIR_GAP_MINUTES",
+    label: "Max pair gap minutes",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Player prop alerts",
+    defaultValue: "10",
+    description: "Maximum quote age allowed for fresh prop alerts.",
+    inputType: "number",
+    key: "PLAYER_PROP_ALERT_MAX_QUOTE_AGE_MINUTES",
+    label: "Max quote age minutes",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Player prop alerts",
+    defaultValue: "false",
+    description: "Include stale prop rows in watcher output.",
+    inputType: "boolean",
+    key: "PLAYER_PROP_ALERT_INCLUDE_STALE",
+    label: "Include stale prop alerts",
+    options: ["false", "true"],
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Player prop alerts",
+    defaultValue: "true",
+    description: "Send local notifications for newly observed prop alert ids.",
+    inputType: "boolean",
+    key: "PLAYER_PROP_ALERT_NOTIFY",
+    label: "Notify on prop alerts",
+    options: ["true", "false"],
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Player prop alerts",
+    description: "Directory used for persisted watcher playback JSONL frames.",
+    inputType: "path",
+    key: "PLAYER_PROP_ALERT_PLAYBACK_DIR",
+    label: "Playback directory",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Player prop alerts",
+    description: "Time zone used for watcher playback date buckets.",
+    inputType: "text",
+    key: "PLAYER_PROP_ALERT_TIME_ZONE",
+    label: "Playback time zone",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Temporary hosting",
+    defaultValue: "4210",
+    description: "Port for the authenticated temporary local web proxy.",
+    inputType: "number",
+    key: "TEMP_HOST_PORT",
+    label: "Temporary host port",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Temporary hosting",
+    description: "Static web root served by the temporary local proxy.",
+    inputType: "path",
+    key: "TEMP_HOST_WEB_ROOT",
+    label: "Temporary host web root",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Temporary hosting",
+    defaultValue: "http://127.0.0.1:8787",
+    description: "API target proxied by the temporary host.",
+    inputType: "url",
+    key: "TEMP_HOST_API_TARGET",
+    label: "Temporary host API target",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Temporary hosting",
+    description: "HTTP basic-auth username for the temporary host.",
+    inputType: "text",
+    key: "BASIC_AUTH_USERNAME",
+    label: "Basic-auth username",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Temporary hosting",
+    description: "HTTP basic-auth password for the temporary host.",
+    inputType: "password",
+    key: "BASIC_AUTH_PASSWORD",
+    label: "Basic-auth password",
+    restartRequired: true,
+    sensitive: true,
+  },
+  {
+    category: "Temporary hosting",
+    description: "Legacy alias for the temporary host username.",
+    inputType: "text",
+    key: "TEMP_HOST_USERNAME",
+    label: "Temporary host username alias",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Temporary hosting",
+    description: "Legacy alias for the temporary host password.",
+    inputType: "password",
+    key: "TEMP_HOST_PASSWORD",
+    label: "Temporary host password alias",
+    restartRequired: true,
+    sensitive: true,
+  },
+  {
+    category: "Logging",
+    defaultValue: "info",
+    description: "Application log level.",
+    inputType: "select",
+    key: "LOG_LEVEL",
+    label: "Log level",
+    options: ["trace", "debug", "info", "warn", "error", "fatal"],
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Logging",
+    description: "Force pretty or JSON logs when set to 1 or 0.",
+    inputType: "select",
+    key: "LOG_PRETTY",
+    label: "Pretty logs",
+    options: ["", "0", "1"],
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Node",
+    defaultValue: "development",
+    description: "Node environment mode.",
+    inputType: "select",
+    key: "NODE_ENV",
+    label: "Node environment",
+    options: ["development", "test", "production"],
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Node",
+    description: "Continuous-integration marker used by logger and tests.",
+    inputType: "boolean",
+    key: "CI",
+    label: "CI mode",
+    options: ["false", "true"],
+    restartRequired: true,
+    sensitive: false,
+  },
+];
+
+function previewRuntimeValue(definition: RuntimeConfigDefinition) {
+  const envKey = definition.envKey ?? definition.key;
+  const value = process.env[envKey];
+
+  if (value == null || value.length === 0) {
+    return null;
+  }
+
+  if (definition.sensitive) {
+    return "configured";
+  }
+
+  return value;
+}
+
+function isRuntimeConfigConfigured(definition: RuntimeConfigDefinition) {
+  const envKey = definition.envKey ?? definition.key;
+  const value = process.env[envKey];
+  if (value == null || value.length === 0) {
+    return false;
+  }
+
+  return definition.validates ? definition.validates(value) : true;
+}
+
+export function getAdminRuntimeConfigPayload(context?: ServiceContext) {
+  const logger = getLogger(context, "getAdminRuntimeConfigPayload");
+  const data = runtimeConfigDefinitions.map((definition) => {
+    return {
+      category: definition.category,
+      configured: isRuntimeConfigConfigured(definition),
+      defaultValue: definition.defaultValue,
+      description: definition.description,
+      inputType: definition.inputType,
+      key: definition.key,
+      label: definition.label,
+      options: definition.options,
+      restartRequired: definition.restartRequired,
+      sensitive: definition.sensitive,
+      source: "env" as const,
+      valuePreview: previewRuntimeValue(definition),
+    } satisfies AdminRuntimeConfigItem;
+  });
+
+  logger.debug({ count: data.length }, "Built admin runtime config payload.");
+
+  return {
+    data,
+    meta: generatedMeta(),
+  };
+}
+
 function csvCell(value: unknown) {
   const text =
     value == null
@@ -105,8 +580,15 @@ function buildInstrumentExportFilename(
 
 export function getGamesPayload(query: GamesQuery, context?: ServiceContext) {
   const logger = getLogger(context, "getGamesPayload");
-  const data = listResearchGames(query);
-  logger.debug({ count: data.length, query }, "Built games payload.");
+  const effectiveQuery = {
+    ...query,
+    limit: query?.limit ?? 25,
+  };
+  const data = listResearchGames(effectiveQuery);
+  logger.debug(
+    { count: data.length, query: effectiveQuery },
+    "Built games payload."
+  );
   return {
     data,
     meta: generatedMeta(),

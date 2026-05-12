@@ -70,6 +70,24 @@ describe("shared db", () => {
     );
   });
 
+  it("can skip the full integrity scan for fast readiness checks", () => {
+    upsertWatchlist({
+      eventId: "bos-vs-nyk",
+      status: "queued",
+    });
+
+    const health = checkDatabaseHealth({ integrityCheck: "skip" });
+
+    expect(health).toMatchObject({
+      counts: {
+        watchlistCount: 1,
+      },
+      message:
+        "SQLite database opened; full integrity check skipped for fast readiness.",
+      status: "ok",
+    });
+  });
+
   it("migrates live Polymarket player props to cross-provider canonical instrument IDs", () => {
     const dbPath = process.env.SIGNAL_CONSOLE_DB_PATH;
     if (!dbPath) {

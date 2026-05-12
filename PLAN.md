@@ -34,12 +34,17 @@ Build a real research backend and operator console for live market comparison ac
 - First-class player-prop attribution risk alerts: `/api/v1/research/player-prop-alerts` compares fresh mapped Bet365 props against Kalshi/Polymarket, and the trader desk polls it every five seconds for a popup plus top-of-dashboard review queue
 - Player-prop alert watcher and replay path: `pnpm prop-alert-watch` records every poll frame to JSONL, sends desktop notifications for newly observed alert ids, `/api/v1/research/player-prop-alert-playback` serves the tape, and `/prop-alerts` replays what the watcher saw
 - Odds-API Bet365 backup discovery is bounded to pending/live NBA events around the active target slate before requesting odds for matched event ids
+- Current-slate game ordering keeps live and near-term NBA games ahead of stale historical rows, with stale/missing/final-overdue NBA state called out in Games and Trader Desk
+- NBA sidecar live-scoreboard and schedule CDN fallbacks use browser-compatible NBA headers, keeping active playoff games visible when the default `nba_api` live endpoint is rejected
+- Player-prop divergence visibility now enforces the operator invariant: Bet365 plus at least one comparable Kalshi or Polymarket source, with line-mismatch remaining distinct from comparable probability divergence
+- Settings now exposes runtime-settable environment/config keys, readiness, source health, admin actions, coverage, captures, storage, queued results, and mapping state in dense non-card controls
+- Readiness, worker heartbeat, storage coverage, and research coverage avoid full-DB blocking scans so the full local quote/raw-payload store no longer freezes operator UI surfaces
+- Temporary authenticated local/static hosting is available through `pnpm host:temporary`, suitable for a short-lived Cloudflare tunnel in front of the built web app
 
 ## In Progress
 
 - Running the Mother's Day playoff player-prop alert monitor for the live slate
 - Turning player-prop alerts from a polling read model into a full exposure-aware workflow once bet-intent/liability feeds exist
-- Cutting the pathological `research/signal-mismatches` and coverage/export cost that can still leave heavy research routes slow on the full 4.5M+ quote local DB
 - Tightening the direct public Bet365 capture seam so the repo is not permanently dependent on a backup provider
 - Restoring fresh Bet365 capture; the current local Odds-API path is configured and now target-bounded, but the account is still rate-limited with HTTP 429 until the upstream window resets
 

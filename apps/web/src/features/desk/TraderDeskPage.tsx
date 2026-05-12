@@ -27,6 +27,7 @@ import {
   type PlayerPropAlertsPayload,
   type SignalMismatchesPayload,
 } from "../../data/api";
+import { getGameOperationalState } from "../../lib/game-state";
 import { buildGameTriage, getMarketSources } from "../../lib/game-triage";
 import {
   formatMarketSourceList,
@@ -345,7 +346,7 @@ export function TraderDeskPage() {
     queryFn: getAdminCaptureRuns,
   });
   const storageCoverage = useQuery({
-    enabled: false,
+    enabled: supportingQueriesEnabled,
     queryKey: ["admin-storage-coverage"],
     queryFn: getAdminStorageCoverage,
   });
@@ -384,6 +385,15 @@ export function TraderDeskPage() {
   const gameRows = games.data?.data ?? [];
   const gameTriage = buildGameTriage(gameRows);
   const pressureRows = gameTriage.actionableRows.slice(0, 10);
+  const stateAttentionRows = gameRows
+    .map((game) => ({
+      game,
+      state: getGameOperationalState(game),
+    }))
+    .filter(
+      ({ state }) => state.tone === "critical" || state.tone === "warning"
+    )
+    .slice(0, 5);
   const mismatchRows = signalMismatches.data?.data ?? [];
   const mismatchIndex = buildMismatchIndex(mismatchRows);
   const sourceMap = buildSourceMap(sourceHealth.data?.data ?? []);
@@ -402,10 +412,9 @@ export function TraderDeskPage() {
   const topPropAlert = propAlertRows[0] ?? null;
   const showPropAlertPopup =
     topPropAlert != null && topPropAlert.id !== dismissedPropAlertId;
-  const liveTrackedRows = gameRows.filter((row) => {
-    const status = row.gameState?.status.toLowerCase() ?? "";
-    return status.includes("in-play") || status === "live";
-  }).length;
+  const liveTrackedRows = gameRows.filter(
+    (row) => getGameOperationalState(row).tone === "live"
+  ).length;
   const quoteTicksPersisted = storageCoverage.data
     ? storageCoverage.data.data.reduce(
         (sum, row) => sum + row.quoteTickCount,
@@ -582,6 +591,31 @@ export function TraderDeskPage() {
             {supportingErrorCount === 1 ? "" : "s"} failed. The ranked queue is
             visible, but source health, history, or readiness may be incomplete.
           </Panel>
+        ) : null}
+
+        {stateAttentionRows.length > 0 ? (
+          <section className="ops-state-alert" aria-label="NBA state watch">
+            <div>
+              <span>NBA state watch</span>
+              <strong>
+                {stateAttentionRows.length} stale or missing state row
+                {stateAttentionRows.length === 1 ? "" : "s"}
+              </strong>
+            </div>
+            <div>
+              {stateAttentionRows.map(({ game, state }) => (
+                <Link
+                  className={`ops-state-row ops-state-${state.tone}`}
+                  key={game.game.id}
+                  to={`/games/${game.game.id}`}
+                >
+                  <strong>{formatGameLabel(game)}</strong>
+                  <span>{state.label}</span>
+                  <em>{state.detail}</em>
+                </Link>
+              ))}
+            </div>
+          </section>
         ) : null}
 
         {showPropAlertPopup ? (
@@ -1150,13 +1184,21 @@ export function TraderDeskPage() {
                       const hasNba = hasNbaStateSource(
                         game.coverage.availableSources
                       );
+                      const stateReadout = getGameOperationalState(game);
                       return (
                         <tr key={game.game.id}>
                           <td>
                             <strong>{formatGameLabel(game)}</strong>
                             <span>{game.game.id}</span>
                           </td>
-                          <td>{scoreLine(game)}</td>
+                          <td>
+                            <span
+                              className={`state-label state-label-${stateReadout.tone}`}
+                            >
+                              {stateReadout.label}
+                            </span>
+                            <span>{scoreLine(game)}</span>
+                          </td>
                           <td>
                             {marketSources.length > 0
                               ? formatMarketSourceList(marketSources)

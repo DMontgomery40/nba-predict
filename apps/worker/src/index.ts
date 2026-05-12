@@ -92,7 +92,7 @@ export function buildWorkerHeartbeatSummary(options?: {
     bet365GamesMatched: options?.bet365GamesMatched ?? 0,
     bet365SourceMarketsObserved: options?.bet365SourceMarketsObserved ?? 0,
     capturedAt: now().toISOString(),
-    database: checkDatabaseHealth(),
+    database: checkDatabaseHealth({ integrityCheck: "skip" }),
     dbPath: getDatabasePath(),
     kalshiGamesMatched: options?.kalshiGamesMatched ?? 0,
     kalshiSourceMarketsObserved: options?.kalshiSourceMarketsObserved ?? 0,

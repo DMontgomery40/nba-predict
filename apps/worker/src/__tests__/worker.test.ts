@@ -37,6 +37,7 @@ describe("worker runtime", () => {
 
   it("builds a persistence-aware heartbeat summary for the live worker", () => {
     const summary = buildWorkerHeartbeatSummary({
+      nbaSidecarConfigured: false,
       now: () => new Date("2026-04-21T19:00:00.000Z"),
     });
 

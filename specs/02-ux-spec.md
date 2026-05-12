@@ -3,7 +3,7 @@
 ## Primary Surfaces
 
 - `UX-001` Games index with score, status, source coverage, and a direct path into the top ranked instrument.
-- `UX-002` Divergence explorer with instrument-first rows and filters for family, severity, freshness, and mapping state.
+- `UX-002` Divergence explorer with instrument-first rows and filters for family, severity, freshness, and comparison state. Player-prop rows shown there are Bet365 plus at least one Kalshi/Polymarket comparison, not raw prop inventory.
 - `UX-003` Instrument workspace with current per-source state, timeline, and raw-source inspection.
 - `UX-004` Operations page with live health, readiness, source auth/config status, research mismatch visibility, and coverage summary.
 - `UX-009` Game workspace with market-family switching, grouped instrument rows, per-source comparison cells, and direct links into instrument detail.
@@ -16,6 +16,8 @@
 - `UX-016` The games index shall not dead-end on an empty slate; it shall point the user toward history, exports, and settings when no canonical games are currently visible.
 - `UX-017` The root trader desk shall prioritize player-prop attribution risk above general research: fresh Bet365-vs-prediction-market prop disagreements should appear in a first-panel queue and trigger a dismissible popup that links directly to the instrument workspace.
 - `UX-018` Player-prop alerts shall have a first-class monitor route that shows the current live review queue and the persisted watcher replay tape for the selected date, including which frames fired desktop notifications.
+- `UX-019` Settings shall expose the runtime environment knobs read by the API, worker, adapters, alert watcher, and temporary host. Secrets must be masked, defaults must be visible, and dense tables/native selects should be used instead of cards, pills, chips, or stacked decorative controls.
+- `UX-020` Slate and desk surfaces shall call out stale or missing NBA game state when a scheduled game is inside the expected live/final window, rather than silently displaying an old `scheduled` state.
 
 ## Interaction Rules
 

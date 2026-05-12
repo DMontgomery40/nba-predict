@@ -709,6 +709,30 @@ describe("api routes", () => {
       ]),
     });
 
+    process.env.ODDS_API_KEY = "test-secret-odds-key";
+    const runtimeConfigResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/admin/runtime-config",
+    });
+    expect(runtimeConfigResponse.statusCode).toBe(200);
+    expect(runtimeConfigResponse.json()).toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          configured: true,
+          key: "ODDS_API_KEY",
+          sensitive: true,
+          valuePreview: "configured",
+        }),
+        expect.objectContaining({
+          key: "PLAYER_PROP_ALERT_MIN_DELTA",
+          defaultValue: "0.15",
+        }),
+      ]),
+    });
+    expect(JSON.stringify(runtimeConfigResponse.json())).not.toContain(
+      "test-secret-odds-key"
+    );
+
     const restartResponse = await app.inject({
       method: "POST",
       payload: { source: "bet365" },

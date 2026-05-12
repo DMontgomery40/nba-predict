@@ -57,6 +57,18 @@ Default local ports:
 
 SQLite state is stored at `data/signal-console.sqlite` by default.
 
+Temporary authenticated local hosting:
+
+```bash
+pnpm --filter @signal-console/web build
+BASIC_AUTH_USERNAME=nba BASIC_AUTH_PASSWORD=change-me pnpm host:temporary
+```
+
+The temporary host serves the built web console from `apps/web/dist`, proxies
+`/api` and `/health` to the local Fastify API, and listens on
+`http://127.0.0.1:4210` by default. Put a Cloudflare tunnel in front of that
+single local URL when a short-lived public link is needed.
+
 ## Key Environment
 
 - `SIGNAL_CONSOLE_DB_PATH`
@@ -68,6 +80,7 @@ SQLite state is stored at `data/signal-console.sqlite` by default.
 - `ODDS_API_TARGET_LOOKAHEAD_HOURS` (optional; defaults to `8` for active Bet365 backup event discovery)
 - `ODDS_API_TARGET_LOOKBACK_MINUTES` (optional; defaults to `90` for active Bet365 backup event discovery)
 - `BET365_SESSION_STATE_PATH` (optional legacy bootstrap path)
+- `BET365_INTERNAL_DUMP_DIR` (optional internal JSONL import folder)
 - `KALSHI_API_KEY`
 - `KALSHI_API_SECRET` (optional; not required for direct market-data capture)
 - `KALSHI_LIVE_MAX_EVENTS` (optional; defaults to `200` for bounded live worker cycles)
@@ -75,6 +88,10 @@ SQLite state is stored at `data/signal-console.sqlite` by default.
 - `POLYMARKET_API_KEY`
 - `POLYMARKET_API_SECRET`
 - `POLYMARKET_API_PASSPHRASE`
+- `WORKER_INTERVAL_MS` and `WORKER_MAX_BACKOFF_MS`
+- `PLAYER_PROP_ALERT_LIMIT`, `PLAYER_PROP_ALERT_INCLUDE_STALE`, `PLAYER_PROP_ALERT_PLAYBACK_DIR`, and `PLAYER_PROP_ALERT_TIME_ZONE`
+- `TEMP_HOST_PORT`, `TEMP_HOST_WEB_ROOT`, `TEMP_HOST_API_TARGET`, `BASIC_AUTH_USERNAME`, and `BASIC_AUTH_PASSWORD`
+- `LOG_LEVEL`, `LOG_PRETTY`, `NODE_ENV`, and `CI`
 
 ## Quality Gates
 
@@ -89,7 +106,7 @@ cd apps/nba-sidecar && uv run pytest
 
 - `GET /health/live`
 - `GET /health/ready`
-- `GET /api/v1/games`
+- `GET /api/v1/games?limit=N` (defaults to 25 and orders the undated list by the current slate before old persisted history)
 - `GET /api/v1/games/:gameId`
 - `GET /api/v1/games/:gameId/markets`
 - `GET /api/v1/games/:gameId/markets/:instrumentId`
@@ -108,9 +125,16 @@ cd apps/nba-sidecar && uv run pytest
 - `GET /api/v1/research/player-prop-alert-playback?date=YYYY-MM-DD&limit=300`
 - `GET /api/v1/research/signal-quality?closingCutoff=pregame|live-final`
 - `GET /api/v1/research/closed-games?closingCutoff=pregame|live-final&limit=N`
+
+For `family=player-prop`, divergence rows are actionable comparison rows only:
+Bet365 must have a latest implied-probability quote and at least one latest
+Kalshi or Polymarket implied-probability quote for the same canonical
+instrument.
+
 - `GET /api/v1/games/:gameId/markets/:instrumentId/delta-series?bucketSeconds=60`
 - `GET /api/v1/games/:gameId/markets/:instrumentId/lead-lag?bucketSeconds=60&maxLagBuckets=20`
 - `GET /api/v1/admin/sources`
+- `GET /api/v1/admin/runtime-config`
 - `GET /api/v1/admin/unmapped-markets`
 
 ## Historical Backfill

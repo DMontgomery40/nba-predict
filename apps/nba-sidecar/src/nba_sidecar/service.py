@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from nba_api.live.nba.endpoints import boxscore, playbyplay, scoreboard
 from nba_api.stats.endpoints import scoreboardv2
@@ -17,6 +18,16 @@ from .normalizers import (
 )
 
 NBA_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
+NBA_LIVE_SCOREBOARD_CDN_URL = (
+    "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
+)
+NBA_CDN_HEADERS = {
+    "Referer": "https://www.nba.com/",
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    ),
+}
 
 
 @dataclass(slots=True)
@@ -39,14 +50,23 @@ class NbaSidecarService:
 
             return self.get_schedule_scoreboard(requested_date)
 
-        payload = scoreboard.ScoreBoard().get_dict()
+        try:
+            payload = scoreboard.ScoreBoard().get_dict()
+        except Exception:
+            payload = self.get_live_scoreboard_payload()
         return normalize_live_scoreboard_payload(payload, requested_date=requested_date)
 
-    def get_schedule_scoreboard(self, requested_date: str) -> ScoreboardResponse:
-        with urlopen(NBA_SCHEDULE_CDN_URL, timeout=30) as response:
+    def get_live_scoreboard_payload(self) -> dict:
+        request = Request(NBA_LIVE_SCOREBOARD_CDN_URL, headers=NBA_CDN_HEADERS)
+        with urlopen(request, timeout=30) as response:
             payload = response.read()
 
-        import json
+        return json.loads(payload)
+
+    def get_schedule_scoreboard(self, requested_date: str) -> ScoreboardResponse:
+        request = Request(NBA_SCHEDULE_CDN_URL, headers=NBA_CDN_HEADERS)
+        with urlopen(request, timeout=30) as response:
+            payload = response.read()
 
         return normalize_schedule_league_payload(
             json.loads(payload), requested_date=requested_date

@@ -49,7 +49,7 @@ export function buildReadinessPayload(context?: { logger?: HealthLogger }) {
   const logger =
     context?.logger ?? createAppLogger({ component: "api-readiness" });
   const checks: HealthCheck[] = [];
-  const dbHealth = checkDatabaseHealth();
+  const dbHealth = checkDatabaseHealth({ integrityCheck: "skip" });
 
   checks.push({
     details: {

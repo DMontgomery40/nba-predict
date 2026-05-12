@@ -8,6 +8,7 @@ import {
 import { parseWithSchema } from "../lib/http";
 import {
   getAdminCaptureRunsPayload,
+  getAdminRuntimeConfigPayload,
   getAdminSourcesPayload,
   getAdminUnmappedMarketsPayload,
   getStorageCoveragePayload,
@@ -30,6 +31,12 @@ export async function registerAdminRoutes(app: FastifyInstance) {
   app.get("/api/v1/admin/capture/runs", async (request) => {
     return getAdminCaptureRunsPayload({
       logger: request.log.child({ route: "admin-capture-runs" }),
+    });
+  });
+
+  app.get("/api/v1/admin/runtime-config", async (request) => {
+    return getAdminRuntimeConfigPayload({
+      logger: request.log.child({ route: "admin-runtime-config" }),
     });
   });
 

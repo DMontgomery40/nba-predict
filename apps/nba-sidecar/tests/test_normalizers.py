@@ -275,3 +275,66 @@ def test_service_falls_back_to_schedule_when_stats_scoreboard_is_empty(monkeypat
 
     assert len(normalized.games) == 1
     assert normalized.games[0].game.id == "nba-0042500224"
+
+
+def test_service_falls_back_to_cdn_when_live_scoreboard_rejects_default_request(
+    monkeypatch,
+) -> None:
+    class BrokenLiveScoreboard:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        def get_dict(self) -> dict:
+            raise ValueError("NBA live request rejected")
+
+    class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"""
+            {
+              "meta": {"time": "2026-05-12 04:53:32.5332", "code": 200},
+              "scoreboard": {
+                "gameDate": "2026-05-11",
+                "games": [
+                  {
+                    "awayTeam": {
+                      "score": 92,
+                      "teamCity": "Oklahoma City",
+                      "teamName": "Thunder",
+                      "teamTricode": "OKC"
+                    },
+                    "gameClock": "PT08M37.00S",
+                    "gameId": "0042500224",
+                    "gameStatus": 2,
+                    "gameStatusText": "Q4 8:37",
+                    "gameTimeUTC": "2026-05-12T02:30:00Z",
+                    "homeTeam": {
+                      "score": 96,
+                      "teamCity": "Los Angeles",
+                      "teamName": "Lakers",
+                      "teamTricode": "LAL"
+                    },
+                    "period": 4
+                  }
+                ]
+              }
+            }
+            """
+
+    monkeypatch.setattr("nba_sidecar.service.scoreboard.ScoreBoard", BrokenLiveScoreboard)
+    monkeypatch.setattr("nba_sidecar.service.is_today", lambda _requested_date: True)
+    monkeypatch.setattr(
+        "nba_sidecar.service.urlopen", lambda *_args, **_kwargs: FakeResponse()
+    )
+
+    normalized = NbaSidecarService().get_scoreboard("2026-05-11")
+
+    assert len(normalized.games) == 1
+    assert normalized.games[0].game.id == "nba-0042500224"
+    assert normalized.games[0].gameState.status == "in-play"
+    assert normalized.games[0].gameState.homeScore == 96

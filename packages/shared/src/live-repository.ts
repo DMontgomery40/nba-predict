@@ -297,6 +297,31 @@ function computeSignalPriority(
   return Math.max(0, gapScore + coverageBonus + mismatchPenalty + inPlayBonus);
 }
 
+function sourceHasProbability(source: LatestSourceView) {
+  return typeof source.impliedProbability === "number";
+}
+
+function quotedResearchSources(latestSources: LatestSourceView[]) {
+  return uniqueResearchSources(
+    latestSources.filter(sourceHasProbability).map((source) => source.source)
+  );
+}
+
+function hasPlayerPropComparisonSource(latestSources: LatestSourceView[]) {
+  const sources = new Set(quotedResearchSources(latestSources));
+  return (
+    sources.has("bet365") &&
+    (sources.has("kalshi") || sources.has("polymarket"))
+  );
+}
+
+function isVisibleDivergenceInstrument(instrumentView: MarketInstrumentView) {
+  return (
+    instrumentView.instrument.family !== "player-prop" ||
+    hasPlayerPropComparisonSource(instrumentView.sources)
+  );
+}
+
 function uniqueResearchSources(
   sources: Iterable<ResearchSourceId>,
   options?: { includeNba?: boolean }
@@ -498,7 +523,13 @@ function selectLatestGameState(db: Database.Database, gameId: string) {
             final_at AS finalAt
           FROM game_states
           WHERE game_id = ?
-          ORDER BY captured_at DESC, id DESC
+          ORDER BY
+            CASE
+              WHEN datetime(captured_at) > datetime('now', '+10 minutes') THEN 1
+              ELSE 0
+            END,
+            datetime(captured_at) DESC,
+            id DESC
           LIMIT 1
         `
       )
@@ -580,6 +611,14 @@ function selectSourceMarketsForGame(db: Database.Database, gameId: string) {
     .map((row) => rowToSourceMarket(row as Record<string, unknown>));
 }
 
+function chunkValues<T>(values: T[], chunkSize: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += chunkSize) {
+    chunks.push(values.slice(index, index + chunkSize));
+  }
+  return chunks;
+}
+
 function selectLatestTicksBySourceMarketIds(
   db: Database.Database,
   sourceMarketIds: string[]
@@ -589,35 +628,42 @@ function selectLatestTicksBySourceMarketIds(
     return latest;
   }
 
-  const latestTick = db.prepare(
-    `
+  for (const chunk of chunkValues(sourceMarketIds, 500)) {
+    const placeholders = chunk.map(() => "?").join(", ");
+    const rows = db
+      .prepare(
+        `
         SELECT
-          id,
-          source_market_id AS sourceMarketId,
-          captured_at AS capturedAt,
-          price_raw AS priceRaw,
-          odds_raw AS oddsRaw,
-          line_raw AS lineRaw,
-          implied_probability AS impliedProbability,
-          best_bid AS bestBid,
-          best_ask AS bestAsk,
-          volume,
-          depth_score AS depthScore,
-          is_heartbeat AS isHeartbeat
-        FROM quote_ticks
-        WHERE source_market_id = ?
-        ORDER BY captured_at DESC, id DESC
-        LIMIT 1
+          q.id,
+          q.source_market_id AS sourceMarketId,
+          q.captured_at AS capturedAt,
+          q.price_raw AS priceRaw,
+          q.odds_raw AS oddsRaw,
+          q.line_raw AS lineRaw,
+          q.implied_probability AS impliedProbability,
+          q.best_bid AS bestBid,
+          q.best_ask AS bestAsk,
+          q.volume,
+          q.depth_score AS depthScore,
+          q.is_heartbeat AS isHeartbeat
+        FROM source_markets sm
+        JOIN quote_ticks q ON q.id = (
+          SELECT q2.id
+          FROM quote_ticks q2
+          WHERE q2.source_market_id = sm.id
+          ORDER BY q2.captured_at DESC, q2.id DESC
+          LIMIT 1
+        )
+        WHERE sm.id IN (${placeholders})
       `
-  );
+      )
+      .all(...chunk) as Record<string, unknown>[];
 
-  for (const sourceMarketId of sourceMarketIds) {
-    const row = latestTick.get(sourceMarketId) as
-      | Record<string, unknown>
-      | undefined;
-    const tick = row ? rowToQuoteTick(row) : null;
-    if (tick) {
-      latest.set(tick.sourceMarketId, tick);
+    for (const row of rows) {
+      const tick = rowToQuoteTick(row);
+      if (tick) {
+        latest.set(tick.sourceMarketId, tick);
+      }
     }
   }
 
@@ -626,38 +672,46 @@ function selectLatestTicksBySourceMarketIds(
 
 function selectLatestRawPayloadsBySourceMarketIds(
   db: Database.Database,
-  sourceMarketIds: string[]
+  sourceMarketIds: string[],
+  options: { includePayloadJson?: boolean } = { includePayloadJson: true }
 ) {
   const latest = new Map<string, RawPayloadAttachment>();
   if (sourceMarketIds.length === 0) {
     return latest;
   }
 
-  const latestPayload = db.prepare(
-    `
+  for (const chunk of chunkValues(sourceMarketIds, 500)) {
+    const placeholders = chunk.map(() => "?").join(", ");
+    const rows = db
+      .prepare(
+        `
         SELECT
-          id,
-          source,
-          captured_at AS capturedAt,
-          entity_type AS entityType,
-          entity_id AS entityId,
-          payload_json AS payloadJson,
-          content_hash AS contentHash
-        FROM raw_payloads
-        WHERE entity_type = 'source_market'
-          AND entity_id = ?
-        ORDER BY captured_at DESC, id DESC
-        LIMIT 1
+          rp.id,
+          rp.source,
+          rp.captured_at AS capturedAt,
+          rp.entity_type AS entityType,
+          rp.entity_id AS entityId,
+          ${options.includePayloadJson ? "rp.payload_json" : "'{}'"} AS payloadJson,
+          rp.content_hash AS contentHash
+        FROM source_markets sm
+        JOIN raw_payloads rp ON rp.id = (
+          SELECT rp2.id
+          FROM raw_payloads rp2
+          WHERE rp2.entity_type = 'source_market'
+            AND rp2.entity_id = sm.id
+          ORDER BY rp2.captured_at DESC, rp2.id DESC
+          LIMIT 1
+        )
+        WHERE sm.id IN (${placeholders})
       `
-  );
+      )
+      .all(...chunk) as Record<string, unknown>[];
 
-  for (const sourceMarketId of sourceMarketIds) {
-    const row = latestPayload.get(sourceMarketId) as
-      | Record<string, unknown>
-      | undefined;
-    const payload = row ? rowToRawPayload(row) : null;
-    if (payload) {
-      latest.set(payload.entityId, payload);
+    for (const row of rows) {
+      const payload = rowToRawPayload(row);
+      if (payload) {
+        latest.set(payload.entityId, payload);
+      }
     }
   }
 
@@ -790,6 +844,7 @@ function buildDivergenceRow(
     mappingStatus: instrumentView.mappingStatus,
     severity,
     signalPriority: instrumentView.signalPriority,
+    sources: quotedResearchSources(instrumentView.sources),
     sport: game.sport,
   } satisfies DivergenceRow;
 }
@@ -870,6 +925,7 @@ function buildGameCard(
   );
 
   const topDivergences = instrumentViews
+    .filter(isVisibleDivergenceInstrument)
     .map((instrumentView) => {
       const divergence = buildDivergenceRow(bundle.game, instrumentView);
       return {
@@ -911,7 +967,10 @@ type ResearchDivergenceEntry = {
 
 function selectFilteredGameBundles(
   db: Database.Database,
-  filters: Pick<GamesFilters, "date" | "league" | "limit" | "sport">
+  filters: Pick<GamesFilters, "date" | "league" | "limit" | "sport"> & {
+    family?: MarketFamily;
+    order?: "currentSlate" | "scheduledAsc";
+  }
 ) {
   const clauses: string[] = [];
   const params: unknown[] = [];
@@ -928,6 +987,44 @@ function selectFilteredGameBundles(
     clauses.push("substr(scheduled_start, 1, 10) = ?");
     params.push(filters.date);
   }
+  if (filters.family) {
+    clauses.push(
+      "EXISTS (SELECT 1 FROM market_instruments mi WHERE mi.game_id = games.id AND mi.family = ?)"
+    );
+    params.push(filters.family);
+  }
+
+  const orderBy =
+    filters.order === "currentSlate"
+      ? `
+        ORDER BY
+          CASE
+            WHEN (
+              SELECT gs.status
+              FROM game_states gs
+              WHERE gs.game_id = games.id
+              ORDER BY
+                CASE
+                  WHEN datetime(gs.captured_at) > datetime('now', '+10 minutes') THEN 1
+                  ELSE 0
+                END,
+                datetime(gs.captured_at) DESC,
+                gs.id DESC
+              LIMIT 1
+            ) = 'in-play'
+              THEN 0
+            WHEN datetime(scheduled_start) >= datetime('now', '-8 hours')
+              AND datetime(scheduled_start) <= datetime('now', '+48 hours')
+              THEN 1
+            WHEN datetime(scheduled_start) >= datetime('now', '-8 hours')
+              THEN 2
+            ELSE 3
+          END,
+          ABS(strftime('%s', scheduled_start) - strftime('%s', 'now')) ASC,
+          scheduled_start ASC,
+          id ASC
+      `
+      : "ORDER BY scheduled_start ASC, id ASC";
 
   const gameRows = db
     .prepare(
@@ -942,7 +1039,7 @@ function selectFilteredGameBundles(
           scheduled_start AS scheduledStart
         FROM games
         ${clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : ""}
-        ORDER BY scheduled_start ASC, id ASC
+        ${orderBy}
         ${
           filters.limit != null && Number.isFinite(filters.limit)
             ? `LIMIT ${Math.min(500, Math.max(1, Math.floor(filters.limit)))}`
@@ -975,7 +1072,13 @@ function selectFilteredGameBundles(
             final_at AS finalAt,
             ROW_NUMBER() OVER (
               PARTITION BY game_id
-              ORDER BY captured_at DESC, id DESC
+              ORDER BY
+                CASE
+                  WHEN datetime(captured_at) > datetime('now', '+10 minutes') THEN 1
+                  ELSE 0
+                END,
+                datetime(captured_at) DESC,
+                id DESC
             ) AS rn
           FROM game_states
           WHERE game_id IN (${gamePlaceholders})
@@ -1010,6 +1113,13 @@ function selectFilteredGameBundles(
     if (outcome) outcomeByGame.set(outcome.gameId, outcome);
   }
 
+  const instrumentClauses = [`game_id IN (${gamePlaceholders})`];
+  const instrumentParams: unknown[] = [...gameIds];
+  if (filters.family) {
+    instrumentClauses.push("family = ?");
+    instrumentParams.push(filters.family);
+  }
+
   const instrumentRows = db
     .prepare(
       `
@@ -1023,11 +1133,11 @@ function selectFilteredGameBundles(
           in_play AS inPlay,
           display_label AS displayLabel
         FROM market_instruments
-        WHERE game_id IN (${gamePlaceholders})
+        WHERE ${instrumentClauses.join(" AND ")}
         ORDER BY display_label ASC
       `
     )
-    .all(...gameIds) as Record<string, unknown>[];
+    .all(...instrumentParams) as Record<string, unknown>[];
   const instrumentsByGame = new Map<string, MarketInstrument[]>();
   for (const row of instrumentRows) {
     const instrument = rowToInstrument(row);
@@ -1036,25 +1146,36 @@ function selectFilteredGameBundles(
     instrumentsByGame.set(instrument.gameId, list);
   }
 
+  const sourceMarketFamilyJoin = filters.family
+    ? "JOIN market_instruments mi ON mi.id = sm.instrument_id"
+    : "";
+  const sourceMarketClauses = [`sm.game_id IN (${gamePlaceholders})`];
+  const sourceMarketParams: unknown[] = [...gameIds];
+  if (filters.family) {
+    sourceMarketClauses.push("mi.family = ?");
+    sourceMarketParams.push(filters.family);
+  }
+
   const sourceMarketRows = db
     .prepare(
       `
         SELECT
-          id,
-          source,
-          source_market_key AS sourceMarketKey,
-          source_selection_key AS sourceSelectionKey,
-          game_id AS gameId,
-          instrument_id AS instrumentId,
-          raw_family AS rawFamily,
-          raw_label AS rawLabel,
-          mapping_status AS mappingStatus,
-          raw_metadata_json AS rawMetadataJson
-        FROM source_markets
-        WHERE game_id IN (${gamePlaceholders})
+          sm.id,
+          sm.source,
+          sm.source_market_key AS sourceMarketKey,
+          sm.source_selection_key AS sourceSelectionKey,
+          sm.game_id AS gameId,
+          sm.instrument_id AS instrumentId,
+          sm.raw_family AS rawFamily,
+          sm.raw_label AS rawLabel,
+          sm.mapping_status AS mappingStatus,
+          sm.raw_metadata_json AS rawMetadataJson
+        FROM source_markets sm
+        ${sourceMarketFamilyJoin}
+        WHERE ${sourceMarketClauses.join(" AND ")}
       `
     )
-    .all(...gameIds) as Record<string, unknown>[];
+    .all(...sourceMarketParams) as Record<string, unknown>[];
   const sourceMarketsByGame = new Map<string, SourceMarket[]>();
   const allSourceMarketIds: string[] = [];
   for (const row of sourceMarketRows) {
@@ -1071,7 +1192,8 @@ function selectFilteredGameBundles(
   );
   const latestPayloads = selectLatestRawPayloadsBySourceMarketIds(
     db,
-    allSourceMarketIds
+    allSourceMarketIds,
+    { includePayloadJson: false }
   );
 
   return gameRows
@@ -1122,6 +1244,7 @@ function buildResearchDivergenceEntries(filters: DivergenceFilters = {}) {
   const db = getDatabase();
   let entries = selectFilteredGameBundles(db, {
     date: filters.date,
+    family: filters.family,
     league: filters.league,
     sport: filters.sport,
   }).flatMap((bundle) =>
@@ -1138,7 +1261,7 @@ function buildResearchDivergenceEntries(filters: DivergenceFilters = {}) {
         }
         return true;
       })
-      .map((instrument) => {
+      .flatMap((instrument) => {
         const instrumentView = buildMarketInstrumentView(
           instrument,
           bundle.sourceMarkets.filter(
@@ -1148,11 +1271,17 @@ function buildResearchDivergenceEntries(filters: DivergenceFilters = {}) {
           bundle.latestPayloads
         );
 
-        return {
-          bundle,
-          instrumentView,
-          row: buildDivergenceRow(bundle.game, instrumentView),
-        } satisfies ResearchDivergenceEntry;
+        if (!isVisibleDivergenceInstrument(instrumentView)) {
+          return [];
+        }
+
+        return [
+          {
+            bundle,
+            instrumentView,
+            row: buildDivergenceRow(bundle.game, instrumentView),
+          } satisfies ResearchDivergenceEntry,
+        ];
       })
   );
 
@@ -2252,6 +2381,7 @@ export function listResearchGames(filters: GamesFilters = {}) {
         date: filters.date,
         league: filters.league,
         limit: hasPostBundleFilter ? undefined : filters.limit,
+        order: filters.date ? "scheduledAsc" : "currentSlate",
         sport: filters.sport,
       })
         .map((bundle) => buildGameCard(bundle))
@@ -2856,48 +2986,199 @@ export function listSignalMismatches(filters: DivergenceFilters = {}) {
 export function getResearchCoverage() {
   return executeDatabaseOperation("research.coverage.get", () => {
     const db = getDatabase();
-    const cards = listResearchGames();
-    const rows: CoverageRow[] = [];
+    const gameRows = db
+      .prepare(
+        `
+          SELECT
+            id,
+            sport,
+            league
+          FROM games
+          ORDER BY
+            CASE
+              WHEN datetime(scheduled_start) >= datetime('now', '-8 hours')
+                AND datetime(scheduled_start) <= datetime('now', '+48 hours')
+                THEN 0
+              WHEN datetime(scheduled_start) >= datetime('now', '-8 hours')
+                THEN 1
+              ELSE 2
+            END,
+            ABS(strftime('%s', scheduled_start) - strftime('%s', 'now')) ASC,
+            scheduled_start ASC,
+            id ASC
+          LIMIT 25
+        `
+      )
+      .all() as Array<{ id: string; league: string; sport: string }>;
+    if (gameRows.length === 0) {
+      return [];
+    }
 
-    for (const card of cards) {
-      const bundle = selectGameBundle(db, card.game.id);
-      if (!bundle) {
-        continue;
+    const gameIds = gameRows.map((row) => row.id);
+    const gamePlaceholders = gameIds.map(() => "?").join(", ");
+    const instrumentsByGame = new Map<
+      string,
+      Array<{ family: MarketFamily; id: string }>
+    >();
+    const sourceMarketsByGame = new Map<string, SourceMarket[]>();
+    const stateGameIds = new Set<string>(
+      (
+        db
+          .prepare(
+            `
+              SELECT DISTINCT game_id AS gameId
+              FROM game_states
+              WHERE game_id IN (${gamePlaceholders})
+            `
+          )
+          .all(...gameIds) as Array<{ gameId: string }>
+      ).map((row) => row.gameId)
+    );
+    const outcomeGameIds = new Set<string>(
+      (
+        db
+          .prepare(
+            `
+              SELECT game_id AS gameId
+              FROM game_outcomes
+              WHERE game_id IN (${gamePlaceholders})
+            `
+          )
+          .all(...gameIds) as Array<{ gameId: string }>
+      ).map((row) => row.gameId)
+    );
+
+    for (const row of db
+      .prepare(
+        `
+          SELECT
+            id,
+            game_id AS gameId,
+            family
+          FROM market_instruments
+          WHERE game_id IN (${gamePlaceholders})
+          ORDER BY display_label ASC
+        `
+      )
+      .all(...gameIds) as Array<{
+      family: MarketFamily;
+      gameId: string;
+      id: string;
+    }>) {
+      const existing = instrumentsByGame.get(row.gameId) ?? [];
+      existing.push({ family: row.family, id: row.id });
+      instrumentsByGame.set(row.gameId, existing);
+    }
+
+    for (const row of db
+      .prepare(
+        `
+          SELECT
+            id,
+            source,
+            game_id AS gameId,
+            instrument_id AS instrumentId,
+            raw_family AS rawFamily,
+            mapping_status AS mappingStatus
+          FROM source_markets
+          WHERE game_id IN (${gamePlaceholders})
+          ORDER BY source ASC, raw_label ASC, source_market_key ASC
+        `
+      )
+      .all(...gameIds) as Array<{
+      gameId: string;
+      id: string;
+      instrumentId: string | null;
+      mappingStatus: MappingStatus;
+      rawFamily: string | null;
+      source: ResearchSourceId;
+    }>) {
+      const sourceMarket = {
+        gameId: row.gameId,
+        id: row.id,
+        instrumentId: row.instrumentId,
+        mappingStatus: row.mappingStatus,
+        rawFamily: row.rawFamily,
+        rawLabel: null,
+        rawMetadata: null,
+        source: row.source,
+        sourceMarketKey: row.id,
+        sourceSelectionKey: null,
+      } satisfies SourceMarket;
+      const existing = sourceMarketsByGame.get(row.gameId) ?? [];
+      existing.push(sourceMarket);
+      sourceMarketsByGame.set(row.gameId, existing);
+    }
+
+    const rows: CoverageRow[] = [];
+    const maxRows = 500;
+    const pushCoverageRow = (row: CoverageRow) => {
+      if (rows.length < maxRows) {
+        rows.push(row);
+      }
+    };
+
+    for (const game of gameRows) {
+      if (rows.length >= maxRows) {
+        break;
+      }
+      const sourceMarkets = sourceMarketsByGame.get(game.id) ?? [];
+      const sourceMarketsByInstrument = new Map<string, SourceMarket[]>();
+      for (const sourceMarket of sourceMarkets) {
+        if (sourceMarket.instrumentId == null) {
+          continue;
+        }
+        const existing =
+          sourceMarketsByInstrument.get(sourceMarket.instrumentId) ?? [];
+        existing.push(sourceMarket);
+        sourceMarketsByInstrument.set(sourceMarket.instrumentId, existing);
       }
 
-      rows.push({
-        availableSources: card.coverage.availableSources,
-        gameId: card.game.id,
-        league: card.game.league,
-        missingSources: card.coverage.missingSources,
-        sport: card.game.sport,
+      const hasNbaState =
+        stateGameIds.has(game.id) || outcomeGameIds.has(game.id);
+      const gameCoverageSources = buildCoverageSources(sourceMarkets);
+      const gameAvailableSources = hasNbaState
+        ? uniqueResearchSources(
+            [...gameCoverageSources.availableSources, "nba"],
+            { includeNba: true }
+          )
+        : gameCoverageSources.availableSources;
+
+      pushCoverageRow({
+        availableSources: gameAvailableSources,
+        gameId: game.id,
+        league: game.league,
+        missingSources: researchSourceIds.filter(
+          (sourceId) => !gameAvailableSources.includes(sourceId)
+        ),
+        sport: game.sport,
         unmappedSources: uniqueResearchSources(
-          bundle.sourceMarkets
+          sourceMarkets
             .filter((sourceMarket) => sourceMarket.mappingStatus === "unmapped")
             .map((sourceMarket) => sourceMarket.source)
         ),
       });
 
-      for (const instrumentView of listGameMarkets(card.game.id)) {
+      for (const instrument of instrumentsByGame.get(game.id) ?? []) {
+        if (rows.length >= maxRows) {
+          break;
+        }
         const coverageSources = buildCoverageSources(
-          bundle.sourceMarkets.filter(
-            (sourceMarket) =>
-              sourceMarket.instrumentId === instrumentView.instrument.id
-          )
+          sourceMarketsByInstrument.get(instrument.id) ?? []
         );
-        rows.push({
+        pushCoverageRow({
           availableSources: coverageSources.availableSources,
-          family: instrumentView.instrument.family,
-          gameId: card.game.id,
-          instrumentId: instrumentView.instrument.id,
-          league: card.game.league,
+          family: instrument.family,
+          gameId: game.id,
+          instrumentId: instrument.id,
+          league: game.league,
           missingSources: coverageSources.missingSources,
-          sport: card.game.sport,
+          sport: game.sport,
           unmappedSources: coverageSources.unmappedSources,
         });
       }
 
-      const orphanUnmappedMarkets = bundle.sourceMarkets.filter(
+      const orphanUnmappedMarkets = sourceMarkets.filter(
         (sourceMarket) =>
           sourceMarket.instrumentId == null &&
           sourceMarket.mappingStatus === "unmapped"
@@ -2912,15 +3193,18 @@ export function getResearchCoverage() {
       }
 
       for (const [family, sourceMarkets] of orphanGroups) {
+        if (rows.length >= maxRows) {
+          break;
+        }
         const coverageSources = buildCoverageSources(sourceMarkets);
-        rows.push({
+        pushCoverageRow({
           availableSources: coverageSources.availableSources,
           family,
-          gameId: card.game.id,
+          gameId: game.id,
           instrumentId: null,
-          league: card.game.league,
+          league: game.league,
           missingSources: coverageSources.missingSources,
-          sport: card.game.sport,
+          sport: game.sport,
           unmappedSources: coverageSources.unmappedSources,
         });
       }
@@ -3237,23 +3521,53 @@ export function getStorageCoverage() {
     return db
       .prepare(
         `
+          WITH selected_source_markets AS (
+            SELECT
+              sm.id AS sourceMarketId,
+              sm.source AS source,
+              g.sport AS sport,
+              g.league AS league,
+              g.id AS gameId,
+              g.scheduled_start AS scheduledStart,
+              mi.family AS family
+            FROM source_markets sm
+            JOIN games g ON g.id = sm.game_id
+            LEFT JOIN market_instruments mi ON mi.id = sm.instrument_id
+            ORDER BY
+              CASE
+                WHEN datetime(g.scheduled_start) >= datetime('now', '-8 hours')
+                  AND datetime(g.scheduled_start) <= datetime('now', '+48 hours')
+                  THEN 0
+                WHEN datetime(g.scheduled_start) >= datetime('now', '-8 hours')
+                  THEN 1
+                ELSE 2
+              END,
+              ABS(strftime('%s', g.scheduled_start) - strftime('%s', 'now')) ASC,
+              g.scheduled_start ASC,
+              sm.source ASC
+            LIMIT 1000
+          )
           SELECT
-            sm.source AS source,
-            g.sport AS sport,
-            g.league AS league,
-            g.id AS gameId,
-            mi.family AS family,
-            COUNT(DISTINCT sm.id) AS sourceMarketCount,
-            COUNT(DISTINCT qt.id) AS quoteTickCount,
-            COUNT(DISTINCT rp.id) AS rawPayloadCount
-          FROM source_markets sm
-          JOIN games g ON g.id = sm.game_id
-          LEFT JOIN market_instruments mi ON mi.id = sm.instrument_id
-          LEFT JOIN quote_ticks qt ON qt.source_market_id = sm.id
-          LEFT JOIN raw_payloads rp
-            ON rp.entity_type = 'source_market' AND rp.entity_id = sm.id
-          GROUP BY sm.source, g.sport, g.league, g.id, mi.family
-          ORDER BY g.scheduled_start ASC, sm.source ASC
+            ssm.source AS source,
+            ssm.sport AS sport,
+            ssm.league AS league,
+            ssm.gameId AS gameId,
+            ssm.family AS family,
+            COUNT(ssm.sourceMarketId) AS sourceMarketCount,
+            SUM((
+              SELECT COUNT(*)
+              FROM quote_ticks qt
+              WHERE qt.source_market_id = ssm.sourceMarketId
+            )) AS quoteTickCount,
+            SUM((
+              SELECT COUNT(*)
+              FROM raw_payloads rp
+              WHERE rp.entity_type = 'source_market'
+                AND rp.entity_id = ssm.sourceMarketId
+            )) AS rawPayloadCount
+          FROM selected_source_markets ssm
+          GROUP BY ssm.source, ssm.sport, ssm.league, ssm.gameId, ssm.family
+          ORDER BY MIN(ssm.scheduledStart) ASC, ssm.source ASC
         `
       )
       .all()

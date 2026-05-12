@@ -89,6 +89,7 @@ async function request<T>(
 
   try {
     response = await fetch(path, {
+      credentials: "same-origin",
       headers: {
         "Content-Type": "application/json",
         ...(init?.headers ?? {}),
@@ -192,6 +193,7 @@ export type GamesPayload = {
     };
     gameState?: {
       awayScore?: number | null;
+      capturedAt?: string | null;
       clock?: string | null;
       homeScore?: number | null;
       period?: number | null;
@@ -509,6 +511,7 @@ export type DivergencePayload = {
     mappingStatus: string;
     severity: string;
     signalPriority: number;
+    sources: string[];
   }>;
   meta: {
     generatedAt: string;
@@ -643,6 +646,33 @@ export type AdminSourcesPayload = {
     source: string;
     status: "error" | "ok";
     subscriptionState?: string;
+  }>;
+  meta: {
+    generatedAt: string;
+  };
+};
+
+export type AdminRuntimeConfigPayload = {
+  data: Array<{
+    category: string;
+    configured: boolean;
+    defaultValue?: string | null;
+    description: string;
+    inputType:
+      | "boolean"
+      | "number"
+      | "password"
+      | "path"
+      | "select"
+      | "text"
+      | "url";
+    key: string;
+    label: string;
+    options?: string[];
+    restartRequired: boolean;
+    sensitive: boolean;
+    source: "env";
+    valuePreview?: string | null;
   }>;
   meta: {
     generatedAt: string;
@@ -887,6 +917,10 @@ export function getAdminSources() {
 
 export function getAdminCaptureRuns() {
   return request<AdminCaptureRunsPayload>("/api/v1/admin/capture/runs");
+}
+
+export function getAdminRuntimeConfig() {
+  return request<AdminRuntimeConfigPayload>("/api/v1/admin/runtime-config");
 }
 
 export function getAdminStorageCoverage() {

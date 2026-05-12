@@ -302,6 +302,7 @@ export type DivergenceRow = {
   mappingStatus: MappingStatus;
   lineMismatch: boolean;
   impliedProbabilityGap?: number | null;
+  sources: ResearchSourceId[];
   signalPriority: number;
   captureRecencyMs?: number | null;
   severity: SeverityBand;
@@ -406,6 +407,28 @@ export type AdminSourceHealth = {
   currentBackoffMs?: number | null;
   subscriptionState?: "active" | "inactive" | "unknown";
   status: "ok" | "error";
+};
+
+export type AdminRuntimeConfigItem = {
+  category: string;
+  configured: boolean;
+  defaultValue?: string | null;
+  description: string;
+  inputType:
+    | "boolean"
+    | "number"
+    | "password"
+    | "path"
+    | "select"
+    | "text"
+    | "url";
+  key: string;
+  label: string;
+  options?: string[];
+  restartRequired: boolean;
+  sensitive: boolean;
+  source: "env";
+  valuePreview?: string | null;
 };
 
 export type AdminUnmappedMarket = {

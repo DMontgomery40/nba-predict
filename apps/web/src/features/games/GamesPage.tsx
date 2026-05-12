@@ -5,6 +5,7 @@ import { ErrorState, LoadingState } from "../../components/ErrorState";
 import { PageFrame } from "../../components/PageFrame";
 import { Panel, SectionTitle } from "../../components/Primitives";
 import { getGames } from "../../data/api";
+import { getGameOperationalState } from "../../lib/game-state";
 import {
   buildGameTriage,
   getMarketSources,
@@ -76,6 +77,15 @@ export function GamesPage() {
 
   const triage = buildGameTriage(games.data.data);
   const visibleRows = triage.actionableRows.slice(0, 80);
+  const stateAttentionRows = games.data.data
+    .map((entry) => ({
+      entry,
+      state: getGameOperationalState(entry),
+    }))
+    .filter(
+      ({ state }) => state.tone === "critical" || state.tone === "warning"
+    )
+    .slice(0, 6);
 
   return (
     <PageFrame>
@@ -112,6 +122,31 @@ export function GamesPage() {
           <em>ranked by divergence, source coverage, instruments</em>
         </div>
       </div>
+
+      {stateAttentionRows.length > 0 ? (
+        <section className="state-attention-strip">
+          <header>
+            <span>NBA state watch</span>
+            <strong>
+              {stateAttentionRows.length} game
+              {stateAttentionRows.length === 1 ? "" : "s"} need attention
+            </strong>
+          </header>
+          <div>
+            {stateAttentionRows.map(({ entry, state }) => (
+              <Link
+                className={`state-attention-row state-attention-${state.tone}`}
+                key={entry.game.id}
+                to={`/games/${entry.game.id}`}
+              >
+                <strong>{formatGameName(entry)}</strong>
+                <span>{state.label}</span>
+                <em>{state.detail}</em>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <Panel className="slate-workbench">
         <SectionTitle
@@ -164,6 +199,7 @@ export function GamesPage() {
                   const hasNbaState = hasNbaStateSource(
                     entry.coverage.availableSources
                   );
+                  const stateReadout = getGameOperationalState(entry);
                   return (
                     <tr key={entry.game.id}>
                       <td>
@@ -173,7 +209,14 @@ export function GamesPage() {
                           {formatDate(entry.game.scheduledStart)}
                         </span>
                       </td>
-                      <td>{scoreLine(entry.gameState)}</td>
+                      <td>
+                        <span
+                          className={`state-label state-label-${stateReadout.tone}`}
+                        >
+                          {stateReadout.label}
+                        </span>
+                        <span>{scoreLine(entry.gameState)}</span>
+                      </td>
                       <td>
                         <span className="slate-feed-line">
                           {marketSources.length > 0

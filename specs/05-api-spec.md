@@ -36,6 +36,7 @@
 ## Admin Routes
 
 - `GET /api/v1/admin/sources`
+- `GET /api/v1/admin/runtime-config`
 - `GET /api/v1/admin/capture/runs`
 - `POST /api/v1/admin/capture/restart`
 - `POST /api/v1/admin/backfill/games`
@@ -50,4 +51,7 @@
 - `API-005` Readiness shall return `503` when required live dependencies or persisted live data are missing.
 - `API-006` Live routes shall not fall back to synthetic or curated data.
 - `API-007` Player-prop alert reads shall be backed by persisted `player-prop` instruments, mapped Bet365 source markets, mapped Kalshi/Polymarket source markets, and latest quote ticks. The route shall expose raw labels, source market identifiers, quote timestamps, line terms, probability deltas, and freshness windows so trading can verify attribution without guessing.
-- `API-008` Player-prop alert playback shall read persisted watcher JSONL frames only. Each frame includes the poll timestamp, live alert payload snapshot, notified alert ids, and poll thresholds so trading can replay what the watcher saw at that moment.
+- `API-008` Player-prop divergence rows shall require Bet365 plus at least one Kalshi/Polymarket latest implied-probability quote for the same canonical instrument. Line mismatch remains a separate comparison-state filter, not a proxy for provider overlap.
+- `API-009` Player-prop alert playback shall read persisted watcher JSONL frames only. Each frame includes the poll timestamp, live alert payload snapshot, notified alert ids, and poll thresholds so trading can replay what the watcher saw at that moment.
+- `API-010` The undated games list shall default to the current slate: games near `now` and recently started games must sort before old persisted history so the first page cannot hide active NBA state.
+- `API-011` Runtime configuration visibility shall be exposed through `/api/v1/admin/runtime-config` with secrets masked, defaults shown, and environment keys grouped for the Settings surface.

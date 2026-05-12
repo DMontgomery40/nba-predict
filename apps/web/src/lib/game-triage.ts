@@ -1,3 +1,5 @@
+import { getGameOperationalState } from "./game-state";
+
 import type { GamesPayload } from "../data/api";
 
 export type GameRow = GamesPayload["data"][number];
@@ -31,6 +33,16 @@ export function isActionableGame(row: GameRow) {
 }
 
 function compareBySlatePriority(left: GameRow, right: GameRow) {
+  const toneRank = {
+    live: 0,
+    critical: 1,
+    warning: 2,
+    neutral: 3,
+  };
+  const leftTone = toneRank[getGameOperationalState(left).tone];
+  const rightTone = toneRank[getGameOperationalState(right).tone];
+  if (leftTone !== rightTone) return leftTone - rightTone;
+
   const leftTop = left.topDivergences[0]?.impliedProbabilityGap ?? -1;
   const rightTop = right.topDivergences[0]?.impliedProbabilityGap ?? -1;
   if (rightTop !== leftTop) return rightTop - leftTop;

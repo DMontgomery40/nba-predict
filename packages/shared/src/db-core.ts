@@ -121,12 +121,15 @@ function countTable(db: Database.Database, tableName: string) {
   );
 }
 
-export function checkDatabaseHealth() {
+export function checkDatabaseHealth(
+  options: { integrityCheck?: "full" | "skip" } = {}
+) {
   try {
     const db = getDatabase();
-    const integrityResult = String(
-      db.prepare("PRAGMA integrity_check").pluck().get() ?? ""
-    );
+    const shouldRunIntegrityCheck = options.integrityCheck !== "skip";
+    const integrityResult = shouldRunIntegrityCheck
+      ? String(db.prepare("PRAGMA integrity_check").pluck().get() ?? "")
+      : "ok";
     const appStateKeys = db
       .prepare("SELECT key FROM app_state ORDER BY key ASC")
       .all()
@@ -161,7 +164,9 @@ export function checkDatabaseHealth() {
     return {
       appStateKeys,
       counts,
-      message: "SQLite database opened and passed integrity checks.",
+      message: shouldRunIntegrityCheck
+        ? "SQLite database opened and passed integrity checks."
+        : "SQLite database opened; full integrity check skipped for fast readiness.",
       path: getDatabasePath(),
       schemaVersion,
       status: "ok" as const,

@@ -67,6 +67,7 @@ function createSettingsFetchImplementation(options?: {
     mappingStatus: string;
     severity: string;
     signalPriority: number;
+    sources?: string[];
   }>;
   signalMismatchRows?: Array<{
     bet365ImpliedProbability?: number | null;
@@ -163,6 +164,7 @@ function createSettingsFetchImplementation(options?: {
       mappingStatus: "auto",
       severity: "high",
       signalPriority: 91,
+      sources: ["bet365", "kalshi"],
     },
   ];
   const signalMismatchRows = options?.signalMismatchRows ?? [
@@ -398,6 +400,49 @@ function createSettingsFetchImplementation(options?: {
             source: "polymarket",
             startedAt: "2026-04-22T06:00:00.000Z",
             status: "ok",
+          },
+        ],
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url === "/api/v1/admin/runtime-config") {
+      return mockJsonResponse({
+        data: [
+          {
+            category: "Runtime",
+            configured: true,
+            description: "SQLite database file used by the live repository.",
+            inputType: "path",
+            key: "SIGNAL_CONSOLE_DB_PATH",
+            label: "SQLite database path",
+            restartRequired: true,
+            sensitive: false,
+            source: "env",
+            valuePreview: "/tmp/test-live.sqlite",
+          },
+          {
+            category: "Bet365",
+            configured: true,
+            description: "Odds-API.io key for the current Bet365 path.",
+            inputType: "password",
+            key: "ODDS_API_KEY",
+            label: "Odds API key",
+            restartRequired: true,
+            sensitive: true,
+            source: "env",
+            valuePreview: "configured",
+          },
+          {
+            category: "Player prop alerts",
+            configured: false,
+            defaultValue: "0.15",
+            description: "Minimum Bet365-vs-prediction-market prop delta.",
+            inputType: "number",
+            key: "PLAYER_PROP_ALERT_MIN_DELTA",
+            label: "Minimum prop delta",
+            restartRequired: true,
+            sensitive: false,
+            source: "env",
           },
         ],
         meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
@@ -779,6 +824,115 @@ describe("App routes", () => {
     expect(
       screen.queryByText(/No ranked market pressure is persisted yet/i)
     ).not.toBeInTheDocument();
+  });
+
+  it("does not report zero player props while the family-filtered divergence request is loading", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/divergence?family=player-prop&sort=divergence"
+    );
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/divergence")) {
+        return new Promise<Response>(() => undefined);
+      }
+
+      return createSettingsFetchImplementation()(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Instrument-first disagreement",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("family")).toHaveDisplayValue("Player props");
+    expect(screen.getByText("Loading rows")).toBeInTheDocument();
+    expect(screen.queryByText("0 rows")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Loading divergence from the API/)
+    ).toBeInTheDocument();
+  });
+
+  it("renders divergence as a readable table and clears stale constraints for player props", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/divergence?family=player-prop&severity=high&mappedState=line-mismatch&sort=lineMismatch"
+    );
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation({
+      divergenceRows: [
+        {
+          captureRecencyMs: 15000,
+          comparableState: "comparable",
+          displayLabel: "Jalen Brunson points over 29.5",
+          family: "player-prop",
+          gameId: "nba-bos-nyk-2026-04-21",
+          impliedProbabilityGap: 0.29,
+          inPlay: true,
+          instrumentId: "brunson-points-over-29_5",
+          lineMismatch: false,
+          mappingStatus: "auto",
+          severity: "critical",
+          signalPriority: 327,
+          sources: ["bet365", "polymarket"],
+        },
+        {
+          captureRecencyMs: 25000,
+          comparableState: "comparable",
+          displayLabel: "Boston moneyline",
+          family: "moneyline",
+          gameId: "nba-bos-nyk-2026-04-21",
+          impliedProbabilityGap: 0.12,
+          inPlay: true,
+          instrumentId: "bos-moneyline",
+          lineMismatch: false,
+          mappingStatus: "auto",
+          severity: "high",
+          signalPriority: 91,
+          sources: ["bet365", "kalshi"],
+        },
+      ],
+    });
+    fetchMock.mockImplementation(async (input) => {
+      requestedUrls.push(String(input));
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Instrument-first disagreement",
+      })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("columnheader", { name: "Instrument" })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("state")).toHaveValue("line-mismatch");
+    expect(screen.getAllByText("Bet365")).toHaveLength(2);
+    expect(screen.getByText("Polymarket")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Jalen Brunson points over 29.5" })
+    ).toHaveAttribute(
+      "href",
+      "/games/nba-bos-nyk-2026-04-21/markets/brunson-points-over-29_5"
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Player prop comparisons" })
+    );
+
+    await waitFor(() => {
+      expect(requestedUrls).toContain(
+        "/api/v1/divergence?family=player-prop&sort=divergence"
+      );
+    });
+    expect(screen.getByLabelText("state")).toHaveValue("");
+    expect(screen.getByLabelText("severity")).toHaveValue("");
   });
 
   it("renders the player prop alert monitor and replay tape", async () => {
@@ -1851,7 +2005,7 @@ describe("App routes", () => {
       })
     ).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText("kalshi")).toBeInTheDocument();
+      expect(screen.getAllByText("kalshi").length).toBeGreaterThan(0);
       expect(screen.getAllByText("polymarket").length).toBeGreaterThan(0);
       expect(
         screen.getByText(
@@ -2088,7 +2242,7 @@ describe("App routes", () => {
 
     render(<App />);
 
-    const sourceInput = await screen.findByPlaceholderText("bet365");
+    const sourceInput = await screen.findByPlaceholderText("nba-0042500173");
     sourceInput.focus();
 
     fireEvent.keyDown(sourceInput, { key: "g" });

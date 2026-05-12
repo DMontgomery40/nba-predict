@@ -8,13 +8,17 @@ import {
   getInstrumentComparison,
   getInstrumentRawSource,
   getResearchCoverage,
+  getStorageCoverage,
   getInstrumentTimeline,
   listAdminSources,
   listGameMarkets,
+  listResearchGames,
   listPlayerPropDisagreementAlerts,
+  listResearchDivergence,
   listSignalMismatches,
   recordGameStateObservation,
   recordQuoteObservation,
+  recordRawPayload,
   resetDatabase,
   upsertGame,
   upsertGameOutcome,
@@ -286,6 +290,155 @@ describe("live repository", () => {
         }),
       ])
     );
+  });
+
+  it("orders the default games list by live/current slate before old persisted history", () => {
+    const liveSlateStart = new Date(Date.now() - 3 * 60 * 60_000).toISOString();
+    const currentSlateStart = new Date(Date.now() + 45 * 60_000).toISOString();
+
+    upsertGame({
+      awayParticipant: {
+        key: "old-away",
+        name: "Old Away",
+        shortName: "Old Away",
+        side: "away",
+      },
+      homeParticipant: {
+        key: "old-home",
+        name: "Old Home",
+        shortName: "Old Home",
+        side: "home",
+      },
+      id: "nba-old-history-game",
+      league: "NBA",
+      scheduledStart: "2025-10-25T00:00:00.000Z",
+      sport: "basketball",
+    });
+
+    upsertGame({
+      awayParticipant: {
+        key: "live-away",
+        name: "Live Away",
+        shortName: "Live Away",
+        side: "away",
+      },
+      homeParticipant: {
+        key: "live-home",
+        name: "Live Home",
+        shortName: "Live Home",
+        side: "home",
+      },
+      id: "nba-live-slate-game",
+      league: "NBA",
+      scheduledStart: liveSlateStart,
+      sport: "basketball",
+    });
+
+    recordGameStateObservation({
+      awayScore: 88,
+      capturedAt: new Date().toISOString(),
+      clock: "04:12",
+      finalAt: null,
+      gameId: "nba-live-slate-game",
+      homeScore: 91,
+      isFinal: false,
+      period: 4,
+      startedAt: liveSlateStart,
+      status: "in-play",
+    });
+
+    recordGameStateObservation({
+      awayScore: 1,
+      capturedAt: new Date(Date.now() + 12 * 60 * 60_000).toISOString(),
+      clock: "12:00",
+      finalAt: null,
+      gameId: "nba-live-slate-game",
+      homeScore: 1,
+      isFinal: false,
+      period: 1,
+      startedAt: liveSlateStart,
+      status: "in-play",
+    });
+
+    upsertGame({
+      awayParticipant: {
+        key: "slate-away",
+        name: "Slate Away",
+        shortName: "Slate Away",
+        side: "away",
+      },
+      homeParticipant: {
+        key: "slate-home",
+        name: "Slate Home",
+        shortName: "Slate Home",
+        side: "home",
+      },
+      id: "nba-current-slate-game",
+      league: "NBA",
+      scheduledStart: currentSlateStart,
+      sport: "basketball",
+    });
+
+    expect(listResearchGames({ limit: 1 })[0]?.game.id).toBe(
+      "nba-live-slate-game"
+    );
+    expect(listResearchGames({ limit: 1 })[0]?.gameState).toMatchObject({
+      awayScore: 88,
+      homeScore: 91,
+    });
+    expect(listResearchGames({ limit: 2 }).map((card) => card.game.id)).toEqual(
+      ["nba-live-slate-game", "nba-current-slate-game"]
+    );
+    expect(
+      listResearchGames({ date: "2025-10-25", limit: 1 })[0]?.game.id
+    ).toBe("nba-old-history-game");
+  });
+
+  it("counts storage coverage without multiplying quote ticks by raw payloads", () => {
+    seedLiveRepositoryGame();
+
+    recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-04-21T23:41:00.000Z",
+      depthScore: 98,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.63,
+      lineRaw: null,
+      oddsRaw: "-170",
+      priceRaw: null,
+      sourceMarketId: "sm-bet365-bos-moneyline",
+      volume: 101,
+    });
+    recordRawPayload({
+      capturedAt: "2026-04-21T23:40:00.000Z",
+      contentHash: "raw-bet365-moneyline-1",
+      entityId: "sm-bet365-bos-moneyline",
+      entityType: "source_market",
+      payloadJson: { price: "-156" },
+      source: "bet365",
+    });
+    recordRawPayload({
+      capturedAt: "2026-04-21T23:41:00.000Z",
+      contentHash: "raw-bet365-moneyline-2",
+      entityId: "sm-bet365-bos-moneyline",
+      entityType: "source_market",
+      payloadJson: { price: "-170" },
+      source: "bet365",
+    });
+
+    expect(
+      getStorageCoverage().find(
+        (row) =>
+          row.source === "bet365" &&
+          row.gameId === "nba-bos-nyk-2026-04-21" &&
+          row.family === "moneyline"
+      )
+    ).toMatchObject({
+      quoteTickCount: 2,
+      rawPayloadCount: 2,
+      sourceMarketCount: 1,
+    });
   });
 
   it("classifies spread line mismatches separately from like-for-like comparable markets", () => {
@@ -560,6 +713,30 @@ describe("live repository", () => {
       sourceSelectionKey: "over",
     });
 
+    upsertMarketInstrument({
+      displayLabel: "Tyrese Maxey points over 27.5",
+      family: "player-prop",
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "maxey-points-over-27_5",
+      inPlay: true,
+      line: 27.5,
+      participantKey: "tyrese-maxey",
+      selection: "over",
+    });
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-bet365-maxey-points",
+      instrumentId: "maxey-points-over-27_5",
+      mappingStatus: "auto",
+      rawFamily: "player-prop",
+      rawLabel: "Tyrese Maxey (27.5)",
+      rawMetadata: { source: "bet365" },
+      source: "bet365",
+      sourceMarketKey: "b365-maxey-points",
+      sourceSelectionKey: "over",
+    });
+
     recordQuoteObservation({
       bestAsk: null,
       bestBid: null,
@@ -588,9 +765,43 @@ describe("live repository", () => {
       volume: 19,
     });
 
+    recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-04-21T23:40:30.000Z",
+      depthScore: 88,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.61,
+      lineRaw: 27.5,
+      oddsRaw: "-156",
+      priceRaw: null,
+      sourceMarketId: "sm-bet365-maxey-points",
+      volume: 100,
+    });
+
     const initialAlerts = listPlayerPropDisagreementAlerts({
       now: "2026-04-21T23:41:00.000Z",
     });
+    const playerPropDivergence = listResearchDivergence({
+      family: "player-prop",
+      limit: 10,
+      sort: "divergence",
+    });
+    expect(playerPropDivergence).toEqual([
+      expect.objectContaining({
+        displayLabel: "Jalen Brunson points over 29.5",
+        family: "player-prop",
+        impliedProbabilityGap: expect.closeTo(0.26, 6),
+        sources: ["bet365", "polymarket"],
+      }),
+    ]);
+    expect(playerPropDivergence).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayLabel: "Tyrese Maxey points over 27.5",
+        }),
+      ])
+    );
     expect(initialAlerts).toEqual([
       expect.objectContaining({
         absoluteDelta: expect.closeTo(0.26, 6),
