@@ -14,6 +14,7 @@ export function CommandPalette() {
   const { commandInput, setCommandInput, commandOpen, closeCommand } =
     useAppStore();
   const games = useQuery({
+    enabled: commandOpen,
     queryKey: ["games"],
     queryFn: () => getGames(),
   });
@@ -44,6 +45,11 @@ export function CommandPalette() {
         id: "go-divergence",
         label: "Go to divergence board",
         path: "/divergence",
+      },
+      {
+        id: "go-research",
+        label: "Go to signal research",
+        path: "/research",
       },
       {
         id: "go-history",

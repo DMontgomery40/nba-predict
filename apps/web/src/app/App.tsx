@@ -31,6 +31,7 @@ export function App() {
               <Route element={<ResearchPage />} path="research" />
               <Route element={<HistoryPage />} path="history" />
               <Route element={<ExportsPage />} path="exports" />
+              <Route element={<GamesPage />} path="games" />
               <Route element={<GameWorkspacePage />} path="games/:gameId" />
               <Route
                 element={<EventWorkspacePage />}
