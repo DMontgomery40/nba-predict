@@ -10,6 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
   queryClient,
+  type MarketAnomaliesPayload,
+  type MarketAnomalyPlaybackPayload,
+  type MarketAnomalyScoreConfigPayload,
   type PlayerPropAlertPlaybackPayload,
   type PlayerPropAlertsPayload,
 } from "../data/api";
@@ -109,6 +112,9 @@ function createSettingsFetchImplementation(options?: {
   }>;
   playerPropPlaybackRows?: PlayerPropAlertPlaybackPayload["data"];
   playerPropAlertRows?: PlayerPropAlertsPayload["data"];
+  marketAnomalyRows?: MarketAnomaliesPayload["data"];
+  marketAnomalyPlaybackRows?: MarketAnomalyPlaybackPayload["data"];
+  marketAnomalyScoreConfig?: MarketAnomalyScoreConfigPayload["data"];
   games?: Array<{
     activeInstrumentCount: number;
     coverage: {
@@ -296,6 +302,106 @@ function createSettingsFetchImplementation(options?: {
       source: "player-prop-alert-watch" as const,
     },
   ];
+  const marketAnomalyRows = options?.marketAnomalyRows ?? [
+    {
+      action: "manual-review" as const,
+      apiSurface: "data-api/trades",
+      components: {
+        crossVenue: 0,
+        liquidity: 0,
+        offPrice: 1,
+        volatility: 0,
+        volumeShare: 1,
+      },
+      confidence: 0.95,
+      detectedAt: "2026-04-22T06:00:18.000Z",
+      displayLabel: "Boston moneyline",
+      eventTimestamp: "2026-04-22T06:00:18.000Z",
+      eventType: "trade",
+      family: "moneyline",
+      gameId: "nba-bos-nyk-2026-04-21",
+      gameLabel: "Knicks at Celtics",
+      id: "market-anomaly-1",
+      instrumentId: "bos-moneyline",
+      labels: ["isolated off-price print", "volume-share anomaly"],
+      league: "NBA",
+      mappingStatus: "auto",
+      metrics: {
+        bestAsk: 0.51,
+        bestBid: 0.49,
+        finalMarketVolume: 410.166918,
+        notional: 105.66,
+        price: 0.51,
+        referencePrice: 0.51,
+        size: 106.7913,
+        tradeDistance: 0.48,
+        tradePrice: 0.99,
+        volumeShare: 0.26,
+      },
+      rawLabel: "Boston wins",
+      score: 64,
+      severity: "high",
+      source: "polymarket" as const,
+      sourceMarketId: "sm-polymarket-bos-moneyline",
+      sourceMarketKey: "poly-bos-moneyline",
+      sourceSelectionKey: "bos",
+      sport: "basketball",
+    },
+  ];
+  const marketAnomalyPlaybackRows = options?.marketAnomalyPlaybackRows ?? [
+    {
+      alertCount: marketAnomalyRows.length,
+      alerts: marketAnomalyRows,
+      capturedAt: "2026-04-22T06:00:20.000Z",
+      notifiedAlertIds: marketAnomalyRows.map((row) => row.id),
+      poll: {
+        includeHistorical: false,
+        includeUnmapped: true,
+        limit: 25,
+        minConfidence: 0.45,
+        minScore: 45,
+        requireBet365: false,
+      },
+      source: "market-anomaly-watch" as const,
+    },
+  ];
+  const marketAnomalyScoreConfig = options?.marketAnomalyScoreConfig ?? {
+    contextWindowMinutes: 10,
+    families: [
+      "moneyline",
+      "spread",
+      "total",
+      "player-prop",
+      "team-prop",
+      "other",
+    ],
+    minConfidence: 0.45,
+    minScore: 45,
+    profileId: "default",
+    shockWindowSeconds: 60,
+    thresholds: {
+      depthScoreDrop: 30,
+      maxQuoteAgeMinutes: 10,
+      priceJump: 0.18,
+      spread: 0.08,
+      tradeDistance: 0.25,
+      volumeShare: 0.1,
+    },
+    toggles: {
+      includeHistorical: false,
+      includeUnmapped: true,
+      requireBet365: false,
+    },
+    updatedAt: null,
+    updatedBy: null,
+    weights: {
+      crossVenue: 0.1,
+      liquidity: 0.1,
+      offPrice: 0.35,
+      volatility: 0.2,
+      volumeShare: 0.25,
+    },
+  };
   const unmappedMarkets = options?.unmappedMarkets ?? [];
 
   return async (input: string | URL | Request) => {
@@ -533,6 +639,24 @@ function createSettingsFetchImplementation(options?: {
     if (url.startsWith("/api/v1/research/player-prop-alert-playback")) {
       return mockJsonResponse({
         data: playerPropPlaybackRows,
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/research/market-anomalies")) {
+      return mockJsonResponse({
+        data: marketAnomalyRows,
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/research/market-anomaly-playback")) {
+      return mockJsonResponse({
+        data: marketAnomalyPlaybackRows,
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/research/market-anomaly-score-config")) {
+      return mockJsonResponse({
+        data: marketAnomalyScoreConfig,
         meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
       });
     }
@@ -799,18 +923,19 @@ describe("App routes", () => {
     expect(
       screen.getByText("Which source moved first on the top-ranked market.")
     ).toBeInTheDocument();
+    expect(screen.getAllByText("Prediction-market weirdness").length).toBeGreaterThan(
+      0
+    );
     expect(
-      screen.getAllByText("Player prop attribution risk").length
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Check these before exposure stacks up.")
+      screen.getByText("Go look, something strange happened.")
     ).toBeInTheDocument();
     expect(
-      (await screen.findAllByText("Jalen Brunson points over 29.5")).length
+      (await screen.findAllByText("isolated off-price print, volume-share anomaly"))
+        .length
     ).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Review now" })).toHaveAttribute(
       "href",
-      "/games/nba-bos-nyk-2026-04-21/markets/brunson-points-over-29_5"
+      "/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"
     );
     expect(screen.getAllByText("Boston moneyline").length).toBeGreaterThan(0);
     expect((await screen.findAllByText("b365 61.0%")).length).toBeGreaterThan(
@@ -990,6 +1115,30 @@ describe("App routes", () => {
     expect(screen.getAllByRole("link", { name: "Open" })[0]).toHaveAttribute(
       "href",
       "/games/nba-bos-nyk-2026-04-21/markets/brunson-points-over-29_5"
+    );
+  });
+
+  it("renders the market anomaly queue with scoring controls", async () => {
+    window.history.replaceState({}, "", "/market-anomalies");
+    fetchMock.mockImplementation(createSettingsFetchImplementation());
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Market anomaly queue",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Go look now")).toBeInTheDocument();
+    expect(screen.getByText("Score profile")).toBeInTheDocument();
+    expect(screen.getAllByText("Boston moneyline").length).toBeGreaterThan(0);
+    expect(screen.getByText("data-api/trades")).toBeInTheDocument();
+    expect(screen.getByText("$105.66")).toBeInTheDocument();
+    expect(screen.getByText(/26.0%/)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Open" })[0]).toHaveAttribute(
+      "href",
+      "/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"
     );
   });
 
@@ -2599,6 +2748,11 @@ describe("App routes", () => {
       expect(
         screen.getByRole("heading", {
           name: "Directional disagreement and probability splits",
+        })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", {
+          name: "Prediction-market anomaly scoring",
         })
       ).toBeInTheDocument();
       expect(

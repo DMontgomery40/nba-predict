@@ -6,6 +6,7 @@ import {
 } from "@signal-console/domain";
 import {
   createAppLogger,
+  getMarketAnomalyScoreConfig,
   enqueueCaptureRestart,
   enqueueGameBackfill,
   enqueueMarketBackfill,
@@ -19,6 +20,8 @@ import {
   getLeadLagSeries,
   listPlayerPropDisagreementAlerts,
   listPlayerPropAlertPlaybackFrames,
+  listMarketAnomalyAlerts,
+  listMarketAnomalyPlaybackFrames,
   getResearchCoverage,
   getResearchGame,
   getSignalQualityReport,
@@ -35,6 +38,7 @@ import {
   listUnmappedMarkets,
   resolveSourceMarketMapping,
   type ClosingCutoff,
+  upsertMarketAnomalyScoreConfig,
 } from "@signal-console/shared";
 
 type GamesQuery = Parameters<typeof listResearchGames>[0];
@@ -47,6 +51,13 @@ type PlayerPropAlertQuery = Parameters<
 >[0];
 type PlayerPropAlertPlaybackQuery = Parameters<
   typeof listPlayerPropAlertPlaybackFrames
+>[0];
+type MarketAnomalyQuery = Parameters<typeof listMarketAnomalyAlerts>[0];
+type MarketAnomalyPlaybackQuery = Parameters<
+  typeof listMarketAnomalyPlaybackFrames
+>[0];
+type MarketAnomalyScoreConfigBody = Parameters<
+  typeof upsertMarketAnomalyScoreConfig
 >[0];
 type MappingResolveBody = Parameters<typeof resolveSourceMarketMapping>[0];
 type CaptureRestartBody = {
@@ -394,6 +405,119 @@ const runtimeConfigDefinitions: RuntimeConfigDefinition[] = [
     inputType: "text",
     key: "PLAYER_PROP_ALERT_TIME_ZONE",
     label: "Playback time zone",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    defaultValue: "10000",
+    description: "Prediction-market anomaly watcher poll interval in milliseconds.",
+    inputType: "number",
+    key: "MARKET_ANOMALY_WATCH_INTERVAL_MS",
+    label: "Anomaly watcher interval",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    defaultValue: "21600000",
+    description: "Watcher run duration in milliseconds.",
+    inputType: "number",
+    key: "MARKET_ANOMALY_WATCH_DURATION_MS",
+    label: "Anomaly watcher duration",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    defaultValue: "25",
+    description: "Maximum market anomaly rows returned per watcher poll.",
+    inputType: "number",
+    key: "MARKET_ANOMALY_LIMIT",
+    label: "Anomaly row limit",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    defaultValue: "45",
+    description: "Minimum anomaly score used by the watcher.",
+    inputType: "number",
+    key: "MARKET_ANOMALY_MIN_SCORE",
+    label: "Minimum anomaly score",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    defaultValue: "0.45",
+    description: "Minimum anomaly confidence used by the watcher.",
+    inputType: "number",
+    key: "MARKET_ANOMALY_MIN_CONFIDENCE",
+    label: "Minimum anomaly confidence",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    defaultValue: "true",
+    description: "Include unmapped market weirdness in watcher output.",
+    inputType: "boolean",
+    key: "MARKET_ANOMALY_INCLUDE_UNMAPPED",
+    label: "Include unmapped anomalies",
+    options: ["true", "false"],
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    defaultValue: "false",
+    description: "Include completed-game rows in watcher output.",
+    inputType: "boolean",
+    key: "MARKET_ANOMALY_INCLUDE_HISTORICAL",
+    label: "Include historical anomalies",
+    options: ["false", "true"],
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    defaultValue: "false",
+    description: "Require Bet365 context before surfacing watcher rows.",
+    inputType: "boolean",
+    key: "MARKET_ANOMALY_REQUIRE_BET365",
+    label: "Require Bet365 context",
+    options: ["false", "true"],
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    defaultValue: "true",
+    description: "Send local notifications for newly observed anomaly ids.",
+    inputType: "boolean",
+    key: "MARKET_ANOMALY_NOTIFY",
+    label: "Notify on anomalies",
+    options: ["true", "false"],
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    description:
+      "Directory used for persisted market anomaly playback JSONL frames.",
+    inputType: "path",
+    key: "MARKET_ANOMALY_PLAYBACK_DIR",
+    label: "Anomaly playback directory",
+    restartRequired: true,
+    sensitive: false,
+  },
+  {
+    category: "Market anomalies",
+    description: "Time zone used for market anomaly playback date buckets.",
+    inputType: "text",
+    key: "MARKET_ANOMALY_TIME_ZONE",
+    label: "Anomaly playback time zone",
     restartRequired: true,
     sensitive: false,
   },
@@ -972,6 +1096,66 @@ export function getPlayerPropAlertPlaybackPayload(
   logger.debug(
     { count: data.length, query },
     "Built player prop alert playback payload."
+  );
+  return {
+    data,
+    meta: generatedMeta(),
+  };
+}
+
+export function getMarketAnomalyAlertsPayload(
+  query: MarketAnomalyQuery,
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getMarketAnomalyAlertsPayload");
+  const data = listMarketAnomalyAlerts(query);
+  logger.debug({ count: data.length, query }, "Built market anomaly payload.");
+  return {
+    data,
+    meta: generatedMeta(),
+  };
+}
+
+export function getMarketAnomalyPlaybackPayload(
+  query: MarketAnomalyPlaybackQuery,
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getMarketAnomalyPlaybackPayload");
+  const data = listMarketAnomalyPlaybackFrames(query);
+  logger.debug(
+    { count: data.length, query },
+    "Built market anomaly playback payload."
+  );
+  return {
+    data,
+    meta: generatedMeta(),
+  };
+}
+
+export function getMarketAnomalyScoreConfigPayload(
+  profileId = "default",
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getMarketAnomalyScoreConfigPayload");
+  const data = getMarketAnomalyScoreConfig(profileId);
+  logger.debug({ profileId }, "Built market anomaly score config payload.");
+  return {
+    data,
+    meta: generatedMeta(),
+  };
+}
+
+export function updateMarketAnomalyScoreConfigPayload(
+  body: MarketAnomalyScoreConfigBody,
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "updateMarketAnomalyScoreConfigPayload");
+  const data = upsertMarketAnomalyScoreConfig(body, {
+    updatedBy: "api",
+  });
+  logger.info(
+    { profileId: data.profileId },
+    "Updated market anomaly score config."
   );
   return {
     data,

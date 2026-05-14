@@ -16,7 +16,7 @@ import {
   getGames,
   getInstrumentLeadLag,
   getInstrumentTimeline,
-  getPlayerPropAlerts,
+  getMarketAnomalies,
   getReadyHealth,
   getSignalQualityReport,
   getSignalMismatches,
@@ -26,7 +26,6 @@ import {
   type ClosedGamesPayload,
   type DivergencePayload,
   type GamesPayload,
-  type PlayerPropAlertsPayload,
 } from "../../data/api";
 import { buildDivergenceTraceSummary } from "../../lib/divergence-history";
 import { getGameOperationalState } from "../../lib/game-state";
@@ -43,7 +42,6 @@ import { formatOperatorDateTime } from "../../lib/time-format";
 
 type DivergenceRow = DivergencePayload["data"][number];
 type GameRow = GamesPayload["data"][number];
-type PlayerPropAlertRow = PlayerPropAlertsPayload["data"][number];
 type SourceHealthRow = AdminSourcesPayload["data"][number];
 type CaptureRunRow = AdminCaptureRunsPayload["data"][number];
 type StorageCoverageRow = AdminStorageCoveragePayload["data"][number];
@@ -104,15 +102,6 @@ function formatDuration(value?: number | null) {
   return `${(value / (60 * 60_000)).toFixed(1)}h`;
 }
 
-function formatDeltaPoints(value?: number | null) {
-  if (value == null || !Number.isFinite(value)) {
-    return "n/a";
-  }
-
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${(value * 100).toFixed(1)} pp`;
-}
-
 function scoreLine(game: GameRow) {
   const state = getGameOperationalState(game);
   if (state.kind === "final") {
@@ -145,7 +134,7 @@ function rowTone(row: DivergenceRow) {
   return "cool";
 }
 
-function alertTone(row: PlayerPropAlertRow) {
+function alertTone(row: { severity: string }) {
   if (row.severity === "critical") {
     return "danger";
   }
@@ -361,7 +350,7 @@ function InstrumentTrace({
 }
 
 export function TraderDeskPage() {
-  const [dismissedPropAlertId, setDismissedPropAlertId] = useState<
+  const [dismissedAnomalyAlertId, setDismissedAnomalyAlertId] = useState<
     string | null
   >(null);
   const games = useQuery({
@@ -372,20 +361,20 @@ export function TraderDeskPage() {
     queryKey: ["divergence", { limit: 25, sort: "signalPriority" }],
     queryFn: () => getDivergence({ limit: 25, sort: "signalPriority" }),
   });
-  const playerPropAlerts = useQuery({
-    queryKey: ["research-player-prop-alerts", "live"],
+  const marketAnomalies = useQuery({
+    queryKey: ["research-market-anomalies", "live"],
     queryFn: () =>
-      getPlayerPropAlerts({
+      getMarketAnomalies({
+        includeUnmapped: true,
         limit: 12,
-        maxQuoteAgeMinutes: 10,
-        maxQuoteTimeGapMinutes: 10,
-        minDelta: 0.15,
+        minConfidence: 0.45,
+        minScore: 45,
       }),
     refetchInterval: 5000,
   });
   const primarySurfacesReady = Boolean(games.data && divergence.data);
   const supportingQueriesEnabled = Boolean(
-    primarySurfacesReady && (playerPropAlerts.data || playerPropAlerts.isError)
+    primarySurfacesReady && (marketAnomalies.data || marketAnomalies.isError)
   );
   const deskReviewAnalyticsEnabled = true;
   const topCandidate = divergence.data?.data[0];
@@ -507,10 +496,10 @@ export function TraderDeskPage() {
     topLeadLagPair && topLeadLagPair.bestCorrelation >= 0.2
       ? topLeadLagPair
       : null;
-  const propAlertRows = playerPropAlerts.data?.data ?? [];
-  const topPropAlert = propAlertRows[0] ?? null;
-  const showPropAlertPopup =
-    topPropAlert != null && topPropAlert.id !== dismissedPropAlertId;
+  const anomalyRows = marketAnomalies.data?.data ?? [];
+  const topAnomaly = anomalyRows[0] ?? null;
+  const showAnomalyPopup =
+    topAnomaly != null && topAnomaly.id !== dismissedAnomalyAlertId;
   const liveTrackedRows = gameRows.filter(
     (row) => getGameOperationalState(row).tone === "live"
   ).length;
@@ -559,7 +548,7 @@ export function TraderDeskPage() {
   const supportingErrorCount = [
     games,
     divergence,
-    playerPropAlerts,
+    marketAnomalies,
     pregameSignalQuality,
     liveFinalSignalQuality,
     closedGames,
@@ -588,13 +577,13 @@ export function TraderDeskPage() {
             <strong>
               {formatTimestamp(
                 divergence.data?.meta.generatedAt ??
-                  playerPropAlerts.data?.meta.generatedAt
+                  marketAnomalies.data?.meta.generatedAt
               )}
             </strong>
           </div>
           <nav className="ops-tabs" aria-label="Desk sections">
-            <a className="ops-tab" href="#prop-risk">
-              Prop risk
+            <a className="ops-tab" href="#market-weirdness">
+              Weirdness
             </a>
             <a className="ops-tab" href="#market-review">
               Review
@@ -707,39 +696,38 @@ export function TraderDeskPage() {
           </section>
         ) : null}
 
-        {showPropAlertPopup ? (
+        {showAnomalyPopup && topAnomaly ? (
           <div
             aria-labelledby="prop-alert-popup-title"
             aria-modal="false"
-            className={`prop-alert-popup prop-alert-${alertTone(topPropAlert)}`}
+            className={`prop-alert-popup prop-alert-${alertTone(topAnomaly)}`}
             role="alertdialog"
           >
             <div className="prop-alert-popup-icon">
               <AlertTriangle aria-hidden="true" size={20} />
             </div>
             <div>
-              <span>Player prop attribution risk</span>
-              <h2 id="prop-alert-popup-title">{topPropAlert.displayLabel}</h2>
+              <span>Prediction-market weirdness</span>
+              <h2 id="prop-alert-popup-title">{topAnomaly.displayLabel}</h2>
               <p>
-                bet365{" "}
-                {formatProbability(topPropAlert.bet365.impliedProbability)} ·{" "}
-                {topPropAlert.predictionMarket.source}{" "}
-                {formatProbability(
-                  topPropAlert.predictionMarket.impliedProbability
-                )}{" "}
-                · {formatDeltaPoints(topPropAlert.signedDelta)}
+                {topAnomaly.source} · score {topAnomaly.score} ·{" "}
+                {topAnomaly.labels.slice(0, 2).join(", ")}
               </p>
               <div className="prop-alert-popup-actions">
                 <Link
                   className="desk-link"
-                  to={`/games/${topPropAlert.gameId}/markets/${topPropAlert.instrumentId}`}
+                  to={
+                    topAnomaly.instrumentId
+                      ? `/games/${topAnomaly.gameId}/markets/${topAnomaly.instrumentId}`
+                      : "/market-anomalies"
+                  }
                 >
                   Review now
                 </Link>
                 <button
-                  aria-label="Dismiss player prop alert"
+                  aria-label="Dismiss market anomaly"
                   className="icon-button"
-                  onClick={() => setDismissedPropAlertId(topPropAlert.id)}
+                  onClick={() => setDismissedAnomalyAlertId(topAnomaly.id)}
                   type="button"
                 >
                   <X aria-hidden="true" size={16} />
@@ -750,73 +738,66 @@ export function TraderDeskPage() {
         ) : null}
 
         <div className="ops-grid">
-          <Panel className="ops-panel ops-prop-risk" id="prop-risk">
+          <Panel className="ops-panel ops-prop-risk" id="market-weirdness">
             <header className="ops-panel-head">
               <span className="ops-panel-index">!</span>
               <div>
-                <span>Player prop attribution risk</span>
-                <h2>Check these before exposure stacks up.</h2>
+                <span>Prediction-market weirdness</span>
+                <h2>Go look, something strange happened.</h2>
               </div>
               <p>
-                Current poll: bet365 vs Kalshi/Polymarket, player props only, 15
-                pp divergence inside a ten-minute quote window.
+                Current poll: Kalshi/Polymarket microstructure, volatility,
+                liquidity, volume share, and cross-venue disagreement.
               </p>
             </header>
-            {playerPropAlerts.isLoading ? (
-              <p className="desk-note">Listening for player prop alerts...</p>
-            ) : playerPropAlerts.isError ? (
+            {marketAnomalies.isLoading ? (
+              <p className="desk-note">Listening for market anomalies...</p>
+            ) : marketAnomalies.isError ? (
               <p className="desk-note">
-                Player prop alert feed failed to load.
+                Prediction-market anomaly feed failed to load.
               </p>
-            ) : propAlertRows.length === 0 ? (
+            ) : anomalyRows.length === 0 ? (
               <div className="prop-risk-empty">
-                <strong>No current prop attribution alerts.</strong>
+                <strong>No current market weirdness above threshold.</strong>
                 <span>
-                  The desk will stay quiet until a mapped player prop has
-                  current Bet365 and exchange quotes that materially disagree.
+                  The desk stays quiet until persisted market data crosses the
+                  active anomaly score.
                 </span>
               </div>
             ) : (
               <div className="prop-risk-list">
-                {propAlertRows.slice(0, 5).map((alert) => (
+                {anomalyRows.slice(0, 5).map((alert) => (
                   <Link
                     className={`prop-risk-row prop-risk-${alertTone(alert)}`}
                     key={alert.id}
-                    to={`/games/${alert.gameId}/markets/${alert.instrumentId}`}
+                    to={
+                      alert.instrumentId
+                        ? `/games/${alert.gameId}/markets/${alert.instrumentId}`
+                        : "/market-anomalies"
+                    }
                   >
                     <div>
                       <strong>{alert.displayLabel}</strong>
                       <span>
-                        {alert.gameLabel} · {alert.predictionMarket.source} ·{" "}
-                        {alert.direction === "bet365-higher"
-                          ? "bet365 higher"
-                          : "exchange higher"}
+                        {alert.gameLabel} · {alert.source} · {alert.apiSurface}
                       </span>
                     </div>
                     <div className="prop-risk-prices">
-                      <em>
-                        b365{" "}
-                        {formatProbability(alert.bet365.impliedProbability)}
-                      </em>
-                      <em>
-                        {alert.predictionMarket.source}{" "}
-                        {formatProbability(
-                          alert.predictionMarket.impliedProbability
-                        )}
-                      </em>
-                      <strong>{formatDeltaPoints(alert.signedDelta)}</strong>
+                      <em>price {formatProbability(alert.metrics.price)}</em>
+                      <em>trade {formatProbability(alert.metrics.tradePrice)}</em>
+                      <strong>score {alert.score}</strong>
                     </div>
                     <div className="prop-risk-meta">
-                      <span>risk {alert.riskScore}</span>
-                      <span>
-                        time apart {formatAge(alert.freshness.quoteTimeGapMs)}
-                      </span>
-                      <span>age {formatAge(alert.freshness.bet365AgeMs)}</span>
+                      <span>{alert.labels.slice(0, 2).join(", ")}</span>
+                      <span>conf {(alert.confidence * 100).toFixed(0)}%</span>
+                      <span>{formatTimestamp(alert.eventTimestamp)}</span>
                     </div>
-                    <InstrumentTrace
-                      gameId={alert.gameId}
-                      instrumentId={alert.instrumentId}
-                    />
+                    {alert.instrumentId ? (
+                      <InstrumentTrace
+                        gameId={alert.gameId}
+                        instrumentId={alert.instrumentId}
+                      />
+                    ) : null}
                   </Link>
                 ))}
               </div>

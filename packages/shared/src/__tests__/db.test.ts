@@ -53,7 +53,7 @@ describe("shared db", () => {
       counts: {
         watchlistCount: 1,
       },
-      schemaVersion: 8,
+      schemaVersion: 9,
       status: "ok",
     });
 
@@ -65,6 +65,7 @@ describe("shared db", () => {
       expect.arrayContaining([
         "idx_games_scheduled_date",
         "idx_quote_ticks_source_market_latest",
+        "idx_market_microstructure_game_time",
         "idx_raw_payloads_entity_latest",
         "idx_source_markets_instrument_source",
       ])

@@ -18,10 +18,15 @@ import type {
   InstrumentTimeline,
   InstrumentTimelinePoint,
   LatestSourceView,
+  MarketAnomalyAlert,
+  MarketAnomalyLabel,
+  MarketAnomalyScoreConfig,
   MappingStatus,
   MarketFamily,
   MarketInstrument,
   MarketInstrumentView,
+  MarketMicrostructureEvent,
+  MarketMicrostructureEventType,
   PlayerPropAlertSource,
   PlayerPropDisagreementAlert,
   QuoteTick,
@@ -101,8 +106,28 @@ type PlayerPropAlertFilters = {
   now?: Date | string;
 };
 
+type MarketAnomalyFilters = {
+  date?: string;
+  family?: MarketFamily;
+  includeHistorical?: boolean;
+  includeUnmapped?: boolean;
+  limit?: number;
+  minConfidence?: number;
+  minScore?: number;
+  profileId?: string;
+  requireBet365?: boolean;
+  source?: Extract<ResearchSourceId, "bet365" | "kalshi" | "polymarket">;
+};
+
 type QuoteObservationInput = Omit<QuoteTick, "id" | "isHeartbeat"> & {
   heartbeatAfterMs?: number;
+};
+
+type MarketMicrostructureEventInput = Omit<
+  MarketMicrostructureEvent,
+  "id" | "capturedAt"
+> & {
+  capturedAt?: string;
 };
 
 type AdminActionPayload = {
@@ -344,6 +369,19 @@ function gapToSeverity(gap: number, lineMismatch: boolean) {
     return "high" as const;
   }
   if (gap >= 0.05 || lineMismatch) {
+    return "medium" as const;
+  }
+  return "low" as const;
+}
+
+function scoreToSeverity(score: number) {
+  if (score >= 85) {
+    return "critical" as const;
+  }
+  if (score >= 65) {
+    return "high" as const;
+  }
+  if (score >= 40) {
     return "medium" as const;
   }
   return "low" as const;
@@ -811,7 +849,7 @@ function selectOutcome(db: Database.Database, gameId: string) {
 }
 
 function selectInstrumentsForGame(db: Database.Database, gameId: string) {
-  return db
+  const rows = db
     .prepare(
       `
         SELECT
@@ -842,7 +880,7 @@ function selectInstrumentsForGame(db: Database.Database, gameId: string) {
 }
 
 function selectSourceMarketsForGame(db: Database.Database, gameId: string) {
-  return db
+  const rows = db
     .prepare(
       `
         SELECT
@@ -1786,6 +1824,824 @@ function normalizeAlertNumber(
   return Math.max(min, value);
 }
 
+export const defaultMarketAnomalyScoreConfig = {
+  contextWindowMinutes: 10,
+  families: [...marketFamilies],
+  minConfidence: 0.45,
+  minScore: 45,
+  profileId: "default",
+  shockWindowSeconds: 60,
+  thresholds: {
+    depthScoreDrop: 30,
+    maxQuoteAgeMinutes: 10,
+    priceJump: 0.18,
+    spread: 0.08,
+    tradeDistance: 0.25,
+    volumeShare: 0.1,
+  },
+  toggles: {
+    includeHistorical: false,
+    includeUnmapped: true,
+    requireBet365: false,
+  },
+  updatedAt: null,
+  updatedBy: null,
+  weights: {
+    crossVenue: 0.1,
+    liquidity: 0.1,
+    offPrice: 0.35,
+    volatility: 0.2,
+    volumeShare: 0.25,
+  },
+} satisfies MarketAnomalyScoreConfig;
+
+function clampScorePercent(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+function clampAnomalyLimit(value: number | undefined) {
+  if (!value || !Number.isFinite(value)) {
+    return 25;
+  }
+
+  return Math.min(100, Math.max(1, Math.floor(value)));
+}
+
+function normalizeScoreConfig(
+  config: Partial<MarketAnomalyScoreConfig> | null | undefined
+) {
+  const base = defaultMarketAnomalyScoreConfig;
+  const families =
+    config?.families?.filter((family): family is MarketFamily =>
+      marketFamilies.includes(family)
+    ) ?? base.families;
+  return {
+    contextWindowMinutes:
+      normalizeAlertNumber(config?.contextWindowMinutes, base.contextWindowMinutes, 1),
+    families: families.length > 0 ? families : base.families,
+    minConfidence: clampScorePercent(config?.minConfidence ?? base.minConfidence),
+    minScore: normalizeAlertNumber(config?.minScore, base.minScore, 0),
+    profileId: config?.profileId || base.profileId,
+    shockWindowSeconds:
+      normalizeAlertNumber(config?.shockWindowSeconds, base.shockWindowSeconds, 1),
+    thresholds: {
+      depthScoreDrop: normalizeAlertNumber(
+        config?.thresholds?.depthScoreDrop,
+        base.thresholds.depthScoreDrop,
+        0
+      ),
+      maxQuoteAgeMinutes: normalizeAlertNumber(
+        config?.thresholds?.maxQuoteAgeMinutes,
+        base.thresholds.maxQuoteAgeMinutes,
+        0
+      ),
+      priceJump: normalizeAlertNumber(
+        config?.thresholds?.priceJump,
+        base.thresholds.priceJump,
+        0
+      ),
+      spread: normalizeAlertNumber(
+        config?.thresholds?.spread,
+        base.thresholds.spread,
+        0
+      ),
+      tradeDistance: normalizeAlertNumber(
+        config?.thresholds?.tradeDistance,
+        base.thresholds.tradeDistance,
+        0
+      ),
+      volumeShare: normalizeAlertNumber(
+        config?.thresholds?.volumeShare,
+        base.thresholds.volumeShare,
+        0
+      ),
+    },
+    toggles: {
+      includeHistorical:
+        config?.toggles?.includeHistorical ?? base.toggles.includeHistorical,
+      includeUnmapped:
+        config?.toggles?.includeUnmapped ?? base.toggles.includeUnmapped,
+      requireBet365: config?.toggles?.requireBet365 ?? base.toggles.requireBet365,
+    },
+    updatedAt: config?.updatedAt ?? null,
+    updatedBy: config?.updatedBy ?? null,
+    weights: {
+      crossVenue: normalizeAlertNumber(
+        config?.weights?.crossVenue,
+        base.weights.crossVenue,
+        0
+      ),
+      liquidity: normalizeAlertNumber(
+        config?.weights?.liquidity,
+        base.weights.liquidity,
+        0
+      ),
+      offPrice: normalizeAlertNumber(
+        config?.weights?.offPrice,
+        base.weights.offPrice,
+        0
+      ),
+      volatility: normalizeAlertNumber(
+        config?.weights?.volatility,
+        base.weights.volatility,
+        0
+      ),
+      volumeShare: normalizeAlertNumber(
+        config?.weights?.volumeShare,
+        base.weights.volumeShare,
+        0
+      ),
+    },
+  } satisfies MarketAnomalyScoreConfig;
+}
+
+export function getMarketAnomalyScoreConfig(profileId = "default") {
+  return executeDatabaseOperation(
+    "marketAnomalyScoreConfig.get",
+    () => {
+      const db = getDatabase();
+      const row = db
+        .prepare(
+          `
+            SELECT
+              profile_id AS profileId,
+              config_json AS configJson,
+              updated_at AS updatedAt,
+              updated_by AS updatedBy
+            FROM market_anomaly_score_configs
+            WHERE profile_id = ?
+          `
+        )
+        .get(profileId) as Record<string, unknown> | undefined;
+
+      if (!row) {
+        return normalizeScoreConfig({ profileId });
+      }
+
+      const config = parseJson<Partial<MarketAnomalyScoreConfig>>(
+        String(row.configJson),
+        {}
+      );
+      return normalizeScoreConfig({
+        ...config,
+        profileId: String(row.profileId),
+        updatedAt: String(row.updatedAt),
+        updatedBy: String(row.updatedBy),
+      });
+    },
+    { profileId }
+  );
+}
+
+export function upsertMarketAnomalyScoreConfig(
+  config: Partial<MarketAnomalyScoreConfig>,
+  options: { updatedBy?: string } = {}
+) {
+  return executeDatabaseOperation(
+    "marketAnomalyScoreConfig.upsert",
+    () => {
+      const db = getDatabase();
+      const updatedAt = currentTimestamp();
+      const normalized = normalizeScoreConfig({
+        ...config,
+        updatedAt,
+        updatedBy: options.updatedBy ?? "operator",
+      });
+      db.prepare(
+        `
+          INSERT INTO market_anomaly_score_configs (
+            profile_id,
+            config_json,
+            updated_at,
+            updated_by
+          )
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(profile_id) DO UPDATE SET
+            config_json = excluded.config_json,
+            updated_at = excluded.updated_at,
+            updated_by = excluded.updated_by
+        `
+      ).run(
+        normalized.profileId,
+        stringifyJson(normalized),
+        updatedAt,
+        normalized.updatedBy ?? "operator"
+      );
+
+      return normalized;
+    },
+    {
+      profileId: config.profileId ?? "default",
+      updatedBy: options.updatedBy ?? "operator",
+    }
+  );
+}
+
+type MarketAnomalyCandidate = {
+  apiSurface: string;
+  bestAsk: number | null;
+  bestBid: number | null;
+  capturedAt: string;
+  depthScore: number | null;
+  displayLabel: string;
+  eventTimestamp: string;
+  eventType: MarketMicrostructureEventType;
+  family: MarketFamily | null;
+  finalMarketVolume: number | null;
+  gameId: string;
+  gameLabel: string;
+  instrumentId: string | null;
+  league: string;
+  mappingStatus: MappingStatus;
+  notional: number | null;
+  previousPrice: number | null;
+  price: number | null;
+  rawFamily: string | null;
+  rawLabel: string | null;
+  size: number | null;
+  source: MarketAnomalyAlert["source"];
+  sourceMarketId: string;
+  sourceMarketKey: string;
+  sourceSelectionKey: string | null;
+  sport: string;
+  spread: number | null;
+  tradePrice: number | null;
+  volume: number | null;
+  volumeShare: number | null;
+};
+
+function familyFromRaw(value: unknown): MarketFamily | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return marketFamilies.includes(value as MarketFamily)
+    ? (value as MarketFamily)
+    : null;
+}
+
+function buildGameLabelFromRows(row: Record<string, unknown>) {
+  const away = parseJson<{ shortName?: string }>(
+    row.awayParticipantJson == null ? null : String(row.awayParticipantJson),
+    {}
+  );
+  const home = parseJson<{ shortName?: string }>(
+    row.homeParticipantJson == null ? null : String(row.homeParticipantJson),
+    {}
+  );
+  return `${away.shortName ?? "Away"} at ${home.shortName ?? "Home"}`;
+}
+
+function marketAnomalyCandidateFromRow(
+  row: Record<string, unknown>
+): MarketAnomalyCandidate {
+  const rawFamily = row.rawFamily == null ? null : String(row.rawFamily);
+  const family = familyFromRaw(row.family) ?? familyFromRaw(rawFamily);
+  const bestBid = nullableNumber(row.bestBid);
+  const bestAsk = nullableNumber(row.bestAsk);
+  const spread =
+    nullableNumber(row.spread) ??
+    (bestBid != null && bestAsk != null ? Math.max(0, bestAsk - bestBid) : null);
+  return {
+    apiSurface: String(row.apiSurface),
+    bestAsk,
+    bestBid,
+    capturedAt: String(row.capturedAt),
+    depthScore: nullableNumber(row.depthScore),
+    displayLabel:
+      row.displayLabel == null
+        ? String(row.rawLabel ?? row.sourceMarketKey)
+        : String(row.displayLabel),
+    eventTimestamp: String(row.eventTimestamp),
+    eventType: String(row.eventType) as MarketMicrostructureEventType,
+    family,
+    finalMarketVolume: nullableNumber(row.finalMarketVolume),
+    gameId: String(row.gameId),
+    gameLabel: buildGameLabelFromRows(row),
+    instrumentId:
+      row.instrumentId == null ? null : String(row.instrumentId),
+    league: String(row.league),
+    mappingStatus: String(row.mappingStatus) as MappingStatus,
+    notional: nullableNumber(row.notional),
+    previousPrice: nullableNumber(row.previousPrice),
+    price: nullableNumber(row.price),
+    rawFamily,
+    rawLabel: row.rawLabel == null ? null : String(row.rawLabel),
+    size: nullableNumber(row.size),
+    source: String(row.source) as MarketAnomalyAlert["source"],
+    sourceMarketId: String(row.sourceMarketId),
+    sourceMarketKey: String(row.sourceMarketKey),
+    sourceSelectionKey:
+      row.sourceSelectionKey == null ? null : String(row.sourceSelectionKey),
+    sport: String(row.sport),
+    spread,
+    tradePrice: nullableNumber(row.tradePrice),
+    volume: nullableNumber(row.volume),
+    volumeShare: nullableNumber(row.volumeShare),
+  };
+}
+
+function selectCrossVenueContext(
+  db: Database.Database,
+  candidate: MarketAnomalyCandidate,
+  config: MarketAnomalyScoreConfig
+) {
+  if (!candidate.instrumentId) {
+    return {
+      gap: null as number | null,
+      hasBet365: false,
+    };
+  }
+
+  const eventSeconds = Math.floor(
+    timestampValue(candidate.eventTimestamp) / 1000
+  );
+  if (!Number.isFinite(eventSeconds) || eventSeconds < 0) {
+    return {
+      gap: null as number | null,
+      hasBet365: false,
+    };
+  }
+
+  const candidatePrice =
+    candidate.tradePrice ?? candidate.price ?? candidate.previousPrice;
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          sm.source,
+          q.implied_probability AS impliedProbability,
+          q.price_raw AS priceRaw,
+          q.best_bid AS bestBid,
+          q.best_ask AS bestAsk
+        FROM source_markets sm
+        JOIN quote_ticks q ON q.id = (
+          SELECT q2.id
+          FROM quote_ticks q2
+          WHERE q2.source_market_id = sm.id
+            AND ABS(strftime('%s', q2.captured_at) - ?) <= ?
+            AND COALESCE(q2.implied_probability, q2.price_raw) IS NOT NULL
+          ORDER BY ABS(strftime('%s', q2.captured_at) - ?) ASC, q2.id DESC
+          LIMIT 1
+        )
+        WHERE sm.instrument_id = ?
+          AND sm.source IN ('bet365', 'kalshi', 'polymarket')
+          AND sm.source != ?
+          AND sm.mapping_status != 'unmapped'
+      `
+    )
+    .all(
+      eventSeconds,
+      config.contextWindowMinutes * 60,
+      eventSeconds,
+      candidate.instrumentId,
+      candidate.source
+    ) as Record<string, unknown>[];
+
+  let gap: number | null = null;
+  let hasBet365 = candidate.source === "bet365";
+  for (const row of rows) {
+    const source = String(row.source);
+    if (source === "bet365") {
+      hasBet365 = true;
+    }
+    const midpoint =
+      nullableNumber(row.bestBid) != null && nullableNumber(row.bestAsk) != null
+        ? ((nullableNumber(row.bestBid) ?? 0) +
+            (nullableNumber(row.bestAsk) ?? 0)) /
+          2
+        : null;
+    const rowPrice =
+      nullableNumber(row.impliedProbability) ??
+      nullableNumber(row.priceRaw) ??
+      midpoint;
+    if (candidatePrice == null || rowPrice == null) {
+      continue;
+    }
+    const rowGap = Math.abs(candidatePrice - rowPrice);
+    gap = gap == null ? rowGap : Math.max(gap, rowGap);
+  }
+
+  return { gap, hasBet365 };
+}
+
+function scoreMarketAnomalyCandidate(
+  db: Database.Database,
+  candidate: MarketAnomalyCandidate,
+  config: MarketAnomalyScoreConfig
+): MarketAnomalyAlert | null {
+  if (candidate.family && !config.families.includes(candidate.family)) {
+    return null;
+  }
+  if (!config.toggles.includeUnmapped && candidate.mappingStatus === "unmapped") {
+    return null;
+  }
+
+  const referencePrice =
+    candidate.previousPrice ??
+    (candidate.bestBid != null && candidate.bestAsk != null
+      ? (candidate.bestBid + candidate.bestAsk) / 2
+      : null);
+  const tradeDistance =
+    candidate.tradePrice != null && referencePrice != null
+      ? Math.abs(candidate.tradePrice - referencePrice)
+      : null;
+  const priceChange =
+    candidate.price != null && candidate.previousPrice != null
+      ? Math.abs(candidate.price - candidate.previousPrice)
+      : null;
+  const volumeShare =
+    candidate.volumeShare ??
+    (candidate.finalMarketVolume != null &&
+    candidate.finalMarketVolume > 0 &&
+    candidate.size != null
+      ? candidate.size / candidate.finalMarketVolume
+      : null);
+  const spread =
+    candidate.spread ??
+    (candidate.bestBid != null && candidate.bestAsk != null
+      ? Math.max(0, candidate.bestAsk - candidate.bestBid)
+      : null);
+  const crossVenue = selectCrossVenueContext(db, candidate, config);
+  if (config.toggles.requireBet365 && !crossVenue.hasBet365) {
+    return null;
+  }
+
+  const components = {
+    crossVenue: clampScorePercent(
+      crossVenue.gap == null
+        ? 0
+        : crossVenue.gap / Math.max(config.thresholds.priceJump, 0.001)
+    ),
+    liquidity: clampScorePercent(
+      Math.max(
+        spread == null
+          ? 0
+          : spread / Math.max(config.thresholds.spread, 0.001),
+        candidate.depthScore == null
+          ? 0
+          : (config.thresholds.depthScoreDrop - candidate.depthScore) /
+              Math.max(config.thresholds.depthScoreDrop, 1)
+      )
+    ),
+    offPrice: clampScorePercent(
+      tradeDistance == null
+        ? 0
+        : tradeDistance / Math.max(config.thresholds.tradeDistance, 0.001)
+    ),
+    volatility: clampScorePercent(
+      priceChange == null
+        ? 0
+        : priceChange / Math.max(config.thresholds.priceJump, 0.001)
+    ),
+    volumeShare: clampScorePercent(
+      volumeShare == null
+        ? 0
+        : volumeShare / Math.max(config.thresholds.volumeShare, 0.001)
+    ),
+  };
+  const weightTotal = Math.max(
+    0.001,
+    Object.values(config.weights).reduce((sum, value) => sum + value, 0)
+  );
+  const score = Math.round(
+    (components.crossVenue * config.weights.crossVenue +
+      components.liquidity * config.weights.liquidity +
+      components.offPrice * config.weights.offPrice +
+      components.volatility * config.weights.volatility +
+      components.volumeShare * config.weights.volumeShare) *
+      (100 / weightTotal)
+  );
+
+  const surface = candidate.apiSurface.toLowerCase();
+  const typeConfidence =
+    candidate.eventType === "trade"
+      ? 0.9
+      : candidate.eventType === "book-snapshot"
+        ? 0.85
+        : candidate.eventType === "candlestick" || surface.includes("candle")
+          ? 0.55
+          : surface.includes("price-history")
+            ? 0.65
+            : 0.7;
+  const confidence = clampScorePercent(
+    typeConfidence -
+      (candidate.mappingStatus === "unmapped" ? 0.15 : 0) +
+      Math.min(0.1, score / 1000)
+  );
+
+  if (score < config.minScore || confidence < config.minConfidence) {
+    return null;
+  }
+
+  const labels: MarketAnomalyLabel[] = [];
+  if (components.offPrice > 0) labels.push("isolated off-price print");
+  if (components.volumeShare > 0) labels.push("volume-share anomaly");
+  if (components.volatility > 0) {
+    labels.push(
+      candidate.eventType === "trade" ? "volatility shock" : "sustained repricing"
+    );
+  }
+  if (components.liquidity > 0) labels.push("liquidity shock");
+  if (components.crossVenue > 0) labels.push("cross-venue disagreement");
+  if (candidate.mappingStatus === "unmapped") labels.push("coverage gap");
+  if (labels.length === 0) labels.push("volatility shock");
+
+  return {
+    action: "manual-review",
+    apiSurface: candidate.apiSurface,
+    components,
+    confidence,
+    detectedAt: candidate.capturedAt,
+    displayLabel: candidate.displayLabel,
+    eventTimestamp: candidate.eventTimestamp,
+    eventType: candidate.eventType,
+    family: candidate.family,
+    gameId: candidate.gameId,
+    gameLabel: candidate.gameLabel,
+    id: [
+      "market-anomaly",
+      candidate.sourceMarketId,
+      candidate.eventType,
+      candidate.apiSurface,
+      candidate.eventTimestamp,
+      candidate.tradePrice ?? candidate.price ?? "",
+      candidate.size ?? "",
+    ].join(":"),
+    instrumentId: candidate.instrumentId,
+    labels: Array.from(new Set(labels)),
+    league: candidate.league,
+    mappingStatus: candidate.mappingStatus,
+    metrics: {
+      bestAsk: candidate.bestAsk,
+      bestBid: candidate.bestBid,
+      crossVenueGap: crossVenue.gap,
+      depthScore: candidate.depthScore,
+      finalMarketVolume: candidate.finalMarketVolume,
+      notional: candidate.notional,
+      price: candidate.price,
+      priceChange,
+      referencePrice,
+      size: candidate.size,
+      spread,
+      tradeDistance,
+      tradePrice: candidate.tradePrice,
+      volume: candidate.volume,
+      volumeShare,
+    },
+    rawLabel: candidate.rawLabel,
+    score,
+    severity: scoreToSeverity(score),
+    source: candidate.source,
+    sourceMarketId: candidate.sourceMarketId,
+    sourceMarketKey: candidate.sourceMarketKey,
+    sourceSelectionKey: candidate.sourceSelectionKey,
+    sport: candidate.sport,
+  } satisfies MarketAnomalyAlert;
+}
+
+function buildAnomalyWhereClause(
+  filters: MarketAnomalyFilters,
+  config: MarketAnomalyScoreConfig
+) {
+  const clauses = ["sm.source IN ('bet365', 'kalshi', 'polymarket')"];
+  const params: unknown[] = [];
+
+  if (filters.date) {
+    clauses.push("substr(EVENT_TIME_COLUMN, 1, 10) = ?");
+    params.push(filters.date);
+  }
+  if (filters.source) {
+    clauses.push("sm.source = ?");
+    params.push(filters.source);
+  }
+  if (filters.family) {
+    clauses.push("COALESCE(mi.family, sm.raw_family) = ?");
+    params.push(filters.family);
+  }
+  if (!config.toggles.includeUnmapped) {
+    clauses.push("sm.mapping_status != 'unmapped'");
+  }
+  if (!config.toggles.includeHistorical) {
+    clauses.push(`
+      NOT EXISTS (
+        SELECT 1 FROM game_outcomes go WHERE go.game_id = g.id
+      )
+      AND COALESCE((
+        SELECT gs.status
+        FROM game_states gs
+        WHERE gs.game_id = g.id
+        ORDER BY datetime(gs.captured_at) DESC, gs.id DESC
+        LIMIT 1
+      ), 'scheduled') != 'final'
+    `);
+  }
+
+  return { clauses, params };
+}
+
+function selectMicrostructureAnomalyCandidates(
+  db: Database.Database,
+  filters: MarketAnomalyFilters,
+  config: MarketAnomalyScoreConfig
+) {
+  const where = buildAnomalyWhereClause(filters, config);
+  const whereSql = where.clauses
+    .join(" AND ")
+    .replaceAll("EVENT_TIME_COLUMN", "mme.event_timestamp");
+
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          mme.id,
+          mme.source,
+          mme.source_market_id AS sourceMarketId,
+          mme.game_id AS gameId,
+          mme.instrument_id AS instrumentId,
+          mme.event_type AS eventType,
+          mme.api_surface AS apiSurface,
+          mme.event_timestamp AS eventTimestamp,
+          mme.captured_at AS capturedAt,
+          mme.price,
+          mme.previous_price AS previousPrice,
+          mme.trade_price AS tradePrice,
+          mme.size,
+          mme.notional,
+          mme.volume,
+          mme.final_market_volume AS finalMarketVolume,
+          mme.volume_share AS volumeShare,
+          mme.best_bid AS bestBid,
+          mme.best_ask AS bestAsk,
+          mme.spread,
+          mme.depth_score AS depthScore,
+          sm.source_market_key AS sourceMarketKey,
+          sm.source_selection_key AS sourceSelectionKey,
+          sm.raw_family AS rawFamily,
+          sm.raw_label AS rawLabel,
+          sm.mapping_status AS mappingStatus,
+          mi.family,
+          mi.display_label AS displayLabel,
+          g.sport,
+          g.league,
+          g.home_participant_json AS homeParticipantJson,
+          g.away_participant_json AS awayParticipantJson
+        FROM market_microstructure_events mme
+        JOIN source_markets sm ON sm.id = mme.source_market_id
+        JOIN games g ON g.id = mme.game_id
+        LEFT JOIN market_instruments mi ON mi.id = COALESCE(mme.instrument_id, sm.instrument_id)
+        WHERE ${whereSql}
+        ORDER BY datetime(mme.event_timestamp) DESC, mme.id DESC
+        LIMIT 2000
+      `
+    )
+    .all(...where.params) as Record<string, unknown>[];
+
+  return rows.map(marketAnomalyCandidateFromRow);
+}
+
+function selectQuoteAnomalyCandidates(
+  db: Database.Database,
+  filters: MarketAnomalyFilters,
+  config: MarketAnomalyScoreConfig
+) {
+  const where = buildAnomalyWhereClause(filters, config);
+  const whereSql = where.clauses
+    .join(" AND ")
+    .replaceAll("EVENT_TIME_COLUMN", "q.captured_at");
+
+  const rows = db
+    .prepare(
+      `
+        WITH priced_quotes AS (
+          SELECT
+            q.id,
+            q.source_market_id,
+            q.captured_at,
+            q.implied_probability,
+            q.price_raw,
+            q.best_bid,
+            q.best_ask,
+            q.volume,
+            q.depth_score,
+            LAG(COALESCE(q.implied_probability, q.price_raw)) OVER (
+              PARTITION BY q.source_market_id
+              ORDER BY datetime(q.captured_at), q.id
+            ) AS previous_price
+          FROM quote_ticks q
+          WHERE COALESCE(q.implied_probability, q.price_raw) IS NOT NULL
+            AND q.is_heartbeat = 0
+        )
+        SELECT
+          q.id,
+          sm.source,
+          sm.id AS sourceMarketId,
+          sm.source_market_key AS sourceMarketKey,
+          sm.source_selection_key AS sourceSelectionKey,
+          sm.game_id AS gameId,
+          sm.instrument_id AS instrumentId,
+          sm.raw_family AS rawFamily,
+          sm.raw_label AS rawLabel,
+          sm.mapping_status AS mappingStatus,
+          mi.family,
+          mi.display_label AS displayLabel,
+          'price-tick' AS eventType,
+          'quote-tick' AS apiSurface,
+          q.captured_at AS eventTimestamp,
+          q.captured_at AS capturedAt,
+          COALESCE(q.implied_probability, q.price_raw) AS price,
+          q.previous_price AS previousPrice,
+          NULL AS tradePrice,
+          NULL AS size,
+          NULL AS notional,
+          q.volume,
+          NULL AS finalMarketVolume,
+          NULL AS volumeShare,
+          q.best_bid AS bestBid,
+          q.best_ask AS bestAsk,
+          CASE
+            WHEN q.best_bid IS NOT NULL AND q.best_ask IS NOT NULL
+            THEN MAX(0, q.best_ask - q.best_bid)
+            ELSE NULL
+          END AS spread,
+          q.depth_score AS depthScore,
+          g.sport,
+          g.league,
+          g.home_participant_json AS homeParticipantJson,
+          g.away_participant_json AS awayParticipantJson
+        FROM priced_quotes q
+        JOIN source_markets sm ON sm.id = q.source_market_id
+        JOIN games g ON g.id = sm.game_id
+        LEFT JOIN market_instruments mi ON mi.id = sm.instrument_id
+        WHERE ${whereSql}
+        ORDER BY datetime(q.captured_at) DESC, q.id DESC
+        LIMIT 2000
+      `
+    )
+    .all(...where.params) as Record<string, unknown>[];
+
+  return rows.map(marketAnomalyCandidateFromRow);
+}
+
+export function listMarketAnomalyAlerts(filters: MarketAnomalyFilters = {}) {
+  const storedConfig = getMarketAnomalyScoreConfig(filters.profileId);
+  return executeDatabaseOperation(
+    "research.marketAnomalies.list",
+    () => {
+      const db = getDatabase();
+      const config = normalizeScoreConfig({
+        ...storedConfig,
+        ...(filters.minConfidence != null
+          ? { minConfidence: filters.minConfidence }
+          : {}),
+        ...(filters.minScore != null ? { minScore: filters.minScore } : {}),
+        toggles: {
+          ...storedConfig.toggles,
+          includeHistorical:
+            filters.includeHistorical ??
+            storedConfig.toggles.includeHistorical,
+          includeUnmapped:
+            filters.includeUnmapped ??
+            storedConfig.toggles.includeUnmapped,
+          requireBet365:
+            filters.requireBet365 ??
+            storedConfig.toggles.requireBet365,
+        },
+      });
+      const limit = clampAnomalyLimit(filters.limit);
+      const candidates = [
+        ...selectMicrostructureAnomalyCandidates(db, filters, config),
+        ...selectQuoteAnomalyCandidates(db, filters, config),
+      ];
+      const seen = new Set<string>();
+      return candidates
+        .map((candidate) => scoreMarketAnomalyCandidate(db, candidate, config))
+        .filter((alert): alert is MarketAnomalyAlert => alert != null)
+        .filter((alert) => {
+          if (seen.has(alert.id)) {
+            return false;
+          }
+          seen.add(alert.id);
+          return true;
+        })
+        .sort((left, right) => {
+          if (right.score !== left.score) {
+            return right.score - left.score;
+          }
+          return (
+            timestampValue(right.eventTimestamp) -
+            timestampValue(left.eventTimestamp)
+          );
+        })
+        .slice(0, limit);
+    },
+    filters
+  );
+}
+
 function playerPropAlertSourceFromRow(
   row: Record<string, unknown>,
   prefix: "bet365" | "external"
@@ -2602,6 +3458,90 @@ export function recordRawPayload(input: {
     {
       entityId: input.entityId,
       source: input.source,
+    }
+  );
+}
+
+export function recordMarketMicrostructureEvent(
+  input: MarketMicrostructureEventInput
+) {
+  return executeDatabaseOperation(
+    "marketMicrostructureEvents.append",
+    () => {
+      const db = getDatabase();
+      const capturedAt = input.capturedAt ?? currentTimestamp();
+      const result = db
+        .prepare(
+          `
+            INSERT OR IGNORE INTO market_microstructure_events (
+              source,
+              source_market_id,
+              game_id,
+              instrument_id,
+              event_type,
+              api_surface,
+              event_timestamp,
+              captured_at,
+              price,
+              previous_price,
+              trade_price,
+              size,
+              notional,
+              volume,
+              final_market_volume,
+              volume_share,
+              best_bid,
+              best_ask,
+              spread,
+              depth_score,
+              raw_payload_id,
+              raw_metadata_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `
+        )
+        .run(
+          input.source,
+          input.sourceMarketId,
+          input.gameId,
+          input.instrumentId ?? null,
+          input.eventType,
+          input.apiSurface,
+          input.eventTimestamp,
+          capturedAt,
+          input.price ?? null,
+          input.previousPrice ?? null,
+          input.tradePrice ?? null,
+          input.size ?? null,
+          input.notional ?? null,
+          input.volume ?? null,
+          input.finalMarketVolume ?? null,
+          input.volumeShare ?? null,
+          input.bestBid ?? null,
+          input.bestAsk ?? null,
+          input.spread ?? null,
+          input.depthScore ?? null,
+          input.rawPayloadId ?? null,
+          stringifyJson(input.rawMetadata)
+        );
+
+      return {
+        event:
+          result.changes > 0
+            ? ({
+                ...input,
+                capturedAt,
+                id: Number(result.lastInsertRowid),
+              } satisfies MarketMicrostructureEvent)
+            : null,
+        inserted: result.changes > 0,
+      };
+    },
+    {
+      apiSurface: input.apiSurface,
+      eventType: input.eventType,
+      source: input.source,
+      sourceMarketId: input.sourceMarketId,
     }
   );
 }

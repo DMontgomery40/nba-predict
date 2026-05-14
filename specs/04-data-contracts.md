@@ -15,6 +15,10 @@
 ## Operational Artifacts
 
 - `PlayerPropAlertPlaybackFrame`
+- `MarketMicrostructureEvent`
+- `MarketAnomalyAlert`
+- `MarketAnomalyScoreConfig`
+- `MarketAnomalyPlaybackFrame`
 
 ## Contract Rules
 
@@ -29,3 +33,4 @@
 - `DATA-009` Player-prop disagreement alerts must retain both sides of the attribution check: canonical instrument id, display label, participant key, line, side, Bet365 source market id/source label/latest probability/latest quote time, Kalshi/Polymarket source market id/source label/latest probability/latest quote time, signed divergence, quote-time gap, quote ages, and manual-review action.
 - `DATA-010` Player-prop alert playback frames must retain the exact alert snapshot, captured-at time, notified alert ids, and poll thresholds. These frames are operational evidence written by the live watcher and shall not be seeded or synthetic runtime data.
 - `DATA-011` Instrument divergence summaries must be derived from persisted quote ticks on one canonical probability scale. Summary payloads carry comparison count, first/latest comparison times, latest gap, peak gap, threshold duration, and the source probabilities from the exact latest/peak comparison bucket; UI surfaces must not combine unrelated latest source quotes.
+- `DATA-012` Market anomaly alerts must be backed by persisted quote ticks or persisted microstructure events. A row may represent unmapped prediction-market activity, but it must carry mapping status and source-market provenance rather than being hidden or forced into an exact player-prop match.

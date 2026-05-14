@@ -14,12 +14,14 @@
 - `UX-014` History shall be a first-class route that surfaces persisted capture runs, storage coverage, research coverage, and signal mismatches even when no games are currently visible on the live slate.
 - `UX-015` Exports shall be a first-class, data-engineering-friendly route with a package-first layout: the first control downloads the complete persisted SQLite store, while secondary controls expose API-backed CSV/JSONL tables and provider/family quote slices such as all player props or one provider's prop market family.
 - `UX-016` The games index shall not dead-end on an empty slate; it shall point the user toward history, exports, and settings when no canonical games are currently visible.
-- `UX-017` The root trader desk shall prioritize player-prop attribution risk above general research: current Bet365-vs-exchange prop disagreements should appear in a first-panel queue and trigger a dismissible popup that links directly to the instrument workspace.
+- `UX-017` The prop-alerts route shall preserve the stricter player-prop attribution risk workflow: current Bet365-vs-exchange prop disagreements should appear in a monitor queue and link directly to the instrument workspace when exact-line evidence exists.
 - `UX-018` Player-prop alerts shall have a first-class monitor route that shows the current review queue and the persisted watcher checks for the selected date, including which checks fired desktop notifications.
 - `UX-019` Settings shall expose the runtime environment knobs read by the API, worker, adapters, alert watcher, and temporary host. Secrets must be masked, defaults must be visible, and dense tables/native selects should be used instead of cards, pills, chips, or stacked decorative controls.
 - `UX-020` Slate and desk surfaces shall call out missing NBA score updates or missing final confirmation when a scheduled game is inside the expected live/final window, rather than calling future games stale or silently displaying an old `scheduled` state.
 - `UX-021` Divergence rows shall show peak divergence, latest measured divergence, threshold duration, and market-match state from DB-backed summaries. Final games may be review evidence; only live games with fresh same-time quotes may read as actionable now.
 - `UX-022` Slate and desk game cards shall display market feeds separately from NBA state. A top signal may only appear when a same-time market comparison exists; coverage-only rows must read as coverage or mapping work, not `0.0%` disagreement.
+- `UX-024` The trader desk shall prioritize a generalized prediction-market weirdness queue ahead of exact player-prop attribution risk. The queue shall show score, confidence, venue, market, API surface, timestamp, signal labels, price/trade/volume/share, spread/depth, mapping status, and a direct review link.
+- `UX-025` A dedicated market-anomalies route shall expose the anomaly queue and tunable scoring controls. The existing prop-alerts route remains a stricter exact-line compatibility surface.
 
 ## Interaction Rules
 

@@ -6,6 +6,7 @@ import {
   adminActionStatuses,
   comparableStates,
   mappingStatuses,
+  marketMicrostructureEventTypes,
   marketFamilies,
   researchGameStatuses,
   researchSourceIds,
@@ -19,6 +20,9 @@ export const comparableStateSchema = z.enum(comparableStates);
 export const adapterRunStatusSchema = z.enum(adapterRunStatuses);
 export const adapterCaptureModeSchema = z.enum(adapterCaptureModes);
 export const adminActionStatusSchema = z.enum(adminActionStatuses);
+export const marketMicrostructureEventTypeSchema = z.enum(
+  marketMicrostructureEventTypes
+);
 
 export const gameParticipantSchema = z.object({
   key: z.string(),
@@ -97,6 +101,32 @@ export const quoteTickSchema = z.object({
   volume: z.number().nullable().optional(),
   depthScore: z.number().nullable().optional(),
   isHeartbeat: z.boolean(),
+});
+
+export const marketMicrostructureEventSchema = z.object({
+  id: z.number().int().nonnegative(),
+  source: z.enum(["bet365", "kalshi", "polymarket"]),
+  sourceMarketId: z.string(),
+  gameId: z.string(),
+  instrumentId: z.string().nullable().optional(),
+  eventType: marketMicrostructureEventTypeSchema,
+  apiSurface: z.string(),
+  eventTimestamp: z.string(),
+  capturedAt: z.string(),
+  price: z.number().nullable().optional(),
+  previousPrice: z.number().nullable().optional(),
+  tradePrice: z.number().nullable().optional(),
+  size: z.number().nullable().optional(),
+  notional: z.number().nullable().optional(),
+  volume: z.number().nullable().optional(),
+  finalMarketVolume: z.number().nullable().optional(),
+  volumeShare: z.number().nullable().optional(),
+  bestBid: z.number().nullable().optional(),
+  bestAsk: z.number().nullable().optional(),
+  spread: z.number().nullable().optional(),
+  depthScore: z.number().nullable().optional(),
+  rawPayloadId: z.number().int().nullable().optional(),
+  rawMetadata: z.record(z.unknown()).nullable().optional(),
 });
 
 export const rawPayloadAttachmentSchema = z.object({

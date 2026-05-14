@@ -39,3 +39,92 @@ This repo is live-only. Do not add synthetic modes, curated scenarios, seeded hi
 - Health and readiness should fail honestly when required live dependencies or persisted live data are missing.
 - Spread/total/prop line mismatch must remain distinct from like-for-like probability divergence.
 - Manual mapping flows should keep unmapped markets visible until they are explicitly resolved.
+
+## Market Incident Analysis Rules
+
+These rules apply whenever analyzing NBA stat misallocation, stat correction, player-prop attribution, or prediction-market reaction incidents.
+
+### Start With The Real Event
+
+- Do not present market timestamps without first anchoring them to the real-world game/stat event.
+- Every incident report must start with an `Incident Timeline` table containing:
+  - source-local time if supplied
+  - UTC time
+  - event description
+  - affected players
+  - affected stat/market family
+- Every market row must include `T offset` from the relevant real-world event, such as `T+00:38` or `T-06:35`.
+- Never write vague timing like "around then" when exact source times or API timestamps are available.
+- If the real-world event time is unknown, say that first and mark market timing as unanchored.
+
+### Analyze Paired Players And Related Props When Known
+
+- Misattribution incidents usually involve at least two players:
+  - credited player: the player who received the live stat
+  - rightful player: the player who may have deserved the stat or related play component
+- For post-hoc incident forensics, search markets for both players when the pair is known, not only the player shown on the sportsbook row.
+- For live desk alerts, do not require knowing the rightful player. The live alert should scan broadly for prediction-market weirdness across mapped and unmapped markets, then tell the desk to inspect what happened.
+- Expand beyond the exact sportsbook line when needed:
+  - alternate lines for the same player/stat
+  - related stat families affected by the play, such as points, rebounds, assists, RA, PRA, threes, steals, and blocks
+  - both Yes/No or Over/Under sides when the venue exposes them separately
+- A signal can be valid even when the exact sportsbook participant has no external market, if the paired player or related stat has abnormal market activity.
+
+### Track Direct API Versus App Coverage
+
+- Direct venue APIs are diagnostic tools; persisted app data remains the runtime source of truth only when the workflow is backed by persisted live data.
+- If a direct API shows a market that the app missed, record this as a product-critical ingestion/query/mapping gap.
+- For each incident target, distinguish:
+  - market exists in direct venue API
+  - market exists in persisted DB
+  - market appears in the app/API response being inspected
+  - market is genuinely absent from the venue
+- Polymarket incident diagnostics should check, when relevant:
+  - Gamma event/market metadata for event slug, condition ID, token IDs, outcomes, final reported volume
+  - CLOB `prices-history` for timestamped price points by token
+  - Data API `trades` for timestamp, side, outcome, size, price, wallet, transaction hash
+- Kalshi incident diagnostics should check, when relevant:
+  - event/market listings by series and event ticker
+  - candlesticks for price, bid/ask, `volume_fp`, and `open_interest_fp`
+- Do not assume the current app uses the best endpoint. For Polymarket, audit Gamma discovery, Data API trades/activity/holders, CLOB orderbooks/prices/midpoints/spreads/price history/last trade prices, and WebSocket market/sports/RTDS streams. For Kalshi, audit event/market/series listings, single and batch candlesticks, single and multiple orderbooks, trade/history endpoints, WebSockets, and open-interest/volume/depth fields.
+- Before adding new ingestion, create an endpoint scorecard covering signal value, historical/live availability, timestamp precision, volume-share support, orderbook-depth support, auth/rate limits, current persistence, and current UI/API exposure.
+
+### Treat Volume Share As A First-Class Signal
+
+- Do not judge activity by raw notional alone. In thin player-prop markets, share of final market volume can be more important than dollars.
+- Always compute:
+  - raw size
+  - raw notional
+  - share of final reported market volume when available
+  - distance between trade price and nearest sampled price-history ticks
+  - whether the print caused sustained repricing or was an isolated print
+- Concentrated off-price prints are high-priority market-structure alerts. Example: 26% of a market trading at 99c while sampled prices stay near 50c is a major anomaly even if the raw notional is small.
+
+### Live Market Weirdness Comes First
+
+- Live detection should prioritize any abnormal prediction-market activity, not only exact player-prop attribution rows.
+- Escalate off-price prints, sudden volume share, volatility shocks, liquidity/spread shocks, and cross-venue disagreement across Kalshi and Polymarket.
+- Treat Bet365/book exposure as optional context unless the workflow is explicitly an exact-line Bet365 risk check.
+
+### Reporting Format
+
+- Use compact tables for incident output. Avoid nested bullet stacks for data-heavy timelines.
+- Required sections:
+  - `Incident Timeline`
+  - `Venue Coverage`
+  - `Market Reaction`
+  - `Read`
+- `Market Reaction` rows should include:
+  - venue
+  - market
+  - API surface (`price-history`, `trades`, `candlestick`, etc.)
+  - timestamp UTC
+  - `T offset`
+  - action/type
+  - price or price change
+  - size
+  - notional
+  - volume share
+  - interpretation
+- For Kalshi, label candlestick timestamps as candle end times. Do not imply second-level trade precision from candle data.
+- Keep settlement/adjudication separate from market reaction unless the task explicitly asks for settlement.

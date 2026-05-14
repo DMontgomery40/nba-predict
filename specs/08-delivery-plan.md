@@ -12,10 +12,12 @@
 8. Bet365 backup ingestion through Odds-API.io, persisted under the native live source model
 9. Direct Kalshi NBA market-data ingestion through `KALSHI_API_KEY`, including player props and broader game-related event families
 10. Package-first exports route with a full SQLite handoff plus streamed CSV/JSONL table and quote-slice downloads for data engineering
+11. Generalized prediction-market anomaly API/UI surface with persisted microstructure event storage, score configuration, desk queue, and `/market-anomalies` route
 
 ## Next Slices
 
-1. Direct public Bet365 capture
-2. Broader live validation of the direct Kalshi and Bet365 backup provider paths
-3. Broader live end-to-end validation
-4. Deeper charting and executable admin workflows
+1. Direct Polymarket Data API trade ingestion into `market_microstructure_events`
+2. Direct Kalshi trade/orderbook/candlestick microstructure ingestion into `market_microstructure_events`
+3. Direct public Bet365 capture
+4. Broader live validation of Kalshi/Polymarket anomaly scoring against real slates
+5. Deeper charting and executable admin workflows

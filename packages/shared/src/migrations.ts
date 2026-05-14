@@ -2,7 +2,7 @@ import { DatabaseFailureError } from "./errors";
 
 import type Database from "better-sqlite3";
 
-export const currentSchemaVersion = 8;
+export const currentSchemaVersion = 9;
 
 function nowIso() {
   return new Date().toISOString();
@@ -334,6 +334,10 @@ export function applyMigrations(db: Database.Database, dbPath: string) {
   if (getAppliedVersion(db) < 8) {
     applyDivergenceLookupIndexes(db);
   }
+
+  if (getAppliedVersion(db) < 9) {
+    applyMarketAnomalySupport(db);
+  }
 }
 
 function applyCanonicalInstrumentConsolidation(db: Database.Database) {
@@ -511,5 +515,66 @@ function applyDivergenceLookupIndexes(db: Database.Database) {
     }
 
     insertMigration(db, 8, "divergence-lookup-indexes");
+  })();
+}
+
+function applyMarketAnomalySupport(db: Database.Database) {
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS market_microstructure_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL,
+        source_market_id TEXT NOT NULL,
+        game_id TEXT NOT NULL,
+        instrument_id TEXT,
+        event_type TEXT NOT NULL,
+        api_surface TEXT NOT NULL,
+        event_timestamp TEXT NOT NULL,
+        captured_at TEXT NOT NULL,
+        price REAL,
+        previous_price REAL,
+        trade_price REAL,
+        size REAL,
+        notional REAL,
+        volume REAL,
+        final_market_volume REAL,
+        volume_share REAL,
+        best_bid REAL,
+        best_ask REAL,
+        spread REAL,
+        depth_score REAL,
+        raw_payload_id INTEGER,
+        raw_metadata_json TEXT,
+        FOREIGN KEY (source_market_id) REFERENCES source_markets(id) ON DELETE CASCADE,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+        FOREIGN KEY (instrument_id) REFERENCES market_instruments(id) ON DELETE SET NULL,
+        FOREIGN KEY (raw_payload_id) REFERENCES raw_payloads(id) ON DELETE SET NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_market_microstructure_source_time
+        ON market_microstructure_events(source, event_timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_market_microstructure_game_time
+        ON market_microstructure_events(game_id, event_timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_market_microstructure_market_time
+        ON market_microstructure_events(source_market_id, event_timestamp DESC);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_market_microstructure_unique_event
+        ON market_microstructure_events(
+          source_market_id,
+          event_type,
+          api_surface,
+          event_timestamp,
+          COALESCE(trade_price, price, -1),
+          COALESCE(size, -1)
+        );
+
+      CREATE TABLE IF NOT EXISTS market_anomaly_score_configs (
+        profile_id TEXT PRIMARY KEY,
+        config_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        updated_by TEXT NOT NULL
+      );
+    `);
+
+    insertMigration(db, 9, "market-anomaly-support");
   })();
 }

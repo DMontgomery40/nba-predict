@@ -42,6 +42,11 @@ export function CommandPalette() {
     const routeActions = [
       { id: "go-desk", label: "Go to trading desk", path: "/" },
       {
+        id: "go-anomalies",
+        label: "Go to market anomalies",
+        path: "/market-anomalies",
+      },
+      {
         id: "go-divergence",
         label: "Go to divergence board",
         path: "/divergence",

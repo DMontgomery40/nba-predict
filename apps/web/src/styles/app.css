@@ -2701,6 +2701,24 @@ input {
   letter-spacing: 0;
 }
 
+.settings-table input {
+  width: 100%;
+  min-width: 6rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(159, 178, 197, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.settings-table input[type="checkbox"] {
+  width: 1rem;
+  min-width: 1rem;
+  height: 1rem;
+}
+
 .settings-map-table .search-input {
   min-width: 12rem;
   padding: 0.55rem 0.65rem;
@@ -3580,7 +3598,8 @@ input {
   text-transform: uppercase;
 }
 
-.alert-monitor-actions input {
+.alert-monitor-actions input,
+.alert-monitor-actions select {
   min-width: 11rem;
   padding: 0.55rem 0.65rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -3588,6 +3607,12 @@ input {
   background: rgba(255, 255, 255, 0.055);
   color: var(--text);
   letter-spacing: 0;
+}
+
+.alert-monitor-actions input[type="checkbox"] {
+  min-width: auto;
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .alert-monitor-stats {

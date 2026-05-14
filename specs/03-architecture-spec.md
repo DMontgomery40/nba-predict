@@ -15,7 +15,9 @@ Signal Console is composed of:
 - persist append-only live game and quote history
 - compose research read models from persisted history
 - compute urgent player-prop attribution alerts from fresh mapped Bet365 and Kalshi/Polymarket quote overlap
+- compute generalized prediction-market anomaly alerts from persisted quote ticks and microstructure events without requiring exact player-prop pairing at detection time
 - serve player-prop alert playback frames written by the watcher
+- serve market anomaly scoring configuration and playback frames
 - stream data-engineering exports from the persisted SQLite store without requiring browser-side staging
 - expose operator/admin routes for health, coverage, unmapped markets, and source state
 - emit structured errors and logs
@@ -30,6 +32,7 @@ Signal Console is composed of:
 - keep direct public Bet365 capture behind the same storage model as it matures
 - isolate market-provider failures inside a worker cycle so one source outage does not block later source refreshes
 - run an optional player-prop alert watcher that records every poll frame and sends desktop notifications for newly observed alert ids
+- run an optional market anomaly watcher that records generalized weirdness poll frames and sends desktop notifications for newly observed anomaly ids
 - back off cleanly on unrecoverable cycle failure
 
 ## Storage
@@ -38,6 +41,7 @@ Signal Console is composed of:
 - append-only tables for `game_states`, `quote_ticks`, and `raw_payloads`
 - relational links between canonical instruments and per-source markets
 - JSONL operational playback frames under `data/player-prop-alert-playback/`
+- JSONL operational market anomaly playback frames under `data/market-anomaly-playback/`
 
 ## Boundary Rules
 

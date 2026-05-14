@@ -60,6 +60,28 @@ export const adminActionStatuses = [
 
 export type AdminActionStatus = (typeof adminActionStatuses)[number];
 
+export const marketMicrostructureEventTypes = [
+  "trade",
+  "price-tick",
+  "candlestick",
+  "book-snapshot",
+] as const;
+
+export type MarketMicrostructureEventType =
+  (typeof marketMicrostructureEventTypes)[number];
+
+export const marketAnomalyLabels = [
+  "isolated off-price print",
+  "volume-share anomaly",
+  "sustained repricing",
+  "volatility shock",
+  "liquidity shock",
+  "cross-venue disagreement",
+  "coverage gap",
+] as const;
+
+export type MarketAnomalyLabel = (typeof marketAnomalyLabels)[number];
+
 export type GameParticipant = {
   key: string;
   name: string;
@@ -137,6 +159,32 @@ export type QuoteTick = {
   volume?: number | null;
   depthScore?: number | null;
   isHeartbeat: boolean;
+};
+
+export type MarketMicrostructureEvent = {
+  id: number;
+  source: Extract<ResearchSourceId, "bet365" | "kalshi" | "polymarket">;
+  sourceMarketId: string;
+  gameId: string;
+  instrumentId?: string | null;
+  eventType: MarketMicrostructureEventType;
+  apiSurface: string;
+  eventTimestamp: string;
+  capturedAt: string;
+  price?: number | null;
+  previousPrice?: number | null;
+  tradePrice?: number | null;
+  size?: number | null;
+  notional?: number | null;
+  volume?: number | null;
+  finalMarketVolume?: number | null;
+  volumeShare?: number | null;
+  bestBid?: number | null;
+  bestAsk?: number | null;
+  spread?: number | null;
+  depthScore?: number | null;
+  rawPayloadId?: number | null;
+  rawMetadata?: Record<string, unknown> | null;
 };
 
 export type RawPayloadAttachment = {
@@ -408,6 +456,107 @@ export type PlayerPropAlertPlaybackFrame = {
     maxQuoteTimeGapMinutes: number;
     maxQuoteAgeMinutes: number;
     minDelta: number;
+  };
+  error?: {
+    code?: string;
+    message: string;
+  };
+};
+
+export type MarketAnomalyScoreConfig = {
+  profileId: string;
+  minScore: number;
+  minConfidence: number;
+  shockWindowSeconds: number;
+  contextWindowMinutes: number;
+  weights: {
+    crossVenue: number;
+    liquidity: number;
+    offPrice: number;
+    volatility: number;
+    volumeShare: number;
+  };
+  thresholds: {
+    depthScoreDrop: number;
+    maxQuoteAgeMinutes: number;
+    priceJump: number;
+    spread: number;
+    tradeDistance: number;
+    volumeShare: number;
+  };
+  toggles: {
+    includeHistorical: boolean;
+    includeUnmapped: boolean;
+    requireBet365: boolean;
+  };
+  families: MarketFamily[];
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+};
+
+export type MarketAnomalyAlert = {
+  id: string;
+  action: "manual-review";
+  apiSurface: string;
+  confidence: number;
+  detectedAt: string;
+  displayLabel: string;
+  eventTimestamp: string;
+  eventType: MarketMicrostructureEventType;
+  family?: MarketFamily | null;
+  gameId: string;
+  gameLabel: string;
+  instrumentId?: string | null;
+  labels: MarketAnomalyLabel[];
+  league: string;
+  mappingStatus: MappingStatus;
+  rawLabel?: string | null;
+  score: number;
+  severity: SeverityBand;
+  source: Extract<ResearchSourceId, "bet365" | "kalshi" | "polymarket">;
+  sourceMarketId: string;
+  sourceMarketKey: string;
+  sourceSelectionKey?: string | null;
+  sport: string;
+  components: {
+    crossVenue: number;
+    liquidity: number;
+    offPrice: number;
+    volatility: number;
+    volumeShare: number;
+  };
+  metrics: {
+    bestAsk?: number | null;
+    bestBid?: number | null;
+    crossVenueGap?: number | null;
+    depthScore?: number | null;
+    finalMarketVolume?: number | null;
+    notional?: number | null;
+    price?: number | null;
+    priceChange?: number | null;
+    referencePrice?: number | null;
+    size?: number | null;
+    spread?: number | null;
+    tradeDistance?: number | null;
+    tradePrice?: number | null;
+    volume?: number | null;
+    volumeShare?: number | null;
+  };
+};
+
+export type MarketAnomalyPlaybackFrame = {
+  source: "market-anomaly-watch";
+  alertCount: number;
+  alerts: MarketAnomalyAlert[];
+  capturedAt: string;
+  notifiedAlertIds: string[];
+  poll: {
+    includeHistorical: boolean;
+    includeUnmapped: boolean;
+    limit: number;
+    minConfidence: number;
+    minScore: number;
+    requireBet365: boolean;
   };
   error?: {
     code?: string;

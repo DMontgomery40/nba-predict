@@ -32,8 +32,9 @@ Build a real research backend and operator console for live market comparison ac
 - API-backed export catalog and server-streamed CSV/JSONL/SQLite downloads surfaced from `/exports`, including provider/family quote slices for data engineering
 - NBA sidecar future-schedule fallback to the official NBA CDN season schedule, covering playoff games that `scoreboardv2` omits or times out on
 - Worker market-provider isolation: bet365 rate limits are reported without blocking Kalshi/Polymarket refresh, and live Kalshi scans are bounded to recent events
-- First-class player-prop attribution risk alerts: `/api/v1/research/player-prop-alerts` compares fresh mapped Bet365 props against Kalshi/Polymarket, and the trader desk polls it every five seconds for a popup plus top-of-dashboard review queue
+- First-class player-prop attribution risk alerts: `/api/v1/research/player-prop-alerts` compares fresh mapped Bet365 props against Kalshi/Polymarket, with `/prop-alerts` preserving the exact-line monitor as a compatibility/specialized view
 - Player-prop alert watcher and saved-check path: `pnpm prop-alert-watch` records every poll frame to JSONL, sends desktop notifications for newly observed alert ids, `/api/v1/research/player-prop-alert-playback` serves persisted checks, and `/prop-alerts` reviews the selected date without synthetic frames
+- Market anomaly watcher and saved-check path: `pnpm market-anomaly-watch` records every generalized weirdness poll frame to JSONL, sends desktop notifications for newly observed anomaly ids, and `/api/v1/research/market-anomaly-playback` serves persisted checks
 - Odds-API Bet365 backup discovery is bounded to pending/live NBA events around the active target slate before requesting odds for matched event ids
 - Current-slate game ordering keeps live and near-term NBA games ahead of old persisted history, with missing score updates and missing final confirmation called out in Games and Trader Desk
 - NBA sidecar live-scoreboard and schedule CDN fallbacks use browser-compatible NBA headers, keeping active playoff games visible when the default `nba_api` live endpoint is rejected
@@ -45,22 +46,26 @@ Build a real research backend and operator console for live market comparison ac
 - Settings now exposes runtime-settable environment/config keys, readiness, source health, admin actions, coverage, captures, storage, queued results, and mapping state in dense non-card controls
 - Readiness, worker heartbeat, storage coverage, and research coverage avoid full-DB blocking scans so the full local quote/raw-payload store no longer freezes operator UI surfaces
 - Temporary authenticated local/static hosting is available through `pnpm host:temporary`, suitable for a short-lived Cloudflare tunnel in front of the built web app
+- Generalized prediction-market weirdness detection is now modeled separately from exact-line player-prop attribution alerts, with persisted microstructure event storage, tunable score config, `/api/v1/research/market-anomalies`, `/market-anomalies`, a watcher/playback path, and a desk-first anomaly queue
 
 ## In Progress
 - Running the Mother's Day playoff player-prop alert monitor for the live slate
+- Wiring direct venue trade/orderbook ingestion into the new market microstructure event table so off-price prints and liquidity shocks are captured directly rather than inferred from quote ticks alone
 - Turning player-prop alerts from a polling read model into a full exposure-aware workflow once bet-intent/liability feeds exist
 - Tightening the direct public Bet365 capture seam so the repo is not permanently dependent on a backup provider
 - Restoring fresh Bet365 capture; the current local Odds-API path is configured and now target-bounded, but the account is still rate-limited with HTTP 429 until the upstream window resets
 
 ## Next
 
-1. Land direct public-site Bet365 capture so the primary source path no longer depends on Odds-API.io as a backup provider.
-2. Attach exposure/liability inputs to player-prop attribution alerts so the popup can rank by money at risk rather than price delta alone.
-3. Add an indexed, date/game-scoped export path for the handoff slices so data engineering does not have to pull full-table CSVs for current-game joins.
-4. Add broader live validation around direct Kalshi and Bet365 backup ingestion with real local provider credentials.
-5. Expand the chart surface with clearer game-state overlays, mismatch annotations, divergence-duration sparklines, and depth-oriented views where the source supports them.
-6. Turn more admin placeholders into executable workflows rather than queue-only records.
-7. Keep widening browser and integration coverage around env -> worker -> DB -> API -> UI for the live-only operator path.
+1. Add direct Polymarket Data API trade ingestion and CLOB book/mid/spread snapshots into `market_microstructure_events`.
+2. Add direct Kalshi trade, candlestick, orderbook, and WebSocket-derived microstructure ingestion into `market_microstructure_events`.
+3. Land direct public-site Bet365 capture so the primary source path no longer depends on Odds-API.io as a backup provider.
+4. Attach exposure/liability inputs to player-prop attribution alerts so the popup can rank by money at risk rather than price delta alone.
+5. Add an indexed, date/game-scoped export path for the handoff slices so data engineering does not have to pull full-table CSVs for current-game joins.
+6. Add broader live validation around direct Kalshi, Polymarket, and Bet365 backup ingestion with real local provider credentials.
+7. Expand the chart surface with clearer game-state overlays, anomaly annotations, divergence-duration sparklines, and depth-oriented views where the source supports them.
+8. Turn more admin placeholders into executable workflows rather than queue-only records.
+9. Keep widening browser and integration coverage around env -> worker -> DB -> API -> UI for the live-only operator path.
 
 ## Non-Negotiables
 

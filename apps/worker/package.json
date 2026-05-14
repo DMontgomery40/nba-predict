@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "backfill": "tsx src/backfill.ts",
+    "market-anomaly-watch": "tsx src/market-anomaly-watch.ts",
     "prop-alert-watch": "tsx src/player-prop-alert-watch.ts",
     "build": "tsup src/index.ts --format esm --out-dir dist",
     "lint": "eslint src --ext .ts",

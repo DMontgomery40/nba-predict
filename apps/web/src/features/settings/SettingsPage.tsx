@@ -10,14 +10,17 @@ import {
   getAdminSources,
   getAdminUnmappedMarkets,
   getLiveHealth,
+  getMarketAnomalyScoreConfig,
   getReadyHealth,
   getResearchCoverage,
   getSignalMismatches,
+  putMarketAnomalyScoreConfig,
   postBackfillGames,
   postBackfillMarkets,
   postCaptureRestart,
   postResolveMapping,
   postTimelineMaterializationRebuild,
+  type MarketAnomalyScoreConfig,
   type QueuedAdminActionPayload,
 } from "../../data/api";
 import {
@@ -59,6 +62,18 @@ function statusClass(status: string) {
     return "status-warm";
   }
   return "status-danger";
+}
+
+function cloneScoreConfig(config?: MarketAnomalyScoreConfig) {
+  if (!config) {
+    return null;
+  }
+  return {
+    ...config,
+    thresholds: { ...config.thresholds },
+    toggles: { ...config.toggles },
+    weights: { ...config.weights },
+  };
 }
 
 type QueuedActionNotice = {
@@ -103,6 +118,8 @@ export function SettingsPage() {
       }
     >
   >({});
+  const [scoreConfigDraft, setScoreConfigDraft] =
+    useState<MarketAnomalyScoreConfig | null>(null);
 
   const sources = useQuery({
     queryKey: ["admin-sources"],
@@ -111,6 +128,10 @@ export function SettingsPage() {
   const runtimeConfig = useQuery({
     queryKey: ["admin-runtime-config"],
     queryFn: getAdminRuntimeConfig,
+  });
+  const marketAnomalyScoreConfig = useQuery({
+    queryKey: ["market-anomaly-score-config", "settings"],
+    queryFn: getMarketAnomalyScoreConfig,
   });
   const captureRuns = useQuery({
     queryKey: ["admin-capture-runs"],
@@ -185,6 +206,17 @@ export function SettingsPage() {
       ]);
     },
   });
+  const saveMarketAnomalyScoreConfig = useMutation({
+    mutationFn: (config: MarketAnomalyScoreConfig) =>
+      putMarketAnomalyScoreConfig(config),
+    onSuccess: (payload) => {
+      setScoreConfigDraft(cloneScoreConfig(payload.data));
+      queryClient.invalidateQueries({
+        queryKey: ["market-anomaly-score-config"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["market-anomalies"] });
+    },
+  });
   const resolveMapping = useMutation({
     mutationFn: postResolveMapping,
     onSuccess: (_payload, variables) => {
@@ -210,6 +242,7 @@ export function SettingsPage() {
   if (
     sources.isLoading ||
     runtimeConfig.isLoading ||
+    marketAnomalyScoreConfig.isLoading ||
     captureRuns.isLoading ||
     storageCoverage.isLoading ||
     unmappedMarkets.isLoading ||
@@ -217,6 +250,7 @@ export function SettingsPage() {
     signalMismatches.isLoading ||
     (!sources.data && !sources.isError) ||
     (!runtimeConfig.data && !runtimeConfig.isError) ||
+    (!marketAnomalyScoreConfig.data && !marketAnomalyScoreConfig.isError) ||
     (!captureRuns.data && !captureRuns.isError) ||
     (!storageCoverage.data && !storageCoverage.isError) ||
     (!unmappedMarkets.data && !unmappedMarkets.isError) ||
@@ -229,6 +263,7 @@ export function SettingsPage() {
   if (
     sources.isError ||
     runtimeConfig.isError ||
+    marketAnomalyScoreConfig.isError ||
     captureRuns.isError ||
     storageCoverage.isError ||
     unmappedMarkets.isError ||
@@ -236,6 +271,7 @@ export function SettingsPage() {
     signalMismatches.isError ||
     !sources.data ||
     !runtimeConfig.data ||
+    !marketAnomalyScoreConfig.data ||
     !captureRuns.data ||
     !storageCoverage.data ||
     !unmappedMarkets.data ||
@@ -249,6 +285,7 @@ export function SettingsPage() {
           error={
             sources.error ??
             runtimeConfig.error ??
+            marketAnomalyScoreConfig.error ??
             captureRuns.error ??
             storageCoverage.error ??
             unmappedMarkets.error ??
@@ -258,6 +295,7 @@ export function SettingsPage() {
           onAction={() => {
             void sources.refetch();
             void runtimeConfig.refetch();
+            void marketAnomalyScoreConfig.refetch();
             void captureRuns.refetch();
             void storageCoverage.refetch();
             void unmappedMarkets.refetch();
@@ -277,6 +315,7 @@ export function SettingsPage() {
     backfillGames.error ??
     backfillMarkets.error ??
     rebuildTimelines.error ??
+    saveMarketAnomalyScoreConfig.error ??
     resolveMapping.error;
 
   const configGroups = runtimeConfig.data.data.reduce<
@@ -290,6 +329,8 @@ export function SettingsPage() {
   const configuredCount = runtimeConfig.data.data.filter(
     (item) => item.configured
   ).length;
+  const scoreConfig =
+    scoreConfigDraft ?? cloneScoreConfig(marketAnomalyScoreConfig.data.data);
   const liveStatus =
     liveHealth.data?.status ?? (liveHealth.isError ? "error" : "checking");
   const readyStatus =
@@ -582,6 +623,157 @@ export function SettingsPage() {
               </div>
             </div>
           ))}
+        </section>
+
+        <section className="settings-section" id="market-anomaly-scoring">
+          <header className="settings-section-head">
+            <span>Signals</span>
+            <h2>Prediction-market anomaly scoring</h2>
+          </header>
+          {scoreConfig ? (
+            <div className="settings-config-group">
+              <div className="settings-control-action">
+                <button
+                  className="ghost-button"
+                  disabled={saveMarketAnomalyScoreConfig.isPending}
+                  onClick={() => saveMarketAnomalyScoreConfig.mutate(scoreConfig)}
+                  type="button"
+                >
+                  Save anomaly knobs
+                </button>
+              </div>
+              <div className="table-shell settings-table-shell">
+                <table className="desk-table compact settings-table">
+                  <thead>
+                    <tr>
+                      <th>Knob</th>
+                      <th>Value</th>
+                      <th>Meaning</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Minimum score</td>
+                      <td>
+                        <input
+                          onChange={(event) =>
+                            setScoreConfigDraft({
+                              ...scoreConfig,
+                              minScore: Number(event.target.value),
+                            })
+                          }
+                          type="number"
+                          value={scoreConfig.minScore}
+                        />
+                      </td>
+                      <td>Rows below this score stay out of the queue.</td>
+                    </tr>
+                    <tr>
+                      <td>Minimum confidence</td>
+                      <td>
+                        <input
+                          onChange={(event) =>
+                            setScoreConfigDraft({
+                              ...scoreConfig,
+                              minConfidence: Number(event.target.value),
+                            })
+                          }
+                          step="0.05"
+                          type="number"
+                          value={scoreConfig.minConfidence}
+                        />
+                      </td>
+                      <td>Candles and unmapped rows carry lower confidence.</td>
+                    </tr>
+                    <tr>
+                      <td>Include unmapped</td>
+                      <td>
+                        <input
+                          checked={scoreConfig.toggles.includeUnmapped}
+                          onChange={(event) =>
+                            setScoreConfigDraft({
+                              ...scoreConfig,
+                              toggles: {
+                                ...scoreConfig.toggles,
+                                includeUnmapped: event.target.checked,
+                              },
+                            })
+                          }
+                          type="checkbox"
+                        />
+                      </td>
+                      <td>Unmapped market weirdness remains visible.</td>
+                    </tr>
+                    <tr>
+                      <td>Require Bet365</td>
+                      <td>
+                        <input
+                          checked={scoreConfig.toggles.requireBet365}
+                          onChange={(event) =>
+                            setScoreConfigDraft({
+                              ...scoreConfig,
+                              toggles: {
+                                ...scoreConfig.toggles,
+                                requireBet365: event.target.checked,
+                              },
+                            })
+                          }
+                          type="checkbox"
+                        />
+                      </td>
+                      <td>Optional book-side context gate.</td>
+                    </tr>
+                    {Object.entries(scoreConfig.weights).map(([key, value]) => (
+                      <tr key={`weight-${key}`}>
+                        <td>{key} weight</td>
+                        <td>
+                          <input
+                            onChange={(event) =>
+                              setScoreConfigDraft({
+                                ...scoreConfig,
+                                weights: {
+                                  ...scoreConfig.weights,
+                                  [key]: Number(event.target.value),
+                                },
+                              })
+                            }
+                            step="0.05"
+                            type="number"
+                            value={value}
+                          />
+                        </td>
+                        <td>Normalized score contribution.</td>
+                      </tr>
+                    ))}
+                    {Object.entries(scoreConfig.thresholds).map(
+                      ([key, value]) => (
+                        <tr key={`threshold-${key}`}>
+                          <td>{key}</td>
+                          <td>
+                            <input
+                              onChange={(event) =>
+                                setScoreConfigDraft({
+                                  ...scoreConfig,
+                                  thresholds: {
+                                    ...scoreConfig.thresholds,
+                                    [key]: Number(event.target.value),
+                                  },
+                                })
+                              }
+                              step="0.01"
+                              type="number"
+                              value={value}
+                            />
+                          </td>
+                          <td>Component trigger threshold.</td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="settings-section" id="health">

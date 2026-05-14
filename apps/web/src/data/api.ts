@@ -678,6 +678,124 @@ export type PlayerPropAlertPlaybackPayload = {
   };
 };
 
+export type MarketAnomalyScoreConfig = {
+  contextWindowMinutes: number;
+  families: string[];
+  minConfidence: number;
+  minScore: number;
+  profileId: string;
+  shockWindowSeconds: number;
+  thresholds: {
+    depthScoreDrop: number;
+    maxQuoteAgeMinutes: number;
+    priceJump: number;
+    spread: number;
+    tradeDistance: number;
+    volumeShare: number;
+  };
+  toggles: {
+    includeHistorical: boolean;
+    includeUnmapped: boolean;
+    requireBet365: boolean;
+  };
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+  weights: {
+    crossVenue: number;
+    liquidity: number;
+    offPrice: number;
+    volatility: number;
+    volumeShare: number;
+  };
+};
+
+export type MarketAnomaliesPayload = {
+  data: Array<{
+    action: "manual-review";
+    apiSurface: string;
+    components: {
+      crossVenue: number;
+      liquidity: number;
+      offPrice: number;
+      volatility: number;
+      volumeShare: number;
+    };
+    confidence: number;
+    detectedAt: string;
+    displayLabel: string;
+    eventTimestamp: string;
+    eventType: string;
+    family?: string | null;
+    gameId: string;
+    gameLabel: string;
+    id: string;
+    instrumentId?: string | null;
+    labels: string[];
+    league: string;
+    mappingStatus: string;
+    metrics: {
+      bestAsk?: number | null;
+      bestBid?: number | null;
+      crossVenueGap?: number | null;
+      depthScore?: number | null;
+      finalMarketVolume?: number | null;
+      notional?: number | null;
+      price?: number | null;
+      priceChange?: number | null;
+      referencePrice?: number | null;
+      size?: number | null;
+      spread?: number | null;
+      tradeDistance?: number | null;
+      tradePrice?: number | null;
+      volume?: number | null;
+      volumeShare?: number | null;
+    };
+    rawLabel?: string | null;
+    score: number;
+    severity: string;
+    source: "bet365" | "kalshi" | "polymarket";
+    sourceMarketId: string;
+    sourceMarketKey: string;
+    sourceSelectionKey?: string | null;
+    sport: string;
+  }>;
+  meta: {
+    generatedAt: string;
+  };
+};
+
+export type MarketAnomalyScoreConfigPayload = {
+  data: MarketAnomalyScoreConfig;
+  meta: {
+    generatedAt: string;
+  };
+};
+
+export type MarketAnomalyPlaybackPayload = {
+  data: Array<{
+    alertCount: number;
+    alerts: MarketAnomaliesPayload["data"];
+    capturedAt: string;
+    error?: {
+      code?: string;
+      message: string;
+    };
+    notifiedAlertIds: string[];
+    poll: {
+      includeHistorical: boolean;
+      includeUnmapped: boolean;
+      limit: number;
+      minConfidence: number;
+      minScore: number;
+      requireBet365: boolean;
+    };
+    source: "market-anomaly-watch";
+  }>;
+  meta: {
+    generatedAt: string;
+  };
+};
+
 export type AdminSourcesPayload = {
   data: Array<{
     authState: string;
@@ -1042,6 +1160,70 @@ export function getPlayerPropAlertPlayback(options?: {
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
   return request<PlayerPropAlertPlaybackPayload>(
     `/api/v1/research/player-prop-alert-playback${suffix}`
+  );
+}
+
+export function getMarketAnomalies(options?: {
+  date?: string;
+  family?: string;
+  includeHistorical?: boolean;
+  includeUnmapped?: boolean;
+  limit?: number;
+  minConfidence?: number;
+  minScore?: number;
+  requireBet365?: boolean;
+  source?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.date) params.set("date", options.date);
+  if (options?.family) params.set("family", options.family);
+  if (options?.includeHistorical != null) {
+    params.set("includeHistorical", String(options.includeHistorical));
+  }
+  if (options?.includeUnmapped != null) {
+    params.set("includeUnmapped", String(options.includeUnmapped));
+  }
+  if (options?.limit != null) params.set("limit", String(options.limit));
+  if (options?.minConfidence != null) {
+    params.set("minConfidence", String(options.minConfidence));
+  }
+  if (options?.minScore != null) params.set("minScore", String(options.minScore));
+  if (options?.requireBet365 != null) {
+    params.set("requireBet365", String(options.requireBet365));
+  }
+  if (options?.source) params.set("source", options.source);
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<MarketAnomaliesPayload>(
+    `/api/v1/research/market-anomalies${suffix}`
+  );
+}
+
+export function getMarketAnomalyPlayback(options?: {
+  date?: string;
+  limit?: number;
+}) {
+  const params = new URLSearchParams();
+  if (options?.date) params.set("date", options.date);
+  if (options?.limit != null) params.set("limit", String(options.limit));
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<MarketAnomalyPlaybackPayload>(
+    `/api/v1/research/market-anomaly-playback${suffix}`
+  );
+}
+
+export function getMarketAnomalyScoreConfig() {
+  return request<MarketAnomalyScoreConfigPayload>(
+    "/api/v1/research/market-anomaly-score-config"
+  );
+}
+
+export function putMarketAnomalyScoreConfig(config: MarketAnomalyScoreConfig) {
+  return request<MarketAnomalyScoreConfigPayload>(
+    "/api/v1/research/market-anomaly-score-config",
+    {
+      body: JSON.stringify(config),
+      method: "PUT",
+    }
   );
 }
 

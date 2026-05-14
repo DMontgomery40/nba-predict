@@ -32,6 +32,10 @@
 - `GET /api/v1/research/signal-mismatches?date=YYYY-MM-DD`
 - `GET /api/v1/research/player-prop-alerts`
 - `GET /api/v1/research/player-prop-alert-playback`
+- `GET /api/v1/research/market-anomalies`
+- `GET /api/v1/research/market-anomaly-score-config`
+- `PUT /api/v1/research/market-anomaly-score-config`
+- `GET /api/v1/research/market-anomaly-playback`
 
 ## Admin Routes
 
@@ -56,3 +60,4 @@
 - `API-010` The undated games list shall default to the current slate: games near `now` and recently started games must sort before old persisted history so the first page cannot hide active NBA state.
 - `API-011` Runtime configuration visibility shall be exposed through `/api/v1/admin/runtime-config` with secrets masked, defaults shown, and environment keys grouped for the Settings surface.
 - `API-012` Divergence and signal-mismatch routes shall expose DB-derived same-time comparison summaries. Date-scoped requests stay scoped to `scheduled_start` date; undated divergence defaults to the current slate. Final-game rows may show peak historical divergence, but they must not be labeled or ranked as live action.
+- `API-013` Market anomaly routes shall score persisted quote ticks and microstructure events without requiring Bet365 exposure or exact player-prop pairing unless requested by query/config. Rows must expose score, confidence, signal labels, API surface, source market, mapping status, price/trade/volume/share, spread/depth, and instrument link when mapped.

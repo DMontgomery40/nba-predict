@@ -5,6 +5,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { ShellLayout } from "./ShellLayout";
 import { queryClient } from "../data/api";
 import { PlayerPropAlertsPage } from "../features/alerts/PlayerPropAlertsPage";
+import { MarketAnomaliesPage } from "../features/anomalies/MarketAnomaliesPage";
 import { CommandPalette } from "../features/command/CommandPalette";
 import { TraderDeskPage } from "../features/desk/TraderDeskPage";
 import { DivergenceExplorerPage } from "../features/divergence/DivergenceExplorerPage";
@@ -25,6 +26,10 @@ export function App() {
           <Routes>
             <Route element={<ShellLayout />} path="/">
               <Route element={<TraderDeskPage />} index />
+              <Route
+                element={<MarketAnomaliesPage />}
+                path="market-anomalies"
+              />
               <Route element={<PlayerPropAlertsPage />} path="prop-alerts" />
               <Route element={<GamesPage />} path="games" />
               <Route element={<DivergenceExplorerPage />} path="divergence" />

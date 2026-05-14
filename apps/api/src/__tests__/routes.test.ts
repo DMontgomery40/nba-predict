@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   recordAdapterRun,
   recordGameStateObservation,
+  recordMarketMicrostructureEvent,
   recordQuoteObservation,
   recordRawPayload,
   resetDatabase,
@@ -14,6 +15,7 @@ import {
   upsertGameOutcome,
   upsertMarketInstrument,
   upsertSourceMarket,
+  writeMarketAnomalyPlaybackFrame,
   writePlayerPropAlertPlaybackFrame,
 } from "@signal-console/shared";
 
@@ -444,12 +446,17 @@ describe("api routes", () => {
     tempDir = mkdtempSync(join(tmpdir(), "signal-console-api-"));
     process.env.SIGNAL_CONSOLE_DB_PATH = join(tempDir, "signal-console.sqlite");
     process.env.PLAYER_PROP_ALERT_PLAYBACK_DIR = join(tempDir, "playback");
+    process.env.MARKET_ANOMALY_PLAYBACK_DIR = join(
+      tempDir,
+      "anomaly-playback"
+    );
   });
 
   afterEach(() => {
     resetDatabase();
     delete process.env.SIGNAL_CONSOLE_DB_PATH;
     delete process.env.PLAYER_PROP_ALERT_PLAYBACK_DIR;
+    delete process.env.MARKET_ANOMALY_PLAYBACK_DIR;
     delete process.env.NBA_SIDECAR_BASE_URL;
     delete process.env.ODDS_API_KEY;
     delete process.env.ODDS_API_IO_KEY;
@@ -672,6 +679,25 @@ describe("api routes", () => {
       sourceMarketId: "sm-polymarket-bos-moneyline",
       volume: 46,
     });
+    recordMarketMicrostructureEvent({
+      apiSurface: "data-api/trades",
+      eventTimestamp: "2026-04-21T23:56:18.000Z",
+      eventType: "trade",
+      finalMarketVolume: 410.166918,
+      gameId: "nba-bos-nyk-2026-04-21",
+      instrumentId: "bos-moneyline",
+      notional: 105.66,
+      previousPrice: 0.51,
+      rawMetadata: {
+        transactionHash: "0xtrade",
+        wallet: "0xwallet",
+      },
+      size: 106.7913,
+      source: "polymarket",
+      sourceMarketId: "sm-polymarket-bos-moneyline",
+      tradePrice: 0.99,
+      volumeShare: 0.26,
+    });
     process.env.NBA_SIDECAR_BASE_URL = "http://127.0.0.1:9393";
     process.env.ODDS_API_KEY = "odds-key";
     const app = buildApiServer();
@@ -792,6 +818,101 @@ describe("api routes", () => {
           alerts: [
             expect.objectContaining({
               displayLabel: "Jalen Brunson over 29.5 points",
+            }),
+          ],
+          notifiedAlertIds: [expect.any(String)],
+        }),
+      ],
+    });
+
+    const anomalyResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/market-anomalies?includeHistorical=true&minScore=40&minConfidence=0.4",
+    });
+    expect(anomalyResponse.statusCode).toBe(200);
+    expect(anomalyResponse.json()).toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          apiSurface: "data-api/trades",
+          displayLabel: "Boston moneyline",
+          labels: expect.arrayContaining([
+            "isolated off-price print",
+            "volume-share anomaly",
+          ]),
+          metrics: expect.objectContaining({
+            notional: 105.66,
+            tradePrice: 0.99,
+            volumeShare: expect.closeTo(0.26, 6),
+          }),
+          source: "polymarket",
+        }),
+      ]),
+    });
+
+    const scoreConfigResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/market-anomaly-score-config",
+    });
+    expect(scoreConfigResponse.statusCode).toBe(200);
+    expect(scoreConfigResponse.json()).toMatchObject({
+      data: expect.objectContaining({
+        minScore: 45,
+        toggles: expect.objectContaining({
+          includeUnmapped: true,
+          requireBet365: false,
+        }),
+      }),
+    });
+
+    const updatedScoreConfig = {
+      ...scoreConfigResponse.json().data,
+      minScore: 70,
+      toggles: {
+        ...scoreConfigResponse.json().data.toggles,
+        requireBet365: true,
+      },
+    };
+    const updateScoreConfigResponse = await app.inject({
+      method: "PUT",
+      payload: updatedScoreConfig,
+      url: "/api/v1/research/market-anomaly-score-config",
+    });
+    expect(updateScoreConfigResponse.statusCode).toBe(200);
+    expect(updateScoreConfigResponse.json()).toMatchObject({
+      data: expect.objectContaining({
+        minScore: 70,
+        toggles: expect.objectContaining({ requireBet365: true }),
+      }),
+    });
+
+    writeMarketAnomalyPlaybackFrame({
+      alertCount: 1,
+      alerts: [anomalyResponse.json().data[0]],
+      capturedAt: "2026-04-21T23:56:30.000Z",
+      notifiedAlertIds: [anomalyResponse.json().data[0].id],
+      poll: {
+        includeHistorical: true,
+        includeUnmapped: true,
+        limit: 25,
+        minConfidence: 0.4,
+        minScore: 40,
+        requireBet365: false,
+      },
+      source: "market-anomaly-watch",
+    });
+
+    const anomalyPlaybackResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/market-anomaly-playback?date=2026-04-21&limit=5",
+    });
+    expect(anomalyPlaybackResponse.statusCode).toBe(200);
+    expect(anomalyPlaybackResponse.json()).toMatchObject({
+      data: [
+        expect.objectContaining({
+          alertCount: 1,
+          alerts: [
+            expect.objectContaining({
+              displayLabel: "Boston moneyline",
             }),
           ],
           notifiedAlertIds: [expect.any(String)],

@@ -6,6 +6,7 @@ import {
   canonicalGameStateSchema,
   comparableStateSchema,
   gameOutcomeSchema,
+  marketMicrostructureEventTypeSchema,
   marketFamilySchema,
   marketInstrumentSchema,
   mappingStatusSchema,
@@ -15,6 +16,7 @@ import {
   researchSourceIdSchema,
   sourceMarketSchema,
 } from "./live";
+import { marketAnomalyLabels } from "../live-types";
 
 const booleanQueryParamSchema = z.preprocess((value) => {
   if (typeof value === "string") {
@@ -280,6 +282,109 @@ export const playerPropDisagreementAlertSchema = z.object({
     quoteTimeGapMs: z.number().min(0).optional(),
   }),
   action: z.literal("manual-review"),
+});
+
+export const marketAnomalyScoreConfigSchema = z.object({
+  profileId: z.string().min(1),
+  minScore: z.number().min(0),
+  minConfidence: z.number().min(0).max(1),
+  shockWindowSeconds: z.number().int().positive(),
+  contextWindowMinutes: z.number().positive(),
+  weights: z.object({
+    crossVenue: z.number().min(0),
+    liquidity: z.number().min(0),
+    offPrice: z.number().min(0),
+    volatility: z.number().min(0),
+    volumeShare: z.number().min(0),
+  }),
+  thresholds: z.object({
+    depthScoreDrop: z.number().min(0),
+    maxQuoteAgeMinutes: z.number().min(0),
+    priceJump: z.number().min(0).max(1),
+    spread: z.number().min(0),
+    tradeDistance: z.number().min(0).max(1),
+    volumeShare: z.number().min(0),
+  }),
+  toggles: z.object({
+    includeHistorical: z.boolean(),
+    includeUnmapped: z.boolean(),
+    requireBet365: z.boolean(),
+  }),
+  families: z.array(marketFamilySchema),
+  updatedAt: z.string().nullable().optional(),
+  updatedBy: z.string().nullable().optional(),
+});
+
+export const marketAnomalyAlertSchema = z.object({
+  id: z.string(),
+  action: z.literal("manual-review"),
+  apiSurface: z.string(),
+  confidence: z.number().min(0).max(1),
+  detectedAt: z.string(),
+  displayLabel: z.string(),
+  eventTimestamp: z.string(),
+  eventType: marketMicrostructureEventTypeSchema,
+  family: marketFamilySchema.nullable().optional(),
+  gameId: z.string(),
+  gameLabel: z.string(),
+  instrumentId: z.string().nullable().optional(),
+  labels: z.array(z.enum(marketAnomalyLabels)),
+  league: z.string(),
+  mappingStatus: mappingStatusSchema,
+  rawLabel: z.string().nullable().optional(),
+  score: z.number().min(0),
+  severity: severityBandSchema,
+  source: z.enum(["bet365", "kalshi", "polymarket"]),
+  sourceMarketId: z.string(),
+  sourceMarketKey: z.string(),
+  sourceSelectionKey: z.string().nullable().optional(),
+  sport: z.string(),
+  components: z.object({
+    crossVenue: z.number().min(0),
+    liquidity: z.number().min(0),
+    offPrice: z.number().min(0),
+    volatility: z.number().min(0),
+    volumeShare: z.number().min(0),
+  }),
+  metrics: z.object({
+    bestAsk: z.number().nullable().optional(),
+    bestBid: z.number().nullable().optional(),
+    crossVenueGap: z.number().nullable().optional(),
+    depthScore: z.number().nullable().optional(),
+    finalMarketVolume: z.number().nullable().optional(),
+    notional: z.number().nullable().optional(),
+    price: z.number().nullable().optional(),
+    priceChange: z.number().nullable().optional(),
+    referencePrice: z.number().nullable().optional(),
+    size: z.number().nullable().optional(),
+    spread: z.number().nullable().optional(),
+    tradeDistance: z.number().nullable().optional(),
+    tradePrice: z.number().nullable().optional(),
+    volume: z.number().nullable().optional(),
+    volumeShare: z.number().nullable().optional(),
+  }),
+});
+
+export const marketAnomalyPlaybackFrameSchema = z.object({
+  source: z.literal("market-anomaly-watch"),
+  alertCount: z.number().int().nonnegative(),
+  alerts: z.array(marketAnomalyAlertSchema),
+  capturedAt: z.string(),
+  notifiedAlertIds: z.array(z.string()),
+  poll: z.object({
+    includeHistorical: z.boolean(),
+    includeUnmapped: z.boolean(),
+    limit: z.number().int().positive(),
+    minConfidence: z.number().min(0).max(1),
+    minScore: z.number().min(0),
+    requireBet365: z.boolean(),
+  }),
+  error: z
+    .object({
+      code: z.string().optional(),
+      message: z.string(),
+    })
+    .optional(),
 });
 
 export const coverageRowSchema = z.object({

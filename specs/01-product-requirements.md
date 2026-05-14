@@ -20,6 +20,7 @@ Signal Console is a research system for live in-game market comparison. It shoul
 - `FR-012` The product shall ingest live Polymarket NBA game markets through official APIs into canonical instruments, source markets, quote ticks, raw payloads, and adapter runs.
 - `FR-013` The product shall expose first-class player-prop attribution risk alerts when mapped Bet365 props and mapped Kalshi/Polymarket props materially disagree inside a fresh quote window. These alerts are manual-review signals, not automatic source correction or settlement decisions.
 - `FR-014` The product shall support live player-prop alert monitoring with desktop notification emission and persisted alert checks so trading can inspect what the alert surface showed at the time it fired.
+- `FR-015` The product shall expose generalized prediction-market anomaly alerts across Kalshi and Polymarket markets, including off-price prints, volume-share anomalies, volatility shocks, liquidity shocks, and cross-venue disagreement. These alerts do not require knowing a paired/rightful player at detection time.
 
 ## Non-Functional Requirements
 

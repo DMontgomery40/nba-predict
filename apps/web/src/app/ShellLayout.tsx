@@ -13,6 +13,7 @@ import { getGames } from "../data/api";
 
 const navItems = [
   { label: "Desk", to: "/" },
+  { label: "Anomalies", to: "/market-anomalies" },
   { label: "Prop Alerts", to: "/prop-alerts" },
   { label: "Slate", to: "/games" },
   { label: "Divergence", to: "/divergence" },
@@ -28,6 +29,9 @@ function workspaceStatus(pathname: string, activeGameCount: number) {
   }
   if (pathname.startsWith("/prop-alerts")) {
     return "Player-prop alert monitor and saved checks";
+  }
+  if (pathname.startsWith("/market-anomalies")) {
+    return "Prediction-market weirdness queue";
   }
   if (pathname === "/games") {
     return `${activeGameCount} tracked game${activeGameCount === 1 ? "" : "s"}`;
@@ -59,6 +63,9 @@ function workspaceTitle(pathname: string) {
   }
   if (pathname.startsWith("/prop-alerts")) {
     return "Prop alert desk";
+  }
+  if (pathname.startsWith("/market-anomalies")) {
+    return "Market anomalies";
   }
   if (pathname.startsWith("/divergence")) {
     return "Divergence review";
@@ -129,6 +136,7 @@ export function ShellLayout() {
 
           const map: Record<string, string> = {
             b: "/",
+            a: "/market-anomalies",
             d: "/divergence",
             e: "/exports",
             g: "/games",

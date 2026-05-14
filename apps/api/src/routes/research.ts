@@ -1,4 +1,7 @@
-import { researchDivergenceQuerySchema } from "@signal-console/domain";
+import {
+  marketAnomalyScoreConfigSchema,
+  researchDivergenceQuerySchema,
+} from "@signal-console/domain";
 
 import { parseWithSchema } from "../lib/http";
 import {
@@ -6,12 +9,16 @@ import {
   getInstrumentDeltaSeriesPayload,
   getInstrumentLeadLagPayload,
   getInstrumentLeadLagSeriesPayload,
+  getMarketAnomalyAlertsPayload,
+  getMarketAnomalyPlaybackPayload,
+  getMarketAnomalyScoreConfigPayload,
   getPlayerPropAlertPlaybackPayload,
   getPlayerPropDisagreementAlertsPayload,
   getResearchCoveragePayload,
   getResearchDivergencePayload,
   getSignalMismatchesPayload,
   getSignalQualityReportPayload,
+  updateMarketAnomalyScoreConfigPayload,
 } from "../services/research-service";
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
@@ -67,6 +74,27 @@ function parseDateParam(value: unknown) {
   }
 
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
+function parseFamilyParam(value: unknown) {
+  if (
+    value === "moneyline" ||
+    value === "spread" ||
+    value === "total" ||
+    value === "player-prop" ||
+    value === "team-prop" ||
+    value === "other"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function parseMarketSourceParam(value: unknown) {
+  if (value === "bet365" || value === "kalshi" || value === "polymarket") {
+    return value;
+  }
+  return undefined;
 }
 
 export async function registerResearchRoutes(app: FastifyInstance) {
@@ -127,6 +155,90 @@ export async function registerResearchRoutes(app: FastifyInstance) {
           }),
         }
       );
+    }
+  );
+
+  app.get(
+    "/api/v1/research/market-anomalies",
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string> }>
+    ) => {
+      const query = request.query ?? {};
+      return getMarketAnomalyAlertsPayload(
+        {
+          date: parseDateParam(query.date),
+          family: parseFamilyParam(query.family),
+          includeHistorical: parseBooleanParam(query.includeHistorical),
+          includeUnmapped: parseBooleanParam(query.includeUnmapped),
+          limit: parseIntegerParam(query.limit, 25),
+          minConfidence: parseNumberParam(query.minConfidence),
+          minScore: parseNumberParam(query.minScore),
+          profileId: query.profileId,
+          requireBet365: parseBooleanParam(query.requireBet365),
+          source: parseMarketSourceParam(query.source),
+        },
+        {
+          logger: request.log.child({ route: "research-market-anomalies" }),
+        }
+      );
+    }
+  );
+
+  app.get(
+    "/api/v1/research/market-anomaly-playback",
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string> }>
+    ) => {
+      const query = request.query ?? {};
+      return getMarketAnomalyPlaybackPayload(
+        {
+          date: parseDateParam(query.date),
+          limit: parseIntegerParam(query.limit, 250),
+        },
+        {
+          logger: request.log.child({
+            route: "research-market-anomaly-playback",
+          }),
+        }
+      );
+    }
+  );
+
+  app.get(
+    "/api/v1/research/market-anomaly-score-config",
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string> }>
+    ) => {
+      return getMarketAnomalyScoreConfigPayload(
+        request.query?.profileId ?? "default",
+        {
+          logger: request.log.child({
+            route: "research-market-anomaly-score-config",
+          }),
+        }
+      );
+    }
+  );
+
+  app.put(
+    "/api/v1/research/market-anomaly-score-config",
+    async (
+      request: FastifyRequest<{
+        Body: unknown;
+      }>
+    ) => {
+      const body = parseWithSchema(
+        marketAnomalyScoreConfigSchema.partial({
+          updatedAt: true,
+          updatedBy: true,
+        }),
+        request.body
+      );
+      return updateMarketAnomalyScoreConfigPayload(body, {
+        logger: request.log.child({
+          route: "research-market-anomaly-score-config-update",
+        }),
+      });
     }
   );
 

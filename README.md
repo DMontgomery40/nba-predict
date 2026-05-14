@@ -111,6 +111,7 @@ single local URL when a short-lived public link is needed.
 - `POLYMARKET_API_PASSPHRASE`
 - `WORKER_INTERVAL_MS` and `WORKER_MAX_BACKOFF_MS`
 - `PLAYER_PROP_ALERT_LIMIT`, `PLAYER_PROP_ALERT_INCLUDE_STALE`, `PLAYER_PROP_ALERT_PLAYBACK_DIR`, and `PLAYER_PROP_ALERT_TIME_ZONE`
+- `MARKET_ANOMALY_LIMIT`, `MARKET_ANOMALY_MIN_SCORE`, `MARKET_ANOMALY_MIN_CONFIDENCE`, `MARKET_ANOMALY_INCLUDE_UNMAPPED`, `MARKET_ANOMALY_REQUIRE_BET365`, `MARKET_ANOMALY_PLAYBACK_DIR`, and `MARKET_ANOMALY_TIME_ZONE`
 - `TEMP_HOST_PORT`, `TEMP_HOST_WEB_ROOT`, `TEMP_HOST_API_TARGET`, `BASIC_AUTH_USERNAME`, and `BASIC_AUTH_PASSWORD`
 - `LOG_LEVEL`, `LOG_PRETTY`, `NODE_ENV`, and `CI`
 
@@ -159,6 +160,10 @@ zero-row window.
 - `GET /api/v1/research/signal-mismatches?date=YYYY-MM-DD`
 - `GET /api/v1/research/player-prop-alerts?minDelta=0.15&maxQuoteTimeGapMinutes=10&maxQuoteAgeMinutes=10`
 - `GET /api/v1/research/player-prop-alert-playback?date=YYYY-MM-DD&limit=300`
+- `GET /api/v1/research/market-anomalies?minScore=45&minConfidence=0.45&includeUnmapped=true`
+- `GET /api/v1/research/market-anomaly-score-config`
+- `PUT /api/v1/research/market-anomaly-score-config`
+- `GET /api/v1/research/market-anomaly-playback?date=YYYY-MM-DD&limit=300`
 - `GET /api/v1/research/signal-quality?closingCutoff=pregame|live-final`
 - `GET /api/v1/research/closed-games?closingCutoff=pregame|live-final&limit=N`
 
@@ -233,14 +238,36 @@ matching line, and quote timestamps inside the same-time window. Useful knobs:
 - `PLAYER_PROP_ALERT_MAX_QUOTE_AGE_MINUTES=10`
 - `PLAYER_PROP_ALERT_NOTIFY=1`
 
+## Live Market Anomaly Watcher
+
+```bash
+pnpm market-anomaly-watch
+```
+
+The watcher polls the generalized prediction-market anomaly read model, sends a
+macOS notification for each newly observed anomaly id, and appends every poll
+frame to `data/market-anomaly-playback/YYYY-MM-DD.jsonl`. It does not require a
+known paired player or Bet365 context unless `MARKET_ANOMALY_REQUIRE_BET365=1`
+is set. Useful knobs:
+
+- `MARKET_ANOMALY_WATCH_INTERVAL_MS=10000`
+- `MARKET_ANOMALY_WATCH_DURATION_MS=21600000`
+- `MARKET_ANOMALY_LIMIT=25`
+- `MARKET_ANOMALY_MIN_SCORE=45`
+- `MARKET_ANOMALY_MIN_CONFIDENCE=0.45`
+- `MARKET_ANOMALY_INCLUDE_UNMAPPED=1`
+- `MARKET_ANOMALY_REQUIRE_BET365=0`
+- `MARKET_ANOMALY_NOTIFY=1`
+
 ## Current Status
 
-- Live research storage, repository, and read APIs are in place. Schema version 8 includes UNIQUE `(source_market_id, captured_at)` on `quote_ticks`, `capture_mode` on `adapter_runs`, canonical instrument consolidation so all sources map to one instrument per `(game, family, participant, line)`, and indexed source-market lookup for same-time divergence summaries.
+- Live research storage, repository, and read APIs are in place. Schema version 9 includes UNIQUE `(source_market_id, captured_at)` on `quote_ticks`, `capture_mode` on `adapter_runs`, canonical instrument consolidation so all sources map to one instrument per `(game, family, participant, line)`, indexed source-market lookup for same-time divergence summaries, and persisted `market_microstructure_events` plus score configs for prediction-market anomaly detection.
 - **Ingestion** — Polymarket NBA live + historical (minute-resolution CLOB `/prices-history`, including player-prop O/U markets), direct Kalshi NBA market-data capture via `KALSHI_API_KEY` across game, spread, total, team-prop, player-prop, period, overtime, and related event families, Kalshi historical `KXNBAGAME` candlesticks, Bet365 live-backup via Odds-API including player-prop markets, Bet365 internal JSONL drop folder, Bet365 direct Playwright scrape (awaits `BET365_SESSION_STATE_PATH`). The Odds-API Bet365 backup discovery call is limited to pending/live NBA events around the active target slate (`ODDS_API_TARGET_LOOKAHEAD_HOURS`, `ODDS_API_TARGET_LOOKBACK_MINUTES`) before requesting odds for matched event ids. NBA canonical games + outcomes via the Python sidecar, with graceful per-date error isolation and an official NBA CDN schedule fallback for future playoff games missing from `scoreboardv2`.
 - **Worker resilience** — Market-provider failures are isolated inside a cycle: a Bet365 rate-limit or upstream outage is reported in the heartbeat `providerFailures` field and adapter runs, but does not prevent Kalshi or Polymarket from refreshing. Live Kalshi scans are bounded by `KALSHI_LIVE_MAX_EVENTS` and `KALSHI_LIVE_LOOKBACK_DAYS`.
-- **Player-prop attribution risk** — `/api/v1/research/player-prop-alerts` is the urgent trading safety route. It compares mapped player-prop quotes from Bet365 against Kalshi/Polymarket, filters by configurable divergence threshold and quote-time window, fails closed on player/outcome or line mismatch, and returns manual-review alerts with source labels, line terms, quote ages, and a risk score. The trader desk polls this route every five seconds and shows a popup plus first-panel queue when current prop disagreements appear. `pnpm prop-alert-watch` can run out-of-band for desktop notifications and writes persisted alert checks served by `/api/v1/research/player-prop-alert-playback`.
+- **Prediction-market weirdness** — `/api/v1/research/market-anomalies` is the broad desk-first anomaly route. It scores persisted Kalshi/Polymarket/Bet365 quote ticks plus persisted microstructure events for off-price prints, volume-share anomalies, volatility shocks, liquidity/spread/depth shocks, and cross-venue disagreement. It does not require knowing the paired/rightful player at detection time. `/market-anomalies` exposes the queue and score knobs, `pnpm market-anomaly-watch` records playback/notifications, and the trader desk popup now points to this generalized weirdness feed first.
+- **Player-prop attribution risk** — `/api/v1/research/player-prop-alerts` remains the strict compatibility/safety route. It compares mapped player-prop quotes from Bet365 against Kalshi/Polymarket, filters by configurable divergence threshold and quote-time window, fails closed on player/outcome or line mismatch, and returns manual-review alerts with source labels, line terms, quote ages, and a risk score. `pnpm prop-alert-watch` can run out-of-band for desktop notifications and writes persisted alert checks served by `/api/v1/research/player-prop-alert-playback`.
 - **Exports** — `/exports` is package-first for data engineering: the primary control downloads the full live SQLite snapshot (`/api/v1/exports/full-package.sqlite`) with all persisted tables, timestamps, quote volume columns, and raw payloads. The same route also exposes API-backed CSV/JSONL table exports plus filtered quote pulls for provider/family slices such as all player props or Kalshi player props.
 - **Signal-quality analytics** — `signal-quality`, `closed-games`, per-instrument `delta-series` and `lead-lag` (source-to-source Pearson cross-correlation). Closing cutoff is pregame by default (`scheduled_start`), switchable to live-final. Calibration reports Brier and log-loss per source.
-- **Web app** is a trader-terminal shell: flat dense grids, monospace numerics, keyboard nav (`g b` desk, `g p` prop alerts, `g g` slate, `g d` divergence, `g r` research, `g h` history, `g e` exports, `g s` settings). Routes: `/`, `/prop-alerts`, `/divergence`, `/research`, `/history`, `/exports`, `/settings`, `/games/:gameId`, `/games/:gameId/markets/:instrumentId`. The root trader desk puts player-prop attribution alerts first, including a popup for current Bet365-vs-exchange prop disagreement. `/prop-alerts` shows the current review queue plus persisted watcher checks. The instrument workspace shows peak divergence, latest measured divergence, threshold duration, same-time source rows, a mini chart, and raw source details behind a secondary control.
+- **Web app** is a trader-terminal shell: flat dense grids, monospace numerics, keyboard nav (`g b` desk, `g a` anomalies, `g p` prop alerts, `g g` slate, `g d` divergence, `g r` research, `g h` history, `g e` exports, `g s` settings). Routes: `/`, `/market-anomalies`, `/prop-alerts`, `/divergence`, `/research`, `/history`, `/exports`, `/settings`, `/games/:gameId`, `/games/:gameId/markets/:instrumentId`. The root trader desk puts prediction-market weirdness first. `/prop-alerts` remains the exact-line Bet365-vs-exchange prop monitor. The instrument workspace shows peak divergence, latest measured divergence, threshold duration, same-time source rows, a mini chart, and raw source details behind a secondary control.
 - **Perf** — `listSignalMismatches` / `listResearchDivergence` use window functions, batched game-bundle loading, and indexed instrument-to-source-market quote lookups so current-slate divergence summaries do not scan the full quote history before the operator desk can load.
 - Legacy presentation-only runtime paths have been removed; storyline tables dropped in migration 3.

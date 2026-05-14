@@ -10,19 +10,23 @@ import {
   getResearchCoverage,
   getStorageCoverage,
   getInstrumentTimeline,
+  getMarketAnomalyScoreConfig,
   listAdminSources,
   listGameMarkets,
+  listMarketAnomalyAlerts,
   listResearchGames,
   listPlayerPropDisagreementAlerts,
   listResearchDivergence,
   listSignalMismatches,
   recordGameStateObservation,
+  recordMarketMicrostructureEvent,
   recordQuoteObservation,
   recordRawPayload,
   resetDatabase,
   upsertGame,
   upsertGameOutcome,
   upsertMarketInstrument,
+  upsertMarketAnomalyScoreConfig,
   upsertSourceMarket,
 } from "../db";
 
@@ -1064,6 +1068,202 @@ describe("live repository", () => {
         displayLabel: "Boston -4.5",
       }),
     ]);
+  });
+
+  it("scores off-price prediction-market prints by volume share instead of raw notional alone", () => {
+    seedLiveRepositoryGame();
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-bos-moneyline",
+      instrumentId: "bos-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Boston wins",
+      rawMetadata: { conditionId: "condition-bos", source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-bos-moneyline",
+      sourceSelectionKey: "bos",
+    });
+
+    recordQuoteObservation({
+      bestAsk: 0.51,
+      bestBid: 0.49,
+      capturedAt: "2026-04-21T23:39:50.000Z",
+      depthScore: 70,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.5,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.5,
+      sourceMarketId: "sm-polymarket-bos-moneyline",
+      volume: 25,
+    });
+
+    recordMarketMicrostructureEvent({
+      apiSurface: "data-api/trades",
+      eventTimestamp: "2026-04-21T23:40:38.000Z",
+      eventType: "trade",
+      finalMarketVolume: 410.166918,
+      gameId: "nba-bos-nyk-2026-04-21",
+      instrumentId: "bos-moneyline",
+      notional: 105.66,
+      previousPrice: 0.51,
+      price: 0.51,
+      rawMetadata: {
+        outcome: "Yes",
+        transactionHash: "0xtrade",
+        wallet: "0xwallet",
+      },
+      size: 106.7913,
+      source: "polymarket",
+      sourceMarketId: "sm-polymarket-bos-moneyline",
+      tradePrice: 0.99,
+      volumeShare: 106.7913 / 410.166918,
+    });
+
+    const alerts = listMarketAnomalyAlerts({
+      includeUnmapped: true,
+      minScore: 40,
+      requireBet365: false,
+    });
+
+    expect(alerts[0]).toMatchObject({
+      apiSurface: "data-api/trades",
+      displayLabel: "Boston moneyline",
+      labels: expect.arrayContaining([
+        "isolated off-price print",
+        "volume-share anomaly",
+      ]),
+      metrics: expect.objectContaining({
+        notional: 105.66,
+        tradeDistance: expect.closeTo(0.48, 6),
+        tradePrice: 0.99,
+        volumeShare: expect.closeTo(0.26036, 4),
+      }),
+      source: "polymarket",
+    });
+    expect(alerts[0]?.score).toBeGreaterThanOrEqual(60);
+  });
+
+  it("keeps candle-only evidence lower confidence than trade-level anomaly rows", () => {
+    seedLiveRepositoryGame();
+
+    recordMarketMicrostructureEvent({
+      apiSurface: "candlestick",
+      eventTimestamp: "2026-04-21T23:41:00.000Z",
+      eventType: "candlestick",
+      gameId: "nba-bos-nyk-2026-04-21",
+      instrumentId: "bos-moneyline",
+      previousPrice: 0.44,
+      price: 0.99,
+      source: "kalshi",
+      sourceMarketId: "sm-kalshi-bos-moneyline",
+      volume: 1000,
+    });
+
+    const alerts = listMarketAnomalyAlerts({
+      includeUnmapped: true,
+      minConfidence: 0.5,
+      minScore: 10,
+    });
+
+    expect(alerts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          apiSurface: "candlestick",
+          confidence: expect.closeTo(0.57, 1),
+          eventType: "candlestick",
+          labels: expect.arrayContaining(["sustained repricing"]),
+        }),
+      ])
+    );
+  });
+
+  it("keeps unmapped market weirdness visible unless the operator filters it out", () => {
+    seedLiveRepositoryGame();
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-unmapped-reaves",
+      instrumentId: null,
+      mappingStatus: "unmapped",
+      rawFamily: "player-prop",
+      rawLabel: "Austin Reaves rebounds O/U 4.5",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-reaves-rebounds",
+      sourceSelectionKey: "over",
+    });
+
+    recordMarketMicrostructureEvent({
+      apiSurface: "data-api/trades",
+      eventTimestamp: "2026-04-21T23:40:38.000Z",
+      eventType: "trade",
+      finalMarketVolume: 410.166918,
+      gameId: "nba-bos-nyk-2026-04-21",
+      instrumentId: null,
+      previousPrice: 0.51,
+      size: 106.7913,
+      source: "polymarket",
+      sourceMarketId: "sm-polymarket-unmapped-reaves",
+      tradePrice: 0.99,
+      volumeShare: 0.26,
+    });
+
+    expect(
+      listMarketAnomalyAlerts({
+        includeUnmapped: true,
+        minConfidence: 0.4,
+        minScore: 40,
+      })
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayLabel: "Austin Reaves rebounds O/U 4.5",
+          labels: expect.arrayContaining(["coverage gap"]),
+          mappingStatus: "unmapped",
+        }),
+      ])
+    );
+
+    expect(
+      listMarketAnomalyAlerts({
+        includeUnmapped: false,
+        minConfidence: 0.4,
+        minScore: 40,
+      })
+    ).toEqual([]);
+  });
+
+  it("persists tunable market anomaly scoring knobs", () => {
+    expect(getMarketAnomalyScoreConfig()).toMatchObject({
+      minScore: 45,
+      toggles: {
+        includeUnmapped: true,
+        requireBet365: false,
+      },
+    });
+
+    upsertMarketAnomalyScoreConfig({
+      minScore: 70,
+      profileId: "default",
+      toggles: {
+        includeHistorical: true,
+        includeUnmapped: false,
+        requireBet365: true,
+      },
+    });
+
+    expect(getMarketAnomalyScoreConfig()).toMatchObject({
+      minScore: 70,
+      toggles: {
+        includeHistorical: true,
+        includeUnmapped: false,
+        requireBet365: true,
+      },
+      updatedBy: "operator",
+    });
   });
 
   it("surfaces fresh player-prop attribution alerts without using stale or non-prop mismatches", () => {
