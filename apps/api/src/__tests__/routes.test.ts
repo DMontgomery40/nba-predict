@@ -11,6 +11,7 @@ import {
   recordQuoteObservation,
   recordRawPayload,
   resetDatabase,
+  resetRuntimeEnvForTests,
   upsertGame,
   upsertGameOutcome,
   upsertMarketInstrument,
@@ -443,6 +444,13 @@ function seedResearchBackend() {
 
 describe("api routes", () => {
   beforeEach(() => {
+    resetRuntimeEnvForTests();
+    process.env.NBA_SIDECAR_BASE_URL = "";
+    process.env.ODDS_API_KEY = "";
+    process.env.ODDS_API_IO_KEY = "";
+    process.env.KALSHI_API_KEY = "";
+    process.env.KALSHI_API_SECRET = "";
+    process.env.BET365_SESSION_STATE_PATH = "";
     tempDir = mkdtempSync(join(tmpdir(), "signal-console-api-"));
     process.env.SIGNAL_CONSOLE_DB_PATH = join(tempDir, "signal-console.sqlite");
     process.env.PLAYER_PROP_ALERT_PLAYBACK_DIR = join(tempDir, "playback");
@@ -460,6 +468,7 @@ describe("api routes", () => {
     delete process.env.KALSHI_API_KEY;
     delete process.env.KALSHI_API_SECRET;
     delete process.env.BET365_SESSION_STATE_PATH;
+    resetRuntimeEnvForTests();
     if (tempDir) {
       rmSync(tempDir, { recursive: true, force: true });
     }
@@ -1062,6 +1071,12 @@ describe("api routes", () => {
     expect(response.json()).toMatchObject({
       checks: expect.arrayContaining([
         expect.objectContaining({ name: "database", status: "ok" }),
+        expect.objectContaining({
+          details: expect.objectContaining({
+            countAccuracy: "large-table-high-water-mark",
+          }),
+          name: "database",
+        }),
         expect.objectContaining({ name: "nba-sidecar", status: "error" }),
         expect.objectContaining({ name: "bet365-capture", status: "error" }),
         expect.objectContaining({ name: "kalshi-capture", status: "error" }),

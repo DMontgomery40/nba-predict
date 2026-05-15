@@ -111,6 +111,8 @@ export function getDatabaseSchemaVersion() {
   });
 }
 
+type DatabaseHealthCountAccuracy = "exact" | "large-table-high-water-mark";
+
 function countTable(db: Database.Database, tableName: string) {
   return Number(
     (
@@ -121,12 +123,40 @@ function countTable(db: Database.Database, tableName: string) {
   );
 }
 
+function countTableHighWaterMark(db: Database.Database, tableName: string) {
+  return Number(
+    (
+      db
+        .prepare(`SELECT COALESCE(MAX(id), 0) AS count FROM ${tableName}`)
+        .get() as { count: number } | undefined
+    )?.count ?? 0
+  );
+}
+
+function countTableForHealth(
+  db: Database.Database,
+  tableName: string,
+  countAccuracy: DatabaseHealthCountAccuracy
+) {
+  if (
+    countAccuracy === "large-table-high-water-mark" &&
+    (tableName === "quote_ticks" || tableName === "raw_payloads")
+  ) {
+    return countTableHighWaterMark(db, tableName);
+  }
+
+  return countTable(db, tableName);
+}
+
 export function checkDatabaseHealth(
   options: { integrityCheck?: "full" | "skip" } = {}
 ) {
   try {
     const db = getDatabase();
     const shouldRunIntegrityCheck = options.integrityCheck !== "skip";
+    const countAccuracy: DatabaseHealthCountAccuracy = shouldRunIntegrityCheck
+      ? "exact"
+      : "large-table-high-water-mark";
     const integrityResult = shouldRunIntegrityCheck
       ? String(db.prepare("PRAGMA integrity_check").pluck().get() ?? "")
       : "ok";
@@ -137,17 +167,22 @@ export function checkDatabaseHealth(
     const schemaVersion = getDatabaseSchemaVersion();
 
     const counts = {
-      adminActionCount: countTable(db, "admin_actions"),
-      gameCount: countTable(db, "games"),
-      quoteTickCount: countTable(db, "quote_ticks"),
-      rawPayloadCount: countTable(db, "raw_payloads"),
-      sourceMarketCount: countTable(db, "source_markets"),
-      watchlistCount: countTable(db, "watchlist"),
+      adminActionCount: countTableForHealth(db, "admin_actions", countAccuracy),
+      gameCount: countTableForHealth(db, "games", countAccuracy),
+      quoteTickCount: countTableForHealth(db, "quote_ticks", countAccuracy),
+      rawPayloadCount: countTableForHealth(db, "raw_payloads", countAccuracy),
+      sourceMarketCount: countTableForHealth(
+        db,
+        "source_markets",
+        countAccuracy
+      ),
+      watchlistCount: countTableForHealth(db, "watchlist", countAccuracy),
     };
 
     if (integrityResult !== "ok") {
       return {
         appStateKeys,
+        countAccuracy,
         counts,
         details: {
           integrityResult,
@@ -163,10 +198,11 @@ export function checkDatabaseHealth(
 
     return {
       appStateKeys,
+      countAccuracy,
       counts,
       message: shouldRunIntegrityCheck
         ? "SQLite database opened and passed integrity checks."
-        : "SQLite database opened; full integrity check skipped for fast readiness.",
+        : "SQLite database opened; full integrity check skipped and large table counts use high-water marks for fast readiness.",
       path: getDatabasePath(),
       schemaVersion,
       status: "ok" as const,
@@ -176,6 +212,7 @@ export function checkDatabaseHealth(
 
     return {
       appStateKeys: [] as string[],
+      countAccuracy: "exact" as const,
       counts: {
         adminActionCount: 0,
         gameCount: 0,

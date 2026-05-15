@@ -54,6 +54,7 @@ export function buildReadinessPayload(context?: { logger?: HealthLogger }) {
   checks.push({
     details: {
       appStateKeys: dbHealth.appStateKeys,
+      countAccuracy: dbHealth.countAccuracy,
       counts: dbHealth.counts,
       path: dbHealth.path,
       schemaVersion: dbHealth.schemaVersion,
@@ -175,6 +176,7 @@ export function buildReadinessPayload(context?: { logger?: HealthLogger }) {
     summary: {
       database: {
         appStateKeys: dbHealth.appStateKeys,
+        countAccuracy: dbHealth.countAccuracy,
         counts: dbHealth.counts,
         path: dbHealth.path,
         schemaVersion: dbHealth.schemaVersion,

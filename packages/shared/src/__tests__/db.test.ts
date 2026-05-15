@@ -77,15 +77,55 @@ describe("shared db", () => {
       eventId: "bos-vs-nyk",
       status: "queued",
     });
+    const db = getDatabase();
+    const firstPayload = db
+      .prepare(
+        "INSERT INTO raw_payloads (source, captured_at, entity_type, entity_id, payload_json, content_hash) VALUES (?, ?, ?, ?, ?, ?)"
+      )
+      .run(
+        "polymarket",
+        "2026-04-22T06:00:00.000Z",
+        "market",
+        "poly-1",
+        "{}",
+        "hash-1"
+      );
+    const secondPayload = db
+      .prepare(
+        "INSERT INTO raw_payloads (source, captured_at, entity_type, entity_id, payload_json, content_hash) VALUES (?, ?, ?, ?, ?, ?)"
+      )
+      .run(
+        "polymarket",
+        "2026-04-22T06:00:01.000Z",
+        "market",
+        "poly-2",
+        "{}",
+        "hash-2"
+      );
+    db.prepare("DELETE FROM raw_payloads WHERE id = ?").run(
+      firstPayload.lastInsertRowid
+    );
 
     const health = checkDatabaseHealth({ integrityCheck: "skip" });
 
     expect(health).toMatchObject({
+      countAccuracy: "large-table-high-water-mark",
       counts: {
+        rawPayloadCount: Number(secondPayload.lastInsertRowid),
         watchlistCount: 1,
       },
       message:
-        "SQLite database opened; full integrity check skipped for fast readiness.",
+        "SQLite database opened; full integrity check skipped and large table counts use high-water marks for fast readiness.",
+      status: "ok",
+    });
+
+    const exactHealth = checkDatabaseHealth();
+
+    expect(exactHealth).toMatchObject({
+      countAccuracy: "exact",
+      counts: {
+        rawPayloadCount: 1,
+      },
       status: "ok",
     });
   });

@@ -146,6 +146,9 @@ zero-row window.
 
 - `GET /health/live`
 - `GET /health/ready`
+- `GET /health/ready` uses fast SQLite readiness probes: it skips full
+  integrity checks and reports high-water marks for large append-only tables
+  instead of exact row scans.
 - `GET /api/v1/games?limit=N` (defaults to 25 and orders the undated list by the current slate before old persisted history)
 - `GET /api/v1/games/:gameId`
 - `GET /api/v1/games/:gameId/markets`
