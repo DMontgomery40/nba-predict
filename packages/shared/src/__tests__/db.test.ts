@@ -185,7 +185,15 @@ describe("shared db", () => {
         .prepare("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
         .pluck()
         .get()
-    ).toBe(8);
+    ).toBe(9);
+    expect(
+      db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('market_microstructure_events', 'market_anomaly_score_configs') ORDER BY name"
+        )
+        .pluck()
+        .all()
+    ).toEqual(["market_anomaly_score_configs", "market_microstructure_events"]);
   });
 
   it("creates a readable SQLite backup that includes WAL writes", async () => {

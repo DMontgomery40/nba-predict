@@ -17,6 +17,9 @@ const username =
   process.env.BASIC_AUTH_USERNAME ?? process.env.TEMP_HOST_USERNAME;
 const password =
   process.env.BASIC_AUTH_PASSWORD ?? process.env.TEMP_HOST_PASSWORD;
+const authDisabled = ["1", "true", "yes", "on"].includes(
+  String(process.env.TEMP_HOST_DISABLE_AUTH ?? "").toLowerCase()
+);
 const authCookieName = "signal_console_temp_auth";
 const authCookieValue = createHash("sha256")
   .update(`${username ?? ""}:${password ?? ""}`)
@@ -38,9 +41,9 @@ const mimeTypes = new Map([
   [".woff2", "font/woff2"],
 ]);
 
-if (!username || !password) {
+if (!authDisabled && (!username || !password)) {
   console.error(
-    "Set BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD before starting the temporary host."
+    "Set BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD, or TEMP_HOST_DISABLE_AUTH=1, before starting the temporary host."
   );
   process.exit(1);
 }
@@ -82,6 +85,10 @@ function hasAuthCookie(request) {
 }
 
 function isAuthorized(request) {
+  if (authDisabled) {
+    return true;
+  }
+
   if (hasAuthCookie(request)) {
     return true;
   }
@@ -150,6 +157,10 @@ function sendAuthChallenge(response) {
 }
 
 function withAuthCookie(headers = {}) {
+  if (authDisabled) {
+    return headers;
+  }
+
   return {
     ...headers,
     "set-cookie": `${authCookieName}=${authCookieValue}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`,
@@ -360,7 +371,7 @@ const server = createServer((request, response) => {
 
 server.listen(port, "127.0.0.1", () => {
   console.log(
-    `Temporary authenticated host listening at http://127.0.0.1:${port}`
+    `Temporary ${authDisabled ? "public" : "authenticated"} host listening at http://127.0.0.1:${port}`
   );
   console.log(`Serving web build from ${webRoot}`);
   console.log(`Proxying /api and /health to ${apiTarget.href}`);

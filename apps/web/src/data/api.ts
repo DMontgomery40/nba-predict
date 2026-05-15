@@ -1187,7 +1187,8 @@ export function getMarketAnomalies(options?: {
   if (options?.minConfidence != null) {
     params.set("minConfidence", String(options.minConfidence));
   }
-  if (options?.minScore != null) params.set("minScore", String(options.minScore));
+  if (options?.minScore != null)
+    params.set("minScore", String(options.minScore));
   if (options?.requireBet365 != null) {
     params.set("requireBet365", String(options.requireBet365));
   }

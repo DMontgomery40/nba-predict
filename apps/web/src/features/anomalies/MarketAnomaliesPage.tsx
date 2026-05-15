@@ -186,7 +186,9 @@ export function MarketAnomaliesPage() {
   });
 
   const rows = anomalies.data?.data ?? [];
-  const criticalCount = rows.filter((row) => row.severity === "critical").length;
+  const criticalCount = rows.filter(
+    (row) => row.severity === "critical"
+  ).length;
   const topScore = rows[0]?.score ?? 0;
 
   return (
@@ -207,7 +209,10 @@ export function MarketAnomaliesPage() {
           <div className="alert-monitor-actions">
             <label>
               <span>Source</span>
-              <select value={source} onChange={(event) => setSource(event.target.value)}>
+              <select
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+              >
                 {sourceOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -217,7 +222,10 @@ export function MarketAnomaliesPage() {
             </label>
             <label>
               <span>Family</span>
-              <select value={family} onChange={(event) => setFamily(event.target.value)}>
+              <select
+                value={family}
+                onChange={(event) => setFamily(event.target.value)}
+              >
                 {familyOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -251,7 +259,9 @@ export function MarketAnomaliesPage() {
           </div>
           <div>
             <span>Generated</span>
-            <strong>{formatOperatorDateTime(anomalies.data?.meta.generatedAt)}</strong>
+            <strong>
+              {formatOperatorDateTime(anomalies.data?.meta.generatedAt)}
+            </strong>
           </div>
         </section>
 
@@ -397,29 +407,31 @@ export function MarketAnomaliesPage() {
                       <td>Score component</td>
                     </tr>
                   ))}
-                  {Object.entries(activeConfig.thresholds).map(([key, value]) => (
-                    <tr key={`threshold-${key}`}>
-                      <td>{key}</td>
-                      <td>
-                        <input
-                          onChange={(event) =>
-                            setDraft({
-                              ...activeConfig,
-                              thresholds: updateNumber(
-                                activeConfig.thresholds,
-                                key as keyof MarketAnomalyScoreConfig["thresholds"],
-                                event.target.value
-                              ),
-                            })
-                          }
-                          step="0.01"
-                          type="number"
-                          value={value}
-                        />
-                      </td>
-                      <td>Detection threshold</td>
-                    </tr>
-                  ))}
+                  {Object.entries(activeConfig.thresholds).map(
+                    ([key, value]) => (
+                      <tr key={`threshold-${key}`}>
+                        <td>{key}</td>
+                        <td>
+                          <input
+                            onChange={(event) =>
+                              setDraft({
+                                ...activeConfig,
+                                thresholds: updateNumber(
+                                  activeConfig.thresholds,
+                                  key as keyof MarketAnomalyScoreConfig["thresholds"],
+                                  event.target.value
+                                ),
+                              })
+                            }
+                            step="0.01"
+                            type="number"
+                            value={value}
+                          />
+                        </td>
+                        <td>Detection threshold</td>
+                      </tr>
+                    )
+                  )}
                 </tbody>
               </table>
             </div>

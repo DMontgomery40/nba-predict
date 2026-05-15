@@ -784,7 +784,9 @@ export function TraderDeskPage() {
                     </div>
                     <div className="prop-risk-prices">
                       <em>price {formatProbability(alert.metrics.price)}</em>
-                      <em>trade {formatProbability(alert.metrics.tradePrice)}</em>
+                      <em>
+                        trade {formatProbability(alert.metrics.tradePrice)}
+                      </em>
                       <strong>score {alert.score}</strong>
                     </div>
                     <div className="prop-risk-meta">

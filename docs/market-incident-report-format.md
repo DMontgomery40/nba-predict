@@ -12,11 +12,11 @@ This is a post-hoc incident report format. Live anomaly detection does not requi
 
 Start every report here. If the real-world event time is missing, say so before showing market movement.
 
-| Seq | Source time | UTC time | T anchor | Event | Players | Stat family |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | `05:51:40 UK` | `2026-05-12T04:51:40Z` | `T0` | Rebound credited to Austin Reaves instead of Jaxson Hayes | Reaves / Hayes | Rebounds |
-| 2 | `06:11:49 UK` | `2026-05-12T05:11:49Z` | `T+20:09` | Later Hayes rebound before end | Hayes | Rebounds |
-| 3 | `06:23:27 UK` | `2026-05-12T05:23:27Z` | `T+31:47` | Match finished | Both | Rebounds |
+| Seq | Source time   | UTC time               | T anchor  | Event                                                     | Players        | Stat family |
+| --- | ------------- | ---------------------- | --------- | --------------------------------------------------------- | -------------- | ----------- |
+| 1   | `05:51:40 UK` | `2026-05-12T04:51:40Z` | `T0`      | Rebound credited to Austin Reaves instead of Jaxson Hayes | Reaves / Hayes | Rebounds    |
+| 2   | `06:11:49 UK` | `2026-05-12T05:11:49Z` | `T+20:09` | Later Hayes rebound before end                            | Hayes          | Rebounds    |
+| 3   | `06:23:27 UK` | `2026-05-12T05:23:27Z` | `T+31:47` | Match finished                                            | Both           | Rebounds    |
 
 Rules:
 
@@ -29,12 +29,12 @@ Rules:
 
 Show which markets existed before interpreting movement.
 
-| Venue | Player | Market found | Market/line | API surface checked | Coverage read |
-| --- | --- | --- | --- | --- | --- |
-| Polymarket | Austin Reaves | Yes | `Rebounds O/U 4.5` | Gamma, CLOB price-history, Data trades | Paired-player market exists |
-| Polymarket | Jaxson Hayes | No | None found | Gamma | No direct Hayes rebound market |
-| Kalshi | Austin Reaves | No | No rebound market | Event listing | No direct rebound confirmation |
-| Kalshi | Jaxson Hayes | No | No rebound market | Event listing | No direct Hayes market |
+| Venue      | Player        | Market found | Market/line        | API surface checked                    | Coverage read                  |
+| ---------- | ------------- | ------------ | ------------------ | -------------------------------------- | ------------------------------ |
+| Polymarket | Austin Reaves | Yes          | `Rebounds O/U 4.5` | Gamma, CLOB price-history, Data trades | Paired-player market exists    |
+| Polymarket | Jaxson Hayes  | No           | None found         | Gamma                                  | No direct Hayes rebound market |
+| Kalshi     | Austin Reaves | No           | No rebound market  | Event listing                          | No direct rebound confirmation |
+| Kalshi     | Jaxson Hayes  | No           | No rebound market  | Event listing                          | No direct Hayes market         |
 
 Rules:
 
@@ -46,13 +46,13 @@ Rules:
 
 Use one table for market movement. Every row must tie to a real event through `T offset`.
 
-| Venue | Market | API surface | UTC time | T offset | Type | Price / Change | Size | Notional | Volume share | Read |
-| --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |
-| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T04:51:05Z` | `T-00:35` | price tick | `0.495` | | | | Pre-event sampled price |
-| Polymarket | Reaves rebounds O4.5 | trades | `2026-05-12T04:52:18Z` | `T+00:38` | BUY Yes | `0.9894` | `101.0713` | `$100.00` | `24.6%` | Off-price concentrated print |
-| Polymarket | Reaves rebounds O4.5 | trades | `2026-05-12T04:52:18Z` | `T+00:38` | BUY Yes | `0.9900` | `5.7200` | `$5.66` | `1.4%` | Same-second follow-on print |
-| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T04:53:05Z` | `T+01:25` | price tick | `0.510` | | | | Sampled price still near 50c |
-| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T05:26:04Z` | `T+34:24` | price jump | `0.510 -> 0.995` | | | | Later sustained repricing |
+| Venue      | Market               | API surface   | UTC time               | T offset  | Type       | Price / Change   |       Size |  Notional | Volume share | Read                         |
+| ---------- | -------------------- | ------------- | ---------------------- | --------- | ---------- | ---------------- | ---------: | --------: | -----------: | ---------------------------- |
+| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T04:51:05Z` | `T-00:35` | price tick | `0.495`          |            |           |              | Pre-event sampled price      |
+| Polymarket | Reaves rebounds O4.5 | trades        | `2026-05-12T04:52:18Z` | `T+00:38` | BUY Yes    | `0.9894`         | `101.0713` | `$100.00` |      `24.6%` | Off-price concentrated print |
+| Polymarket | Reaves rebounds O4.5 | trades        | `2026-05-12T04:52:18Z` | `T+00:38` | BUY Yes    | `0.9900`         |   `5.7200` |   `$5.66` |       `1.4%` | Same-second follow-on print  |
+| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T04:53:05Z` | `T+01:25` | price tick | `0.510`          |            |           |              | Sampled price still near 50c |
+| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T05:26:04Z` | `T+34:24` | price jump | `0.510 -> 0.995` |            |           |              | Later sustained repricing    |
 
 Rules:
 
@@ -77,16 +77,16 @@ Read: This is a high-priority market-structure anomaly, not a clean sustained-co
 
 Use these exact labels when possible:
 
-| Label | Meaning |
-| --- | --- |
-| `sustained repricing` | Price history moves and stays moved after the event. |
-| `isolated off-price print` | One or more trades occur far from surrounding sampled price history. |
-| `volume-share anomaly` | A small dollar amount is large relative to final market volume. |
-| `cross-venue confirmation` | Two venues move in the same direction on comparable markets. |
+| Label                      | Meaning                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| `sustained repricing`      | Price history moves and stays moved after the event.                               |
+| `isolated off-price print` | One or more trades occur far from surrounding sampled price history.               |
+| `volume-share anomaly`     | A small dollar amount is large relative to final market volume.                    |
+| `cross-venue confirmation` | Two venues move in the same direction on comparable markets.                       |
 | `cross-venue disagreement` | One venue moves or resolves directionally while another comparable venue does not. |
-| `coverage absence` | The venue did not list a relevant market. |
-| `app coverage gap` | Direct API had the market but the app/persisted path did not surface it. |
-| `unanchored market move` | Market move found, but real-world event time is unknown. |
+| `coverage absence`         | The venue did not list a relevant market.                                          |
+| `app coverage gap`         | Direct API had the market but the app/persisted path did not surface it.           |
+| `unanchored market move`   | Market move found, but real-world event time is unknown.                           |
 
 ## CSV Schema For Exports
 

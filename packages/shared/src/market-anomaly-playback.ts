@@ -32,16 +32,13 @@ function assertPlaybackDate(date: string) {
 }
 
 export function getMarketAnomalyPlaybackDirectory() {
-  return (
-    process.env.MARKET_ANOMALY_PLAYBACK_DIR ?? defaultPlaybackDirectory
-  );
+  return process.env.MARKET_ANOMALY_PLAYBACK_DIR ?? defaultPlaybackDirectory;
 }
 
 export function resolveMarketAnomalyPlaybackDate(
   date?: string,
   now = new Date(),
-  timeZone =
-    process.env.MARKET_ANOMALY_TIME_ZONE ?? defaultPlaybackTimeZone
+  timeZone = process.env.MARKET_ANOMALY_TIME_ZONE ?? defaultPlaybackTimeZone
 ) {
   if (date) {
     assertPlaybackDate(date);
@@ -58,15 +55,9 @@ export function resolveMarketAnomalyPlaybackDate(
   return `${byType.get("year")}-${byType.get("month")}-${byType.get("day")}`;
 }
 
-export function getMarketAnomalyPlaybackPath(
-  date?: string,
-  now = new Date()
-) {
+export function getMarketAnomalyPlaybackPath(date?: string, now = new Date()) {
   const resolvedDate = resolveMarketAnomalyPlaybackDate(date, now);
-  return resolve(
-    getMarketAnomalyPlaybackDirectory(),
-    `${resolvedDate}.jsonl`
-  );
+  return resolve(getMarketAnomalyPlaybackDirectory(), `${resolvedDate}.jsonl`);
 }
 
 function parsePlaybackLine(line: string): MarketAnomalyPlaybackFrame | null {

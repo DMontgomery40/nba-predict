@@ -636,7 +636,9 @@ export function SettingsPage() {
                 <button
                   className="ghost-button"
                   disabled={saveMarketAnomalyScoreConfig.isPending}
-                  onClick={() => saveMarketAnomalyScoreConfig.mutate(scoreConfig)}
+                  onClick={() =>
+                    saveMarketAnomalyScoreConfig.mutate(scoreConfig)
+                  }
                   type="button"
                 >
                   Save anomaly knobs

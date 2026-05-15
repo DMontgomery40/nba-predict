@@ -80,7 +80,8 @@ function resolveSettings(options?: Partial<WatcherSettings>): WatcherSettings {
     minConfidence:
       options?.minConfidence ??
       numberFromEnv("MARKET_ANOMALY_MIN_CONFIDENCE", 0.45),
-    minScore: options?.minScore ?? numberFromEnv("MARKET_ANOMALY_MIN_SCORE", 45),
+    minScore:
+      options?.minScore ?? numberFromEnv("MARKET_ANOMALY_MIN_SCORE", 45),
     notify: options?.notify ?? booleanFromEnv("MARKET_ANOMALY_NOTIFY", true),
     requireBet365:
       options?.requireBet365 ??

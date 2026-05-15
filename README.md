@@ -78,17 +78,20 @@ Default local ports:
 
 SQLite state is stored at `data/signal-console.sqlite` by default.
 
-Temporary authenticated local hosting:
+Temporary public local hosting:
 
 ```bash
 pnpm --filter @signal-console/web build
-BASIC_AUTH_USERNAME=nba BASIC_AUTH_PASSWORD=change-me pnpm host:temporary
+TEMP_HOST_DISABLE_AUTH=1 pnpm host:temporary
 ```
 
 The temporary host serves the built web console from `apps/web/dist`, proxies
 `/api` and `/health` to the local Fastify API, and listens on
 `http://127.0.0.1:4210` by default. Put a Cloudflare tunnel in front of that
-single local URL when a short-lived public link is needed.
+single local URL when a short-lived public link is needed. If you explicitly
+need HTTP Basic Auth for a private operator bridge, leave
+`TEMP_HOST_DISABLE_AUTH` unset and provide `BASIC_AUTH_USERNAME` plus
+`BASIC_AUTH_PASSWORD`.
 
 ## Key Environment
 
@@ -112,7 +115,7 @@ single local URL when a short-lived public link is needed.
 - `WORKER_INTERVAL_MS` and `WORKER_MAX_BACKOFF_MS`
 - `PLAYER_PROP_ALERT_LIMIT`, `PLAYER_PROP_ALERT_INCLUDE_STALE`, `PLAYER_PROP_ALERT_PLAYBACK_DIR`, and `PLAYER_PROP_ALERT_TIME_ZONE`
 - `MARKET_ANOMALY_LIMIT`, `MARKET_ANOMALY_MIN_SCORE`, `MARKET_ANOMALY_MIN_CONFIDENCE`, `MARKET_ANOMALY_INCLUDE_UNMAPPED`, `MARKET_ANOMALY_REQUIRE_BET365`, `MARKET_ANOMALY_PLAYBACK_DIR`, and `MARKET_ANOMALY_TIME_ZONE`
-- `TEMP_HOST_PORT`, `TEMP_HOST_WEB_ROOT`, `TEMP_HOST_API_TARGET`, `BASIC_AUTH_USERNAME`, and `BASIC_AUTH_PASSWORD`
+- `TEMP_HOST_PORT`, `TEMP_HOST_WEB_ROOT`, `TEMP_HOST_API_TARGET`, `TEMP_HOST_DISABLE_AUTH`, `BASIC_AUTH_USERNAME`, and `BASIC_AUTH_PASSWORD`
 - `LOG_LEVEL`, `LOG_PRETTY`, `NODE_ENV`, and `CI`
 
 ## Quality Gates

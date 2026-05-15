@@ -446,10 +446,7 @@ describe("api routes", () => {
     tempDir = mkdtempSync(join(tmpdir(), "signal-console-api-"));
     process.env.SIGNAL_CONSOLE_DB_PATH = join(tempDir, "signal-console.sqlite");
     process.env.PLAYER_PROP_ALERT_PLAYBACK_DIR = join(tempDir, "playback");
-    process.env.MARKET_ANOMALY_PLAYBACK_DIR = join(
-      tempDir,
-      "anomaly-playback"
-    );
+    process.env.MARKET_ANOMALY_PLAYBACK_DIR = join(tempDir, "anomaly-playback");
   });
 
   afterEach(() => {

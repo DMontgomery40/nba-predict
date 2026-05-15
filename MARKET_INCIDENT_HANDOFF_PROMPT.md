@@ -239,36 +239,36 @@ Correct interpretation:
 
 Real-world incident timeline from source material:
 
-| Seq | Source time | UTC time | T anchor | Event | Players | Stat family |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | `05:51:40 UK` | `2026-05-12T04:51:40Z` | `T0` | Rebound assigned to Austin Reaves instead of Jaxson Hayes | Reaves / Hayes | Rebounds |
-| 2 | `06:11:49 UK` | `2026-05-12T05:11:49Z` | `T+20:09` | Later Hayes rebound before end | Hayes | Rebounds |
-| 3 | `06:23:27 UK` | `2026-05-12T05:23:27Z` | `T+31:47` | Match finished, not reallocated in source material | Reaves / Hayes | Rebounds |
+| Seq | Source time   | UTC time               | T anchor  | Event                                                     | Players        | Stat family |
+| --- | ------------- | ---------------------- | --------- | --------------------------------------------------------- | -------------- | ----------- |
+| 1   | `05:51:40 UK` | `2026-05-12T04:51:40Z` | `T0`      | Rebound assigned to Austin Reaves instead of Jaxson Hayes | Reaves / Hayes | Rebounds    |
+| 2   | `06:11:49 UK` | `2026-05-12T05:11:49Z` | `T+20:09` | Later Hayes rebound before end                            | Hayes          | Rebounds    |
+| 3   | `06:23:27 UK` | `2026-05-12T05:23:27Z` | `T+31:47` | Match finished, not reallocated in source material        | Reaves / Hayes | Rebounds    |
 
 Venue coverage:
 
-| Venue | Player | Market found | Market/line | API surface checked | Coverage read |
-| --- | --- | --- | --- | --- | --- |
-| Polymarket | Austin Reaves | Yes | `Rebounds O/U 4.5` | Gamma, CLOB price-history, Data trades | Paired-player market exists |
-| Polymarket | Austin Reaves | Yes | `Points O/U 21.5`, `Assists O/U 6.5` | Gamma | Related markets exist |
-| Polymarket | Jaxson Hayes | No | None found | Gamma | No direct Hayes market |
-| Kalshi | Austin Reaves | No | No rebound market | Event listing | No direct rebound market |
-| Kalshi | Jaxson Hayes | No | No rebound market | Event listing | No direct Hayes market |
-| Kalshi | Austin Reaves | Yes | assist ladders `2+`, `4+`, `6+`, `8+`, `10+` | Event listing/candlesticks | Related but not direct rebound |
+| Venue      | Player        | Market found | Market/line                                  | API surface checked                    | Coverage read                  |
+| ---------- | ------------- | ------------ | -------------------------------------------- | -------------------------------------- | ------------------------------ |
+| Polymarket | Austin Reaves | Yes          | `Rebounds O/U 4.5`                           | Gamma, CLOB price-history, Data trades | Paired-player market exists    |
+| Polymarket | Austin Reaves | Yes          | `Points O/U 21.5`, `Assists O/U 6.5`         | Gamma                                  | Related markets exist          |
+| Polymarket | Jaxson Hayes  | No           | None found                                   | Gamma                                  | No direct Hayes market         |
+| Kalshi     | Austin Reaves | No           | No rebound market                            | Event listing                          | No direct rebound market       |
+| Kalshi     | Jaxson Hayes  | No           | No rebound market                            | Event listing                          | No direct Hayes market         |
+| Kalshi     | Austin Reaves | Yes          | assist ladders `2+`, `4+`, `6+`, `8+`, `10+` | Event listing/candlesticks             | Related but not direct rebound |
 
 Polymarket Reaves rebound exact reaction:
 
 Final reported market volume: `410.166918`.
 
-| Venue | Market | API surface | UTC time | T offset | Type | Price / Change | Size | Notional | Volume share | Read |
-| --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |
-| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T04:51:05Z` | `T-00:35` | price tick | `0.495` | | | | Pre-event sampled price |
-| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T04:52:05Z` | `T+00:25` | price tick | `0.495` | | | | Sampled price still near 50c |
-| Polymarket | Reaves rebounds O4.5 | trades | `2026-05-12T04:52:18Z` | `T+00:38` | BUY Yes | `0.9894` | `101.0713` | `$100.00` | `24.6%` | Off-price concentrated print |
-| Polymarket | Reaves rebounds O4.5 | trades | `2026-05-12T04:52:18Z` | `T+00:38` | BUY Yes | `0.9900` | `5.7200` | `$5.66` | `1.4%` | Same-second off-price print |
-| Polymarket | Reaves rebounds O4.5 | rollup | `2026-05-12T04:52:18Z` | `T+00:38` | 2 trades | about `0.99` | `106.7913` | `$105.66` | `26.0%` | High-priority volume-share anomaly |
-| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T04:53:05Z` | `T+01:25` | price tick | `0.510` | | | | Sampled price still near 50c |
-| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T05:26:04Z` | `T+34:24` | price jump | `0.510 -> 0.995` | | | | Later sustained repricing |
+| Venue      | Market               | API surface   | UTC time               | T offset  | Type       | Price / Change   |       Size |  Notional | Volume share | Read                               |
+| ---------- | -------------------- | ------------- | ---------------------- | --------- | ---------- | ---------------- | ---------: | --------: | -----------: | ---------------------------------- |
+| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T04:51:05Z` | `T-00:35` | price tick | `0.495`          |            |           |              | Pre-event sampled price            |
+| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T04:52:05Z` | `T+00:25` | price tick | `0.495`          |            |           |              | Sampled price still near 50c       |
+| Polymarket | Reaves rebounds O4.5 | trades        | `2026-05-12T04:52:18Z` | `T+00:38` | BUY Yes    | `0.9894`         | `101.0713` | `$100.00` |      `24.6%` | Off-price concentrated print       |
+| Polymarket | Reaves rebounds O4.5 | trades        | `2026-05-12T04:52:18Z` | `T+00:38` | BUY Yes    | `0.9900`         |   `5.7200` |   `$5.66` |       `1.4%` | Same-second off-price print        |
+| Polymarket | Reaves rebounds O4.5 | rollup        | `2026-05-12T04:52:18Z` | `T+00:38` | 2 trades   | about `0.99`     | `106.7913` | `$105.66` |      `26.0%` | High-priority volume-share anomaly |
+| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T04:53:05Z` | `T+01:25` | price tick | `0.510`          |            |           |              | Sampled price still near 50c       |
+| Polymarket | Reaves rebounds O4.5 | price-history | `2026-05-12T05:26:04Z` | `T+34:24` | price jump | `0.510 -> 0.995` |            |           |              | Later sustained repricing          |
 
 Correct interpretation:
 
@@ -282,10 +282,10 @@ Kalshi Reaves assist related market:
 
 This is related but not direct. Use only as context.
 
-| Venue | Market | API surface | UTC time | T offset from T0 | Type | Price / Change | Size | Read |
-| --- | --- | --- | --- | --- | --- | --- | ---: | --- |
-| Kalshi | Reaves AST 6+ | candlestick | `2026-05-12T04:45:00Z` | `T-06:40` | candle | price `0.44`, bid `0.30`, ask `0.43` | `1000` contracts | Related assist activity, before disputed rebound |
-| Kalshi | Reaves AST 6+ | candlestick | `2026-05-12T05:07:00Z` | `T+15:20` | candle | mid `0.630 -> 0.985` from prior candle sequence | `861.67` contracts | Related assist repricing, not direct rebound |
+| Venue  | Market        | API surface | UTC time               | T offset from T0 | Type   | Price / Change                                  |               Size | Read                                             |
+| ------ | ------------- | ----------- | ---------------------- | ---------------- | ------ | ----------------------------------------------- | -----------------: | ------------------------------------------------ |
+| Kalshi | Reaves AST 6+ | candlestick | `2026-05-12T04:45:00Z` | `T-06:40`        | candle | price `0.44`, bid `0.30`, ask `0.43`            |   `1000` contracts | Related assist activity, before disputed rebound |
+| Kalshi | Reaves AST 6+ | candlestick | `2026-05-12T05:07:00Z` | `T+15:20`        | candle | mid `0.630 -> 0.985` from prior candle sequence | `861.67` contracts | Related assist repricing, not direct rebound     |
 
 ## Other Known Polymarket/Kalshi Signals
 

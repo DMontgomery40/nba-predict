@@ -923,15 +923,18 @@ describe("App routes", () => {
     expect(
       screen.getByText("Which source moved first on the top-ranked market.")
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Prediction-market weirdness").length).toBeGreaterThan(
-      0
-    );
+    expect(
+      screen.getAllByText("Prediction-market weirdness").length
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText("Go look, something strange happened.")
     ).toBeInTheDocument();
     expect(
-      (await screen.findAllByText("isolated off-price print, volume-share anomaly"))
-        .length
+      (
+        await screen.findAllByText(
+          "isolated off-price print, volume-share anomaly"
+        )
+      ).length
     ).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Review now" })).toHaveAttribute(
       "href",
@@ -1131,11 +1134,13 @@ describe("App routes", () => {
       })
     ).toBeInTheDocument();
     expect(screen.getByText("Go look now")).toBeInTheDocument();
-    expect(screen.getByText("Score profile")).toBeInTheDocument();
-    expect(screen.getAllByText("Boston moneyline").length).toBeGreaterThan(0);
-    expect(screen.getByText("data-api/trades")).toBeInTheDocument();
-    expect(screen.getByText("$105.66")).toBeInTheDocument();
-    expect(screen.getByText(/26.0%/)).toBeInTheDocument();
+    expect(await screen.findByText("Score profile")).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText("Boston moneyline")).length
+    ).toBeGreaterThan(0);
+    expect(await screen.findByText("data-api/trades")).toBeInTheDocument();
+    expect(await screen.findByText("$105.66")).toBeInTheDocument();
+    expect(await screen.findByText(/26.0%/)).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open" })[0]).toHaveAttribute(
       "href",
       "/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"

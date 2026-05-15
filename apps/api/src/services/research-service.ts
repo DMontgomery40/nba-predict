@@ -411,7 +411,8 @@ const runtimeConfigDefinitions: RuntimeConfigDefinition[] = [
   {
     category: "Market anomalies",
     defaultValue: "10000",
-    description: "Prediction-market anomaly watcher poll interval in milliseconds.",
+    description:
+      "Prediction-market anomaly watcher poll interval in milliseconds.",
     inputType: "number",
     key: "MARKET_ANOMALY_WATCH_INTERVAL_MS",
     label: "Anomaly watcher interval",

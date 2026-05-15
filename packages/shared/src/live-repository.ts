@@ -877,6 +877,8 @@ function selectInstrumentsForGame(db: Database.Database, gameId: string) {
     )
     .all(gameId)
     .map((row) => rowToInstrument(row as Record<string, unknown>));
+
+  return rows;
 }
 
 function selectSourceMarketsForGame(db: Database.Database, gameId: string) {
@@ -901,6 +903,8 @@ function selectSourceMarketsForGame(db: Database.Database, gameId: string) {
     )
     .all(gameId)
     .map((row) => rowToSourceMarket(row as Record<string, unknown>));
+
+  return rows;
 }
 
 function chunkValues<T>(values: T[], chunkSize: number) {
@@ -1879,14 +1883,22 @@ function normalizeScoreConfig(
       marketFamilies.includes(family)
     ) ?? base.families;
   return {
-    contextWindowMinutes:
-      normalizeAlertNumber(config?.contextWindowMinutes, base.contextWindowMinutes, 1),
+    contextWindowMinutes: normalizeAlertNumber(
+      config?.contextWindowMinutes,
+      base.contextWindowMinutes,
+      1
+    ),
     families: families.length > 0 ? families : base.families,
-    minConfidence: clampScorePercent(config?.minConfidence ?? base.minConfidence),
+    minConfidence: clampScorePercent(
+      config?.minConfidence ?? base.minConfidence
+    ),
     minScore: normalizeAlertNumber(config?.minScore, base.minScore, 0),
     profileId: config?.profileId || base.profileId,
-    shockWindowSeconds:
-      normalizeAlertNumber(config?.shockWindowSeconds, base.shockWindowSeconds, 1),
+    shockWindowSeconds: normalizeAlertNumber(
+      config?.shockWindowSeconds,
+      base.shockWindowSeconds,
+      1
+    ),
     thresholds: {
       depthScoreDrop: normalizeAlertNumber(
         config?.thresholds?.depthScoreDrop,
@@ -1924,7 +1936,8 @@ function normalizeScoreConfig(
         config?.toggles?.includeHistorical ?? base.toggles.includeHistorical,
       includeUnmapped:
         config?.toggles?.includeUnmapped ?? base.toggles.includeUnmapped,
-      requireBet365: config?.toggles?.requireBet365 ?? base.toggles.requireBet365,
+      requireBet365:
+        config?.toggles?.requireBet365 ?? base.toggles.requireBet365,
     },
     updatedAt: config?.updatedAt ?? null,
     updatedBy: config?.updatedBy ?? null,
@@ -2104,7 +2117,9 @@ function marketAnomalyCandidateFromRow(
   const bestAsk = nullableNumber(row.bestAsk);
   const spread =
     nullableNumber(row.spread) ??
-    (bestBid != null && bestAsk != null ? Math.max(0, bestAsk - bestBid) : null);
+    (bestBid != null && bestAsk != null
+      ? Math.max(0, bestAsk - bestBid)
+      : null);
   return {
     apiSurface: String(row.apiSurface),
     bestAsk,
@@ -2121,8 +2136,7 @@ function marketAnomalyCandidateFromRow(
     finalMarketVolume: nullableNumber(row.finalMarketVolume),
     gameId: String(row.gameId),
     gameLabel: buildGameLabelFromRows(row),
-    instrumentId:
-      row.instrumentId == null ? null : String(row.instrumentId),
+    instrumentId: row.instrumentId == null ? null : String(row.instrumentId),
     league: String(row.league),
     mappingStatus: String(row.mappingStatus) as MappingStatus,
     notional: nullableNumber(row.notional),
@@ -2236,7 +2250,10 @@ function scoreMarketAnomalyCandidate(
   if (candidate.family && !config.families.includes(candidate.family)) {
     return null;
   }
-  if (!config.toggles.includeUnmapped && candidate.mappingStatus === "unmapped") {
+  if (
+    !config.toggles.includeUnmapped &&
+    candidate.mappingStatus === "unmapped"
+  ) {
     return null;
   }
 
@@ -2278,9 +2295,7 @@ function scoreMarketAnomalyCandidate(
     ),
     liquidity: clampScorePercent(
       Math.max(
-        spread == null
-          ? 0
-          : spread / Math.max(config.thresholds.spread, 0.001),
+        spread == null ? 0 : spread / Math.max(config.thresholds.spread, 0.001),
         candidate.depthScore == null
           ? 0
           : (config.thresholds.depthScoreDrop - candidate.depthScore) /
@@ -2342,7 +2357,9 @@ function scoreMarketAnomalyCandidate(
   if (components.volumeShare > 0) labels.push("volume-share anomaly");
   if (components.volatility > 0) {
     labels.push(
-      candidate.eventType === "trade" ? "volatility shock" : "sustained repricing"
+      candidate.eventType === "trade"
+        ? "volatility shock"
+        : "sustained repricing"
     );
   }
   if (components.liquidity > 0) labels.push("liquidity shock");
@@ -2516,24 +2533,17 @@ function selectQuoteAnomalyCandidates(
   const rows = db
     .prepare(
       `
-        WITH priced_quotes AS (
-          SELECT
-            q.id,
-            q.source_market_id,
-            q.captured_at,
-            q.implied_probability,
-            q.price_raw,
-            q.best_bid,
-            q.best_ask,
-            q.volume,
-            q.depth_score,
-            LAG(COALESCE(q.implied_probability, q.price_raw)) OVER (
-              PARTITION BY q.source_market_id
-              ORDER BY datetime(q.captured_at), q.id
-            ) AS previous_price
+        WITH recent_quotes AS (
+          SELECT q.*
           FROM quote_ticks q
+          JOIN source_markets sm ON sm.id = q.source_market_id
+          JOIN games g ON g.id = sm.game_id
+          LEFT JOIN market_instruments mi ON mi.id = sm.instrument_id
           WHERE COALESCE(q.implied_probability, q.price_raw) IS NOT NULL
             AND q.is_heartbeat = 0
+            AND ${whereSql}
+          ORDER BY datetime(q.captured_at) DESC, q.id DESC
+          LIMIT 500
         )
         SELECT
           q.id,
@@ -2553,7 +2563,22 @@ function selectQuoteAnomalyCandidates(
           q.captured_at AS eventTimestamp,
           q.captured_at AS capturedAt,
           COALESCE(q.implied_probability, q.price_raw) AS price,
-          q.previous_price AS previousPrice,
+          (
+            SELECT COALESCE(prev.implied_probability, prev.price_raw)
+            FROM quote_ticks prev
+            WHERE prev.source_market_id = q.source_market_id
+              AND COALESCE(prev.implied_probability, prev.price_raw) IS NOT NULL
+              AND prev.is_heartbeat = 0
+              AND (
+                datetime(prev.captured_at) < datetime(q.captured_at)
+                OR (
+                  datetime(prev.captured_at) = datetime(q.captured_at)
+                  AND prev.id < q.id
+                )
+              )
+            ORDER BY datetime(prev.captured_at) DESC, prev.id DESC
+            LIMIT 1
+          ) AS previousPrice,
           NULL AS tradePrice,
           NULL AS size,
           NULL AS notional,
@@ -2572,7 +2597,7 @@ function selectQuoteAnomalyCandidates(
           g.league,
           g.home_participant_json AS homeParticipantJson,
           g.away_participant_json AS awayParticipantJson
-        FROM priced_quotes q
+        FROM recent_quotes q
         JOIN source_markets sm ON sm.id = q.source_market_id
         JOIN games g ON g.id = sm.game_id
         LEFT JOIN market_instruments mi ON mi.id = sm.instrument_id
@@ -2601,14 +2626,11 @@ export function listMarketAnomalyAlerts(filters: MarketAnomalyFilters = {}) {
         toggles: {
           ...storedConfig.toggles,
           includeHistorical:
-            filters.includeHistorical ??
-            storedConfig.toggles.includeHistorical,
+            filters.includeHistorical ?? storedConfig.toggles.includeHistorical,
           includeUnmapped:
-            filters.includeUnmapped ??
-            storedConfig.toggles.includeUnmapped,
+            filters.includeUnmapped ?? storedConfig.toggles.includeUnmapped,
           requireBet365:
-            filters.requireBet365 ??
-            storedConfig.toggles.requireBet365,
+            filters.requireBet365 ?? storedConfig.toggles.requireBet365,
         },
       });
       const limit = clampAnomalyLimit(filters.limit);
