@@ -85,6 +85,15 @@ export function BoardAlertsReplayPage() {
 
   const anchor = trades.find((trade) => trade.offsetSeconds === 0);
   const gameLabel = ctx?.gameLabel ?? labelParam ?? gameId;
+  const heroSharePct =
+    anchor?.volumeShare != null ? (anchor.volumeShare * 100).toFixed(1) : null;
+  const heroLine =
+    anchor && heroSharePct != null
+      ? `$${(anchor.notional ?? 0).toFixed(0)} BUY on ${anchor.displayLabel ?? anchor.sourceMarketKey} at $${(anchor.tradePrice ?? anchor.price ?? 0).toFixed(2)} → ${heroSharePct}% of the market's final volume in one trade.`
+      : anchor
+        ? `$${(anchor.notional ?? 0).toFixed(0)} BUY on ${anchor.displayLabel ?? anchor.sourceMarketKey} at $${(anchor.tradePrice ?? anchor.price ?? 0).toFixed(2)} (volume share unavailable).`
+        : null;
+  const pbpMissing = ctx ? ctx.playByPlay.length === 0 : false;
 
   return (
     <PageFrame>
@@ -93,12 +102,17 @@ export function BoardAlertsReplayPage() {
         aria-label="Board alert inspect timeline"
       >
         <header className="board-alerts-header">
-          <div className="eyebrow">Inspect — board shock timeline</div>
-          <h1>{gameLabel}</h1>
+          <div className="eyebrow">{gameLabel} · Inspect</div>
+          {heroLine ? (
+            <h1 className="board-alert-hero-line">{heroLine}</h1>
+          ) : (
+            <h1>{gameLabel}</h1>
+          )}
           <p>
-            Anchor: <strong>{formatTimestampToSecond(anchorAt)}</strong> · Window:
-            ±30 min around the alert. All persisted Polymarket / Kalshi trades and
-            NBA play-by-play actions inside the window are listed below.
+            At <strong>{formatTimestampToSecond(anchorAt)}</strong>.{" "}
+            {pbpMissing
+              ? "No play-by-play captured for this game — the stat cannot be confirmed or refuted from the NBA feed."
+              : "Play-by-play below for in-game stat audit."}
           </p>
         </header>
         {ctxQuery.isLoading ? (
@@ -127,32 +141,34 @@ export function BoardAlertsReplayPage() {
                 </div>
               </header>
               {anchor ? (
-                <div className="board-alert-evidence-grid">
-                  <div>
-                    <div className="metric-label">Trade price</div>
-                    <div className="metric-value">
-                      {formatPrice(anchor.tradePrice ?? anchor.price)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="metric-label">Size</div>
-                    <div className="metric-value">{formatNumber(anchor.size)}</div>
-                  </div>
-                  <div>
-                    <div className="metric-label">Notional</div>
-                    <div className="metric-value">
-                      ${formatNumber(anchor.notional)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="metric-label">
-                      Volume share{" "}
-                      {anchor.finalMarketVolume != null
-                        ? "[FINAL]"
-                        : "[live-to-date]"}
-                    </div>
-                    <div className="metric-value">
+                <div className="board-alert-hero-stat">
+                  <div className="board-alert-hero-share">
+                    <div className="board-alert-hero-share-value">
                       {formatPercent(anchor.volumeShare)}
+                    </div>
+                    <div className="board-alert-hero-share-caption">
+                      of the market's{" "}
+                      {anchor.finalMarketVolume != null
+                        ? "final"
+                        : "live-to-date"}{" "}
+                      volume in one trade
+                    </div>
+                  </div>
+                  <div className="board-alert-hero-supporting">
+                    <div>
+                      <span className="metric-label">Trade</span>
+                      <span>
+                        ${formatPrice(anchor.tradePrice ?? anchor.price)} ×{" "}
+                        {formatNumber(anchor.size)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="metric-label">Notional</span>
+                      <span>${formatNumber(anchor.notional)}</span>
+                    </div>
+                    <div>
+                      <span className="metric-label">Source</span>
+                      <span>{anchor.source}</span>
                     </div>
                   </div>
                 </div>
@@ -182,30 +198,40 @@ export function BoardAlertsReplayPage() {
                   No persisted trades in this window.
                 </p>
               ) : (
-                <ol className="board-alerts-timeline">
-                  {sortedTrades.slice(0, 30).map((trade) => (
-                    <li key={`${trade.source}-${trade.eventTimestamp}-${trade.sourceMarketKey}`}>
-                      <span className="board-alerts-timeline-time">
-                        {formatOffset(trade.offsetSeconds)}
-                      </span>
-                      <span className="board-alerts-timeline-kind">
-                        {trade.source}
-                      </span>
-                      <span className="board-alerts-timeline-reason">
-                        {trade.displayLabel ?? trade.sourceMarketKey} · px{" "}
-                        {formatPrice(trade.tradePrice ?? trade.price)} · sz{" "}
-                        {formatNumber(trade.size)} · ${formatNumber(
-                          trade.notional
-                        )} · {formatPercent(trade.volumeShare)}{" "}
-                        {trade.finalMarketVolume != null
-                          ? "[FINAL]"
-                          : "[live]"}
-                      </span>
-                      <span className="board-alerts-timeline-score">
-                        {trade.offsetSeconds >= 0 ? "after" : "before"}
-                      </span>
+                <ol className="board-alert-trade-list">
+                  {sortedTrades.slice(0, 5).map((trade) => {
+                    const isAnchor = trade.offsetSeconds === 0;
+                    return (
+                      <li
+                        key={`${trade.source}-${trade.eventTimestamp}-${trade.sourceMarketKey}`}
+                        className={
+                          isAnchor
+                            ? "board-alert-trade-row board-alert-trade-row-anchor"
+                            : "board-alert-trade-row"
+                        }
+                      >
+                        <span className="board-alert-trade-share">
+                          {formatPercent(trade.volumeShare)}
+                        </span>
+                        <span className="board-alert-trade-label">
+                          {trade.displayLabel ?? trade.sourceMarketKey}
+                        </span>
+                        <span className="board-alert-trade-detail">
+                          ${formatPrice(trade.tradePrice ?? trade.price)} ×{" "}
+                          {formatNumber(trade.size)} = $
+                          {formatNumber(trade.notional)}
+                        </span>
+                        <span className="board-alert-trade-time">
+                          {formatOffset(trade.offsetSeconds)}
+                        </span>
+                      </li>
+                    );
+                  })}
+                  {sortedTrades.length > 5 ? (
+                    <li className="board-alert-trade-row-overflow">
+                      … {sortedTrades.length - 5} more trades in this window
                     </li>
-                  ))}
+                  ) : null}
                 </ol>
               )}
             </section>

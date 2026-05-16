@@ -1323,6 +1323,7 @@ export function listFinishedGameIncidents(
       const filtered = mismatches.filter(
         (row) => (row.impliedProbabilityGap ?? 0) >= minGap
       );
+      const minMarketStructureNotional = 20;
 
       const byGame = new Map<string, SignalMismatchRow[]>();
       for (const row of filtered) {
@@ -1446,16 +1447,18 @@ export function listFinishedGameIncidents(
         anomaliesByGame.set(anomaly.gameId, list);
       }
       for (const [gameId, anomalies] of anomaliesByGame.entries()) {
-        anomalies.sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score;
-          const aShare = a.metrics.volumeShare ?? 0;
-          const bShare = b.metrics.volumeShare ?? 0;
-          if (bShare !== aShare) return bShare - aShare;
+        const sized = anomalies.filter(
+          (a) => (a.metrics.notional ?? 0) >= minMarketStructureNotional
+        );
+        sized.sort((a, b) => {
           const aNotional = a.metrics.notional ?? 0;
           const bNotional = b.metrics.notional ?? 0;
-          return bNotional - aNotional;
+          if (bNotional !== aNotional) return bNotional - aNotional;
+          const aShare = a.metrics.volumeShare ?? 0;
+          const bShare = b.metrics.volumeShare ?? 0;
+          return bShare - aShare;
         });
-        const top = anomalies.slice(0, 6);
+        const top = sized.slice(0, 6);
         for (const anomaly of top) {
           const pbp = getPlayByPlayContext(gameId, anomaly.eventTimestamp);
           const surface = anomaly.apiSurface.toLowerCase();
