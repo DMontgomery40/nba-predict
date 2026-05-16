@@ -93,9 +93,6 @@ type IncidentRow = {
 
 function FanoutCard({ alert }: { alert: BoardAnomalyAlertDto }) {
   const evidence = alert.evidence.slice(0, 6);
-  const pairedNames = alert.h0Adjustments.drivers.find((d) =>
-    d.toLowerCase().includes("paired-player marker")
-  );
   return (
     <article className="board-shock-fanout" aria-label={alert.gameLabel}>
       <header className="board-shock-fanout-head">
