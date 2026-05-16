@@ -29,37 +29,6 @@ function localDateToUtcDates(localDate: string): string[] {
   return [startDate, endDate];
 }
 
-function formatTimeOfDay(iso: string): string {
-  const date = new Date(iso);
-  if (!Number.isFinite(date.getTime())) return iso;
-  return date.toLocaleString("en-US", {
-    hour: "numeric",
-    hour12: true,
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-function formatMonthDay(iso: string): string {
-  const date = new Date(iso);
-  if (!Number.isFinite(date.getTime())) return "";
-  return date.toLocaleString("en-US", {
-    day: "numeric",
-    month: "short",
-  });
-}
-
-function formatPercent(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return `${(value * 100).toFixed(0)}%`;
-}
-
-function formatDollars(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`;
-  return `$${value.toFixed(0)}`;
-}
-
 function tradeMetricsFromAlert(alert: BoardAnomalyAlertDto): {
   share: number | null;
   notional: number | null;
@@ -148,101 +117,23 @@ function FanoutCard({ alert }: { alert: BoardAnomalyAlertDto }) {
   );
 }
 
-function GameSection({
-  gameLabel,
-  rows,
-  pbpMissingForAll,
-}: {
-  gameLabel: string;
-  rows: IncidentRow[];
-  pbpMissingForAll: boolean;
-}) {
-  return (
-    <section className="board-shock-game-section" aria-label={gameLabel}>
-      <header className="board-shock-game-header">
-        <h2>{gameLabel}</h2>
-        <span className="board-shock-game-meta">
-          {rows.length} shock{rows.length === 1 ? "" : "s"} ·
-          {pbpMissingForAll
-            ? " no play-by-play captured for this game"
-            : " play-by-play captured"}
-        </span>
-      </header>
-      <table className="board-shock-table">
-        <thead>
-          <tr>
-            <th>Share</th>
-            <th>What</th>
-            <th>Trade</th>
-            <th>Notional</th>
-            <th>When</th>
-            <th aria-label="action" />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const t = tradeMetricsFromAlert(row.alert);
-            const sharePct =
-              t.share != null ? Math.round(t.share * 100) : null;
-            const colorClass =
-              sharePct == null
-                ? ""
-                : sharePct >= 25
-                  ? " row-share-hot"
-                  : sharePct >= 10
-                    ? " row-share-warm"
-                    : "";
-            return (
-              <tr
-                key={row.alert.id}
-                className={`board-shock-row${colorClass}`}
-              >
-                <td className="board-shock-share">{formatPercent(t.share)}</td>
-                <td className="board-shock-what">
-                  <span>{t.label}</span>
-                  <span className="board-shock-source">
-                    {row.alert.evidence[0]?.source ?? ""}
-                  </span>
-                </td>
-                <td className="board-shock-trade">
-                  {t.price != null && t.size != null
-                    ? `$${t.price.toFixed(2)} × ${t.size.toFixed(1)}`
-                    : "—"}
-                </td>
-                <td className="board-shock-notional">
-                  {formatDollars(t.notional)}
-                </td>
-                <td className="board-shock-when">
-                  <div>{formatTimeOfDay(row.alert.firstPopAt)}</div>
-                  <div className="board-shock-when-date">
-                    {formatMonthDay(row.alert.firstPopAt)}
-                  </div>
-                </td>
-                <td className="board-shock-action">
-                  <Link
-                    to={`/board-alerts/${encodeURIComponent(row.alert.gameId)}?at=${encodeURIComponent(row.alert.firstPopAt)}&label=${encodeURIComponent(row.alert.gameLabel)}`}
-                  >
-                    Inspect →
-                  </Link>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </section>
-  );
-}
-
 function VigCalloutCard({ rows }: { rows: IncidentRow[] }) {
   const withVig = rows.find(
     (row) =>
-      (row as IncidentRow & {
-        alert: BoardAnomalyAlertDto & { vigAdjusted?: BoardIncidentDto["vigAdjusted"] };
-      }).alert.vigAdjusted &&
-      ((row as IncidentRow & {
-        alert: BoardAnomalyAlertDto & { vigAdjusted?: BoardIncidentDto["vigAdjusted"] };
-      }).alert.vigAdjusted?.fairGap ?? 0) > 0
+      (
+        row as IncidentRow & {
+          alert: BoardAnomalyAlertDto & {
+            vigAdjusted?: BoardIncidentDto["vigAdjusted"];
+          };
+        }
+      ).alert.vigAdjusted &&
+      ((
+        row as IncidentRow & {
+          alert: BoardAnomalyAlertDto & {
+            vigAdjusted?: BoardIncidentDto["vigAdjusted"];
+          };
+        }
+      ).alert.vigAdjusted?.fairGap ?? 0) > 0
   );
   if (!withVig) return null;
   const incident = withVig.alert as BoardAnomalyAlertDto & {
@@ -251,7 +142,10 @@ function VigCalloutCard({ rows }: { rows: IncidentRow[] }) {
   const raw = (incident.vigAdjusted.rawGap * 100).toFixed(1);
   const fair = (incident.vigAdjusted.fairGap! * 100).toFixed(1);
   return (
-    <section className="board-shock-vig-callout" aria-label="Vig-adjusted disagreement">
+    <section
+      className="board-shock-vig-callout"
+      aria-label="Vig-adjusted disagreement"
+    >
       <header>
         <span className="eyebrow">{incident.gameLabel}</span>
         <h2>{incident.reason.split(":")[0]}</h2>
@@ -278,7 +172,7 @@ function VigCalloutCard({ rows }: { rows: IncidentRow[] }) {
 }
 
 export function BoardAlertsPage() {
-  const [mode, setMode] = useState<Mode>("historic");
+  const [mode, setMode] = useState<Mode>("live");
   const [date, setDate] = useState<string>(localIsoDate());
 
   const liveQuery = useQuery({
@@ -414,30 +308,35 @@ export function BoardAlertsPage() {
         ) : (
           <>
             <VigCalloutCard rows={allRows} />
-            {allRows
-              .filter((row) => row.alert.shockKind === "attribution-shaped")
-              .slice(0, 5)
-              .map((row) => (
-                <FanoutCard key={row.alert.id} alert={row.alert} />
-              ))}
-            {grouped
-              .filter(([, rows]) =>
-                rows.some(
-                  (row) => row.alert.shockKind !== "attribution-shaped"
-                )
-              )
-              .map(([label, rows]) => (
-                <GameSection
-                  key={label}
-                  gameLabel={label}
-                  rows={rows.filter(
-                    (row) => row.alert.shockKind !== "attribution-shaped"
-                  )}
-                  pbpMissingForAll={rows.every(
-                    (row) => row.pbp == null || row.pbp.available === false
-                  )}
-                />
-              ))}
+            {(() => {
+              const oneCardPerGame = new Map<string, IncidentRow>();
+              for (const row of allRows) {
+                const existing = oneCardPerGame.get(row.alert.gameLabel);
+                if (!existing) {
+                  oneCardPerGame.set(row.alert.gameLabel, row);
+                  continue;
+                }
+                const preferAttribution =
+                  row.alert.shockKind === "attribution-shaped" &&
+                  existing.alert.shockKind !== "attribution-shaped";
+                const higherScore = row.alert.score > existing.alert.score;
+                if (
+                  preferAttribution ||
+                  (existing.alert.shockKind === row.alert.shockKind &&
+                    higherScore)
+                ) {
+                  oneCardPerGame.set(row.alert.gameLabel, row);
+                }
+              }
+              const ordered = Array.from(oneCardPerGame.values()).sort(
+                (a, b) => b.alert.score - a.alert.score
+              );
+              return ordered
+                .slice(0, mode === "live" ? 5 : 8)
+                .map((row) => (
+                  <FanoutCard key={row.alert.id} alert={row.alert} />
+                ));
+            })()}
           </>
         )}
       </Panel>

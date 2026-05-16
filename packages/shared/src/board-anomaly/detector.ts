@@ -82,7 +82,6 @@ function clusterToAlert(
     baseContribution * config.weights.residual +
     microstructureAverage * config.weights.microstructure +
     coherence * config.weights.coherence +
-    coverage * config.weights.coverage +
     sportsbookPredictionBoost * 0.1;
 
   const score = Math.round(clamp01(weightedScore) * 100);
@@ -99,7 +98,7 @@ function clusterToAlert(
   );
   const confidence = Math.max(
     0,
-    confidenceBase - evidenceUnmappedRatio * 0.2 - coverage * 0.1
+    confidenceBase - evidenceUnmappedRatio * 0.2 - coverage * 0.3
   );
 
   if (score < config.minScore || confidence < config.minConfidence) {

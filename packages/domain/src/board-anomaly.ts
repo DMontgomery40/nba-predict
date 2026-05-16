@@ -235,10 +235,10 @@ export const defaultBoardAnomalyDetectorConfig: BoardAnomalyDetectorConfig = {
     closeGameMarginAbs: 5,
   },
   weights: {
-    residual: 0.4,
-    microstructure: 0.25,
+    residual: 0.45,
+    microstructure: 0.3,
     coherence: 0.25,
-    coverage: 0.1,
+    coverage: 0,
   },
   fanout: {
     sameParticipantBoost: 1.0,

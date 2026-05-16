@@ -3,6 +3,7 @@ import { AlertTriangle, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import { BoardAlertsBanner } from "./BoardAlertsBanner";
 import { DivergenceMiniChart } from "../../components/DivergenceMiniChart";
 import { ErrorState, LoadingState } from "../../components/ErrorState";
 import { PageFrame } from "../../components/PageFrame";
@@ -603,6 +604,7 @@ export function TraderDeskPage() {
           </nav>
         </header>
 
+        <BoardAlertsBanner />
         <section className="ops-thesis" aria-labelledby="desk-thesis-title">
           <div className="ops-thesis-copy">
             <span>Today&apos;s thesis:</span>

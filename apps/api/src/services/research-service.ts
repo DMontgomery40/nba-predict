@@ -1187,7 +1187,11 @@ export function getBoardAnomalyEventContextPayload(
     windowSecondsAfter: query.windowSecondsAfter,
   });
   logger.debug(
-    { gameId: query.gameId, trades: data.trades.length, pbp: data.playByPlay.length },
+    {
+      gameId: query.gameId,
+      trades: data.trades.length,
+      pbp: data.playByPlay.length,
+    },
     "Built board alert event context payload."
   );
   return { data, meta: generatedMeta() };

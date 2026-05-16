@@ -619,6 +619,37 @@ describe("H0 cap scales with base probability", () => {
   });
 });
 
+describe("coverage is a confidence penalty, not a positive score boost", () => {
+  it("cluster with high stale/missing share has lower confidence than clean cluster", () => {
+    const clean = attributionFanout();
+    const dirty = attributionFanout().map((observation) => ({
+      ...observation,
+      mappingStatus: "unmapped" as const,
+      flags: {
+        ...observation.flags,
+        isStale: true,
+        isUnmapped: true,
+      },
+      missing: { ...observation.missing, impliedProbability: true },
+    }));
+    const cleanAlerts = detectBoardAnomalies({
+      gameId: "game-1",
+      gameLabel: "Cavaliers @ Pistons",
+      observations: clean,
+      now: "2026-05-15T20:01:00.000Z",
+    });
+    const dirtyAlerts = detectBoardAnomalies({
+      gameId: "game-1",
+      gameLabel: "Cavaliers @ Pistons",
+      observations: dirty,
+      now: "2026-05-15T20:01:00.000Z",
+    });
+    if (cleanAlerts.length === 0 || dirtyAlerts.length === 0) return;
+    expect(dirtyAlerts[0].confidence).toBeLessThan(cleanAlerts[0].confidence);
+    expect(dirtyAlerts[0].score).toBeLessThanOrEqual(cleanAlerts[0].score);
+  });
+});
+
 describe("replayBoardAnomalies", () => {
   it("returns timestamp-ordered alerts with no future leakage", () => {
     const observations = attributionFanout();

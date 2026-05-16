@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { PageFrame } from "../../components/PageFrame";
 import { Panel } from "../../components/Primitives";
-import { getBoardAlertEventContext } from "../../data/api";
+import { getBoardAlertEventContext, getBoardAlertReplay } from "../../data/api";
 
 function formatTimestampToSecond(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -57,6 +57,31 @@ export function BoardAlertsReplayPage() {
   const anchorAt = search.get("at") ?? new Date().toISOString();
   const labelParam = search.get("label");
 
+  const anchorMs = useMemo(() => {
+    const ms = Date.parse(anchorAt);
+    return Number.isFinite(ms) ? ms : Date.now();
+  }, [anchorAt]);
+  const windowStart = useMemo(
+    () => new Date(anchorMs - 30 * 60_000).toISOString(),
+    [anchorMs]
+  );
+  const windowEnd = useMemo(
+    () => new Date(anchorMs + 30 * 60_000).toISOString(),
+    [anchorMs]
+  );
+
+  const replayQuery = useQuery({
+    enabled: gameId.length > 0,
+    queryFn: () =>
+      getBoardAlertReplay({
+        gameId,
+        windowStart,
+        windowEnd,
+        stepSeconds: 30,
+      }),
+    queryKey: ["board-alert-replay", gameId, windowStart, windowEnd],
+  });
+
   const ctxQuery = useQuery({
     enabled: gameId.length > 0,
     queryFn: () =>
@@ -68,6 +93,8 @@ export function BoardAlertsReplayPage() {
       }),
     queryKey: ["board-alert-event-context", gameId, anchorAt],
   });
+
+  const replayDeck = replayQuery.data?.data?.alertDeck ?? [];
 
   const ctx = ctxQuery.data?.data ?? null;
   const trades = useMemo(() => ctx?.trades ?? [], [ctx]);
@@ -115,15 +142,56 @@ export function BoardAlertsReplayPage() {
               : "Play-by-play below for in-game stat audit."}
           </p>
         </header>
-        {ctxQuery.isLoading ? (
-          <div className="board-alerts-empty">Loading event context…</div>
+        {ctxQuery.isLoading || replayQuery.isLoading ? (
+          <div className="board-alerts-empty">Loading replay…</div>
         ) : ctxQuery.isError || ctxQuery.data?.meta?.error ? (
           <div className="board-alerts-empty board-alerts-empty-error">
-            Could not load event context.{" "}
-            {ctxQuery.data?.meta?.error ?? ""}
+            Could not load event context. {ctxQuery.data?.meta?.error ?? ""}
           </div>
         ) : (
           <>
+            <section
+              aria-label="Online replay alert deck"
+              className="board-alert-card"
+            >
+              <header className="board-alert-card-header">
+                <div>
+                  <div className="board-alert-game">
+                    Online replay — what the trader would have seen live
+                  </div>
+                  <div className="board-alert-kind">
+                    {replayDeck.length} alert
+                    {replayDeck.length === 1 ? "" : "s"} that would have fired
+                    inside this ±30m window (no future leakage)
+                  </div>
+                </div>
+              </header>
+              {replayDeck.length === 0 ? (
+                <p className="board-alert-reason">
+                  No board shock would have fired inside this operational window
+                  from a no-future-leakage online replay of the persisted ticks.
+                </p>
+              ) : (
+                <ol className="board-alerts-timeline">
+                  {replayDeck.map((alert) => (
+                    <li key={alert.id}>
+                      <span className="board-alerts-timeline-time">
+                        {formatTimestampToSecond(alert.firstPopAt)}
+                      </span>
+                      <span className="board-alerts-timeline-kind">
+                        {alert.shockKind.replace(/-/g, " ")}
+                      </span>
+                      <span className="board-alerts-timeline-reason">
+                        {alert.reason}
+                      </span>
+                      <span className="board-alerts-timeline-score">
+                        {alert.score}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
             <section
               aria-label="Anchor trade"
               className="board-alert-card board-alert-card-primary board-alert-card-hot"
@@ -132,7 +200,9 @@ export function BoardAlertsReplayPage() {
                 <div>
                   <div className="board-alert-game">Trade at T+0 (anchor)</div>
                   <div className="board-alert-kind">
-                    {anchor ? anchor.displayLabel ?? anchor.sourceMarketKey : "no exact trade at this moment"}
+                    {anchor
+                      ? (anchor.displayLabel ?? anchor.sourceMarketKey)
+                      : "no exact trade at this moment"}
                   </div>
                 </div>
                 <div className="board-alert-time">
@@ -180,10 +250,7 @@ export function BoardAlertsReplayPage() {
               )}
             </section>
 
-            <section
-              aria-label="Trade timeline"
-              className="board-alert-card"
-            >
+            <section aria-label="Trade timeline" className="board-alert-card">
               <header className="board-alert-card-header">
                 <div>
                   <div className="board-alert-game">Trades in window</div>
@@ -254,8 +321,8 @@ export function BoardAlertsReplayPage() {
               {pbp.length === 0 ? (
                 <p className="board-alert-reason">
                   No play-by-play rows are persisted for this game inside the
-                  window — the trader has no in-game anchor to confirm or
-                  refute the stat dispute.
+                  window — the trader has no in-game anchor to confirm or refute
+                  the stat dispute.
                 </p>
               ) : (
                 <ol className="board-alerts-timeline">
@@ -265,7 +332,9 @@ export function BoardAlertsReplayPage() {
                         {formatOffset(row.offsetSeconds)}
                       </span>
                       <span className="board-alerts-timeline-kind">
-                        {row.period ? `${row.clock ?? ""} ${row.period}Q` : row.clock ?? ""}
+                        {row.period
+                          ? `${row.clock ?? ""} ${row.period}Q`
+                          : (row.clock ?? "")}
                       </span>
                       <span className="board-alerts-timeline-reason">
                         {row.description ?? "(no description)"}{" "}

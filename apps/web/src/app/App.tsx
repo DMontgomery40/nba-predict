@@ -27,8 +27,7 @@ export function App() {
           <CommandPalette />
           <Routes>
             <Route element={<ShellLayout />} path="/">
-              <Route element={<BoardAlertsPage />} index />
-              <Route element={<TraderDeskPage />} path="legacy-desk" />
+              <Route element={<TraderDeskPage />} index />
               <Route element={<BoardAlertsPage />} path="board-alerts" />
               <Route
                 element={<BoardAlertsReplayPage />}

@@ -904,7 +904,8 @@ export function getBoardAlertEventContext(input: {
       >;
       const trades: EventContextTradeRow[] = tradeRows.map((row) => {
         const ts = parseTimestampMs(row.eventTimestamp);
-        const offsetSeconds = ts != null ? Math.round((ts - anchorMs) / 1000) : 0;
+        const offsetSeconds =
+          ts != null ? Math.round((ts - anchorMs) / 1000) : 0;
         return { ...row, offsetSeconds };
       });
 
@@ -937,8 +938,7 @@ export function getBoardAlertEventContext(input: {
         const ts = row.timeActual ? parseTimestampMs(row.timeActual) : null;
         return {
           ...row,
-          offsetSeconds:
-            ts != null ? Math.round((ts - anchorMs) / 1000) : null,
+          offsetSeconds: ts != null ? Math.round((ts - anchorMs) / 1000) : null,
         };
       });
 
@@ -1237,7 +1237,11 @@ function statFamilyFromLabel(label: string | null | undefined): string {
   const lower = label.toLowerCase();
   if (lower.includes("rebound")) return "rebounds";
   if (lower.includes("assist") && lower.includes("rebound")) return "ra";
-  if (lower.includes("points") && lower.includes("assist") && lower.includes("rebound"))
+  if (
+    lower.includes("points") &&
+    lower.includes("assist") &&
+    lower.includes("rebound")
+  )
     return "pra";
   if (lower.includes("points") && lower.includes("rebound")) return "pr";
   if (lower.includes("points") && lower.includes("assist")) return "pa";
@@ -1270,7 +1274,9 @@ function buildFanouts(
           .match(/^([a-z]+\s[a-z'.-]+(?:\s[ji]r\.?)?)\b/)?.[1] ?? null,
       ts: Date.parse(alert.eventTimestamp),
     }))
-    .filter((entry) => entry.participantKey != null && Number.isFinite(entry.ts));
+    .filter(
+      (entry) => entry.participantKey != null && Number.isFinite(entry.ts)
+    );
 
   const byGame = new Map<string, FanoutCandidate[]>();
   for (const candidate of candidates) {
@@ -1350,11 +1356,17 @@ function buildFanoutReason(fanout: Fanout): string {
     const family = member.family ?? "other";
     familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1);
     const share = member.alert.metrics.volumeShare ?? 0;
-    familyTopShare.set(family, Math.max(familyTopShare.get(family) ?? 0, share));
+    familyTopShare.set(
+      family,
+      Math.max(familyTopShare.get(family) ?? 0, share)
+    );
   }
   const familyParts = Array.from(familyTopShare.entries())
     .sort((a, b) => b[1] - a[1])
-    .map(([family, share]) => `${family} (top ${(share * 100).toFixed(0)}% volume share)`)
+    .map(
+      ([family, share]) =>
+        `${family} (top ${(share * 100).toFixed(0)}% volume share)`
+    )
     .join(", ");
   const durationMs =
     Date.parse(fanout.windowEndIso) - Date.parse(fanout.windowStartIso);
@@ -1389,7 +1401,10 @@ function fanoutToBoardCard(
     0
   );
   const peakScore = Math.max(...fanout.members.map((m) => m.alert.score));
-  const score = Math.min(100, Math.round(peakScore + fanout.members.length * 3));
+  const score = Math.min(
+    100,
+    Math.round(peakScore + fanout.members.length * 3)
+  );
   const confidence = Math.min(
     0.97,
     0.6 + peakShare * 0.3 + fanout.members.length * 0.03
@@ -1438,7 +1453,7 @@ function fanoutToBoardCard(
     gameLabel: fanout.gameLabel,
     shockKind: "attribution-shaped",
     firstPopAt: fanout.windowStartIso,
-    detectedAt: new Date().toISOString(),
+    detectedAt: fanout.windowStartIso,
     score,
     confidence: Number(confidence.toFixed(3)),
     severity: scoreToSeverity(score),
@@ -1461,7 +1476,8 @@ function fanoutToBoardCard(
       : [
           {
             source: "nba",
-            reason: "no play-by-play captured — cannot confirm stat event directly",
+            reason:
+              "no play-by-play captured — cannot confirm stat event directly",
           },
         ],
     inspect: {
@@ -1522,7 +1538,7 @@ function marketAnomalyToBoardCard(
     gameLabel: alert.gameLabel,
     shockKind: "market-structure",
     firstPopAt: alert.eventTimestamp,
-    detectedAt: new Date().toISOString(),
+    detectedAt: alert.eventTimestamp,
     score: alert.score,
     confidence: alert.confidence,
     severity: alert.severity,
@@ -1661,7 +1677,7 @@ export function listFinishedGameIncidents(
           gameLabel: headline.gameLabel,
           shockKind,
           firstPopAt,
-          detectedAt: new Date().toISOString(),
+          detectedAt: firstPopAt,
           score,
           confidence: Number(confidence.toFixed(3)),
           severity: scoreToSeverity(score),
