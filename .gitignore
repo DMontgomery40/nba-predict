@@ -16,6 +16,10 @@ desk-attempt-*.png
 desk-v2*.png
 my-desk-*.png
 output-playwright-*.png
+trader-walkthrough/
+/board-alerts-*.png
+/trader-walks-in-*.png
+/v1-board-alerts-*.png
 output/playwright/
 *.log
 .DS_Store
