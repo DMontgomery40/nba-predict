@@ -91,6 +91,66 @@ type IncidentRow = {
   pbp: BoardIncidentDto["playByPlay"] | null;
 };
 
+function FanoutCard({ alert }: { alert: BoardAnomalyAlertDto }) {
+  const evidence = alert.evidence.slice(0, 6);
+  const pairedNames = alert.h0Adjustments.drivers.find((d) =>
+    d.toLowerCase().includes("paired-player marker")
+  );
+  return (
+    <article className="board-shock-fanout" aria-label={alert.gameLabel}>
+      <header className="board-shock-fanout-head">
+        <div>
+          <div className="eyebrow">
+            {alert.gameLabel} · Attribution-shaped board shock
+          </div>
+          <h2>
+            {alert.primaryEntityKey
+              ? alert.primaryEntityKey
+                  .split(/[\s-]/)
+                  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(" ")
+              : "Multi-market fanout"}
+          </h2>
+        </div>
+        <div className="board-shock-fanout-when">
+          {new Date(alert.firstPopAt).toLocaleString("en-US", {
+            day: "numeric",
+            hour: "numeric",
+            hour12: true,
+            minute: "2-digit",
+            month: "short",
+            second: "2-digit",
+            timeZoneName: "short",
+          })}
+        </div>
+      </header>
+      <p className="board-shock-fanout-prose">{alert.reason}</p>
+      <ul className="board-shock-fanout-evidence">
+        {evidence.map((row) => (
+          <li key={row.observationId}>
+            <span className="board-shock-fanout-label">{row.displayLabel}</span>
+            <span className="board-shock-fanout-reason">{row.reason}</span>
+          </li>
+        ))}
+      </ul>
+      {alert.missingDataNotes.length > 0 ? (
+        <p className="board-shock-fanout-missing">
+          {alert.missingDataNotes
+            .map((note) => `${note.source}: ${note.reason}`)
+            .join(" · ")}
+        </p>
+      ) : null}
+      <footer className="board-shock-fanout-foot">
+        <Link
+          to={`/board-alerts/${encodeURIComponent(alert.gameId)}?at=${encodeURIComponent(alert.firstPopAt)}&label=${encodeURIComponent(alert.gameLabel)}`}
+        >
+          Inspect →
+        </Link>
+      </footer>
+    </article>
+  );
+}
+
 function GameSection({
   gameLabel,
   rows,
@@ -357,16 +417,30 @@ export function BoardAlertsPage() {
         ) : (
           <>
             <VigCalloutCard rows={allRows} />
-            {grouped.map(([label, rows]) => (
-              <GameSection
-                key={label}
-                gameLabel={label}
-                rows={rows}
-                pbpMissingForAll={rows.every(
-                  (row) => row.pbp == null || row.pbp.available === false
-                )}
-              />
-            ))}
+            {allRows
+              .filter((row) => row.alert.shockKind === "attribution-shaped")
+              .slice(0, 5)
+              .map((row) => (
+                <FanoutCard key={row.alert.id} alert={row.alert} />
+              ))}
+            {grouped
+              .filter(([, rows]) =>
+                rows.some(
+                  (row) => row.alert.shockKind !== "attribution-shaped"
+                )
+              )
+              .map(([label, rows]) => (
+                <GameSection
+                  key={label}
+                  gameLabel={label}
+                  rows={rows.filter(
+                    (row) => row.alert.shockKind !== "attribution-shaped"
+                  )}
+                  pbpMissingForAll={rows.every(
+                    (row) => row.pbp == null || row.pbp.available === false
+                  )}
+                />
+              ))}
           </>
         )}
       </Panel>

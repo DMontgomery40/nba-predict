@@ -1214,6 +1214,271 @@ function buildMarketStructureReason(alert: MarketAnomalyAlert): string {
   return `${parts.join(" · ")}${labels}.`;
 }
 
+type FanoutCandidate = {
+  alert: MarketAnomalyAlert;
+  family: string | null;
+  participantKey: string | null;
+  ts: number;
+};
+
+type Fanout = {
+  gameId: string;
+  gameLabel: string;
+  participantKey: string;
+  windowStartIso: string;
+  windowEndIso: string;
+  primaryAlert: MarketAnomalyAlert;
+  members: FanoutCandidate[];
+  pairedParticipants: Map<string, FanoutCandidate[]>;
+};
+
+function statFamilyFromLabel(label: string | null | undefined): string {
+  if (!label) return "other";
+  const lower = label.toLowerCase();
+  if (lower.includes("rebound")) return "rebounds";
+  if (lower.includes("assist") && lower.includes("rebound")) return "ra";
+  if (lower.includes("points") && lower.includes("assist") && lower.includes("rebound"))
+    return "pra";
+  if (lower.includes("points") && lower.includes("rebound")) return "pr";
+  if (lower.includes("points") && lower.includes("assist")) return "pa";
+  if (lower.includes("assist")) return "assists";
+  if (lower.includes("steal")) return "steals";
+  if (lower.includes("block")) return "blocks";
+  if (lower.includes("three") || lower.includes("3pt") || lower.includes("3s"))
+    return "threes";
+  if (lower.includes("points") || lower.includes("pts")) return "points";
+  if (lower.includes("double-double") || lower.includes("double double"))
+    return "double-double";
+  if (lower.includes("triple-double") || lower.includes("triple double"))
+    return "triple-double";
+  return "other";
+}
+
+function buildFanouts(
+  marketAnomalies: MarketAnomalyAlert[],
+  windowSeconds = 120,
+  minStatFamilies = 2
+): Fanout[] {
+  const candidates: FanoutCandidate[] = marketAnomalies
+    .filter((alert) => (alert.metrics.volumeShare ?? 0) >= 0.1)
+    .map((alert) => ({
+      alert,
+      family: statFamilyFromLabel(alert.displayLabel),
+      participantKey:
+        alert.displayLabel
+          ?.toLowerCase()
+          .match(/^([a-z]+\s[a-z'.-]+(?:\s[ji]r\.?)?)\b/)?.[1] ?? null,
+      ts: Date.parse(alert.eventTimestamp),
+    }))
+    .filter((entry) => entry.participantKey != null && Number.isFinite(entry.ts));
+
+  const byGame = new Map<string, FanoutCandidate[]>();
+  for (const candidate of candidates) {
+    const list = byGame.get(candidate.alert.gameId) ?? [];
+    list.push(candidate);
+    byGame.set(candidate.alert.gameId, list);
+  }
+
+  const fanouts: Fanout[] = [];
+  for (const [gameId, list] of byGame.entries()) {
+    list.sort((a, b) => a.ts - b.ts);
+    const used = new Set<string>();
+    for (let i = 0; i < list.length; i += 1) {
+      if (used.has(list[i].alert.id)) continue;
+      const anchor = list[i];
+      if (!anchor.participantKey) continue;
+      const cluster: FanoutCandidate[] = [anchor];
+      const familySet = new Set<string>([anchor.family ?? "other"]);
+      const windowMs = windowSeconds * 1000;
+      for (let j = i + 1; j < list.length; j += 1) {
+        if (used.has(list[j].alert.id)) continue;
+        const candidate = list[j];
+        if (candidate.ts - anchor.ts > windowMs) break;
+        if (candidate.participantKey === anchor.participantKey) {
+          cluster.push(candidate);
+          familySet.add(candidate.family ?? "other");
+        }
+      }
+      if (familySet.size < minStatFamilies) continue;
+      for (const member of cluster) used.add(member.alert.id);
+      const paired = new Map<string, FanoutCandidate[]>();
+      for (const other of list) {
+        if (used.has(other.alert.id)) continue;
+        if (
+          other.participantKey &&
+          other.participantKey !== anchor.participantKey &&
+          Math.abs(other.ts - anchor.ts) <= windowMs * 2
+        ) {
+          const bucket = paired.get(other.participantKey) ?? [];
+          bucket.push(other);
+          paired.set(other.participantKey, bucket);
+        }
+      }
+      const sorted = cluster.slice().sort((a, b) => a.ts - b.ts);
+      fanouts.push({
+        gameId,
+        gameLabel: anchor.alert.gameLabel,
+        participantKey: anchor.participantKey,
+        windowStartIso: sorted[0].alert.eventTimestamp,
+        windowEndIso: sorted[sorted.length - 1].alert.eventTimestamp,
+        primaryAlert: cluster.reduce((best, member) =>
+          (member.alert.metrics.volumeShare ?? 0) >
+          (best.alert.metrics.volumeShare ?? 0)
+            ? member
+            : best
+        ).alert,
+        members: cluster,
+        pairedParticipants: paired,
+      });
+    }
+  }
+  return fanouts;
+}
+
+function titleCase(text: string): string {
+  return text
+    .split(/[\s_-]+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function buildFanoutReason(fanout: Fanout): string {
+  const playerLabel = titleCase(fanout.participantKey);
+  const familyCounts = new Map<string, number>();
+  const familyTopShare = new Map<string, number>();
+  for (const member of fanout.members) {
+    const family = member.family ?? "other";
+    familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1);
+    const share = member.alert.metrics.volumeShare ?? 0;
+    familyTopShare.set(family, Math.max(familyTopShare.get(family) ?? 0, share));
+  }
+  const familyParts = Array.from(familyTopShare.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([family, share]) => `${family} (top ${(share * 100).toFixed(0)}% volume share)`)
+    .join(", ");
+  const durationMs =
+    Date.parse(fanout.windowEndIso) - Date.parse(fanout.windowStartIso);
+  const durationText =
+    durationMs < 1000
+      ? "same second"
+      : durationMs < 60_000
+        ? `${Math.round(durationMs / 1000)}s`
+        : `${Math.round(durationMs / 60_000)}m`;
+  const pairedSummary =
+    fanout.pairedParticipants.size > 0
+      ? ` Other player markets moved alongside: ${Array.from(
+          fanout.pairedParticipants.keys()
+        )
+          .slice(0, 3)
+          .map(titleCase)
+          .join(", ")}.`
+      : "";
+  return `Movement is concentrated around ${playerLabel}'s ${familyParts} within ${durationText}.${pairedSummary} Pattern is consistent with an in-game stat event affecting ${playerLabel}.`;
+}
+
+function fanoutToBoardCard(
+  fanout: Fanout,
+  pbp: PlayByPlayContext
+): FinishedGameIncident {
+  const primary = fanout.primaryAlert;
+  const peakShare = Math.max(
+    ...fanout.members.map((m) => m.alert.metrics.volumeShare ?? 0)
+  );
+  const totalNotional = fanout.members.reduce(
+    (sum, m) => sum + (m.alert.metrics.notional ?? 0),
+    0
+  );
+  const peakScore = Math.max(...fanout.members.map((m) => m.alert.score));
+  const score = Math.min(100, Math.round(peakScore + fanout.members.length * 3));
+  const confidence = Math.min(
+    0.97,
+    0.6 + peakShare * 0.3 + fanout.members.length * 0.03
+  );
+  const reason = buildFanoutReason(fanout);
+  const evidence: BoardAnomalyAlert["evidence"] = fanout.members
+    .slice()
+    .sort(
+      (a, b) =>
+        (b.alert.metrics.volumeShare ?? 0) - (a.alert.metrics.volumeShare ?? 0)
+    )
+    .slice(0, 8)
+    .map((member) => ({
+      observationId: `fanout:${member.alert.id}`,
+      source: member.alert.source,
+      sourceKind:
+        member.alert.source === "bet365"
+          ? ("sportsbook" as const)
+          : ("prediction-market" as const),
+      family: member.alert.family ?? null,
+      participantKey: fanout.participantKey,
+      displayLabel: member.alert.displayLabel,
+      contribution: Number(
+        Math.min(1, member.alert.metrics.volumeShare ?? 0).toFixed(3)
+      ),
+      reason: `${((member.alert.metrics.volumeShare ?? 0) * 100).toFixed(1)}% share · $${(member.alert.metrics.notional ?? 0).toFixed(0)} @ $${(member.alert.metrics.tradePrice ?? 0).toFixed(2)}`,
+      evidenceUnmapped: member.alert.mappingStatus === "unmapped",
+    }));
+
+  const drivers: string[] = [];
+  if (!pbp.available) {
+    drivers.push("no NBA play-by-play captured for this game");
+  }
+  drivers.push(
+    `${fanout.members.length} ${titleCase(fanout.participantKey)} props moved within window`
+  );
+  if (fanout.pairedParticipants.size > 0) {
+    drivers.push(
+      `${fanout.pairedParticipants.size} paired-player marker(s) in surrounding window`
+    );
+  }
+
+  return {
+    id: `fanout:${fanout.gameId}:${fanout.participantKey}:${fanout.windowStartIso}`,
+    gameId: fanout.gameId,
+    gameLabel: fanout.gameLabel,
+    shockKind: "attribution-shaped",
+    firstPopAt: fanout.windowStartIso,
+    detectedAt: new Date().toISOString(),
+    score,
+    confidence: Number(confidence.toFixed(3)),
+    severity: scoreToSeverity(score),
+    reason,
+    primaryEntityKey: fanout.participantKey,
+    primaryFamily: (primary.family ?? null) as MarketFamily | null,
+    components: {
+      residual: Number(Math.min(1, peakShare * 2).toFixed(3)),
+      microstructure: Number(Math.min(1, totalNotional / 200).toFixed(3)),
+      coherence: Number(Math.min(1, fanout.members.length / 4).toFixed(3)),
+      coverage: pbp.available ? 0 : 1,
+    },
+    h0Adjustments: {
+      appliedSuppression: 0,
+      drivers,
+    },
+    evidence,
+    missingDataNotes: pbp.available
+      ? []
+      : [
+          {
+            source: "nba",
+            reason: "no play-by-play captured — cannot confirm stat event directly",
+          },
+        ],
+    inspect: {
+      payloadVersion: 1,
+      instrumentIds: fanout.members
+        .map((m) => m.alert.instrumentId)
+        .filter((id): id is string => typeof id === "string"),
+      sourceMarketIds: fanout.members.map((m) => m.alert.sourceMarketId),
+      relationFamilies: Array.from(
+        new Set(fanout.members.map((m) => m.family ?? "other"))
+      ),
+    },
+    playByPlay: pbp,
+    vigAdjusted: null,
+  };
+}
+
 function marketAnomalyToBoardCard(
   alert: MarketAnomalyAlert,
   pbp: PlayByPlayContext,
@@ -1440,26 +1705,36 @@ export function listFinishedGameIncidents(
         includeHistorical: true,
         skipQuoteAnomalies: true,
       });
-      const anomaliesByGame = new Map<string, MarketAnomalyAlert[]>();
-      for (const anomaly of marketAnomalies) {
-        const list = anomaliesByGame.get(anomaly.gameId) ?? [];
-        list.push(anomaly);
-        anomaliesByGame.set(anomaly.gameId, list);
+      const fanouts = buildFanouts(marketAnomalies, 120, 2);
+      const usedAlertIds = new Set<string>();
+      for (const fanout of fanouts) {
+        for (const member of fanout.members) usedAlertIds.add(member.alert.id);
+        const pbp = getPlayByPlayContext(fanout.gameId, fanout.windowStartIso);
+        incidents.push(fanoutToBoardCard(fanout, pbp));
       }
-      for (const [gameId, anomalies] of anomaliesByGame.entries()) {
+
+      const leftoverByGame = new Map<string, MarketAnomalyAlert[]>();
+      for (const anomaly of marketAnomalies) {
+        if (usedAlertIds.has(anomaly.id)) continue;
+        const list = leftoverByGame.get(anomaly.gameId) ?? [];
+        list.push(anomaly);
+        leftoverByGame.set(anomaly.gameId, list);
+      }
+      for (const [gameId, anomalies] of leftoverByGame.entries()) {
         const sized = anomalies.filter(
           (a) => (a.metrics.notional ?? 0) >= minMarketStructureNotional
         );
         sized.sort((a, b) => {
-          const aNotional = a.metrics.notional ?? 0;
-          const bNotional = b.metrics.notional ?? 0;
-          if (bNotional !== aNotional) return bNotional - aNotional;
           const aShare = a.metrics.volumeShare ?? 0;
           const bShare = b.metrics.volumeShare ?? 0;
-          return bShare - aShare;
+          if (bShare !== aShare) return bShare - aShare;
+          const aNotional = a.metrics.notional ?? 0;
+          const bNotional = b.metrics.notional ?? 0;
+          return bNotional - aNotional;
         });
-        const top = sized.slice(0, 6);
+        const top = sized.slice(0, 2);
         for (const anomaly of top) {
+          if ((anomaly.metrics.volumeShare ?? 0) < 0.25) continue;
           const pbp = getPlayByPlayContext(gameId, anomaly.eventTimestamp);
           const surface = anomaly.apiSurface.toLowerCase();
           const candleEnd = surface.includes("candle");
