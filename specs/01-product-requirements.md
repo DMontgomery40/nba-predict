@@ -2,7 +2,9 @@
 
 ## Product Thesis
 
-Signal Console is a research system for live in-game market comparison. It should help an operator understand where bet365, exchange prices, and actual game context disagree, with full provenance and no synthetic fallback path.
+Signal Console is a sparse NBA board-anomaly detector for Bet365 trader inspection. It continuously compares normal market dynamics against abnormal board shocks across pregame, near-tip, live game, and immediate operational settlement windows on relevant NBA market boards, and surfaces a small number of high-confidence alerts. Sportsbooks (Bet365, FanDuel, DraftKings) and prediction markets (Kalshi, Polymarket) are different signal surfaces and are normalized but not treated as identical microstructure. The system is live-only, persisted-data-only, and does not produce gambling recommendations.
+
+Per-instrument divergence views, per-source microstructure alerts, and the exact-line player-prop monitor are building blocks that feed and explain the board-level alert cards. They are not the headline product.
 
 ## Functional Requirements
 
@@ -21,6 +23,11 @@ Signal Console is a research system for live in-game market comparison. It shoul
 - `FR-013` The product shall expose first-class player-prop attribution risk alerts when mapped Bet365 props and mapped Kalshi/Polymarket props materially disagree inside a fresh quote window. These alerts are manual-review signals, not automatic source correction or settlement decisions.
 - `FR-014` The product shall support live player-prop alert monitoring with desktop notification emission and persisted alert checks so trading can inspect what the alert surface showed at the time it fired.
 - `FR-015` The product shall expose generalized prediction-market anomaly alerts across Kalshi and Polymarket markets, including off-price prints, volume-share anomalies, volatility shocks, liquidity shocks, and cross-venue disagreement. These alerts do not require knowing a paired/rightful player at detection time.
+- `FR-016` The product shall expose board-level NBA anomaly alerts, scored as a likelihood ratio of an abnormal board-shock hypothesis (H1) against normal market dynamics (H0), and aggregated across related markets within the affected game.
+- `FR-017` The product shall represent the following H1 shock classes as first-class alert kinds: pregame availability shock, near-tip availability shock, attribution-shaped in-game shock, market-structure shock, cross-surface disagreement, and coverage/mapping/timing gap.
+- `FR-018` The product shall suppress alerts when residual movement is explainable by H0 baseline features: ordinary pregame drift, normal close-game global repricing, normal prediction-market bid/ask noise, stale quote age, and normal liquidity/depth conditions.
+- `FR-019` The product shall replay completed-game history through the same online detector with no future leakage, surfacing the first alert card that would have appeared, its exact pop time, and a timestamp-ordered alert deck. Post-game current divergence shall not be the primary history signal.
+- `FR-020` The trader board-alerts surface shall present one primary alert at a time with optional collapsed secondaries, an exact timestamp, a one-line reason, score/confidence, and an Inspect action. It shall not lead with raw rows, source posts, cluster counts, or chip/pill metadata soup.
 
 ## Non-Functional Requirements
 

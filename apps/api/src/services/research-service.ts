@@ -20,7 +20,11 @@ import {
   getLeadLagSeries,
   listPlayerPropDisagreementAlerts,
   listPlayerPropAlertPlaybackFrames,
+  getBoardAlertEventContext,
+  listBoardAnomaliesAcrossGames,
+  listFinishedGameIncidents,
   listMarketAnomalyAlerts,
+  replayBoardAnomaliesForGame,
   listMarketAnomalyPlaybackFrames,
   getResearchCoverage,
   getResearchGame,
@@ -1111,6 +1115,106 @@ export function getMarketAnomalyAlertsPayload(
   const logger = getLogger(context, "getMarketAnomalyAlertsPayload");
   const data = listMarketAnomalyAlerts(query);
   logger.debug({ count: data.length, query }, "Built market anomaly payload.");
+  return {
+    data,
+    meta: generatedMeta(),
+  };
+}
+
+type BoardAlertsQuery = {
+  now?: string;
+  limit?: number;
+  contextWindowMinutes?: number;
+};
+
+export function getBoardAnomalyAlertsPayload(
+  query: BoardAlertsQuery,
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getBoardAnomalyAlertsPayload");
+  const now = query.now ?? new Date().toISOString();
+  const data = listBoardAnomaliesAcrossGames({
+    now,
+    limit: query.limit ?? 10,
+    contextWindowMinutes: query.contextWindowMinutes ?? 30,
+  });
+  logger.debug({ count: data.length, now }, "Built board anomaly payload.");
+  return {
+    data,
+    meta: { ...generatedMeta(), now },
+  };
+}
+
+type BoardIncidentsQuery = {
+  date: string;
+  minGap?: number;
+  limit?: number;
+};
+
+export function getBoardAnomalyIncidentsPayload(
+  query: BoardIncidentsQuery,
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getBoardAnomalyIncidentsPayload");
+  const data = listFinishedGameIncidents({
+    date: query.date,
+    minGap: query.minGap ?? 0.15,
+    limit: query.limit ?? 10,
+  });
+  logger.debug(
+    { count: data.length, date: query.date },
+    "Built board anomaly incidents payload."
+  );
+  return { data, meta: { ...generatedMeta(), date: query.date } };
+}
+
+type BoardEventContextQuery = {
+  gameId: string;
+  anchorAt: string;
+  windowSecondsBefore?: number;
+  windowSecondsAfter?: number;
+};
+
+export function getBoardAnomalyEventContextPayload(
+  query: BoardEventContextQuery,
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getBoardAnomalyEventContextPayload");
+  const data = getBoardAlertEventContext({
+    gameId: query.gameId,
+    anchorAt: query.anchorAt,
+    windowSecondsBefore: query.windowSecondsBefore,
+    windowSecondsAfter: query.windowSecondsAfter,
+  });
+  logger.debug(
+    { gameId: query.gameId, trades: data.trades.length, pbp: data.playByPlay.length },
+    "Built board alert event context payload."
+  );
+  return { data, meta: generatedMeta() };
+}
+
+type BoardAlertsReplayQuery = {
+  gameId: string;
+  windowStart: string;
+  windowEnd: string;
+  stepSeconds?: number;
+};
+
+export function getBoardAnomalyReplayPayload(
+  query: BoardAlertsReplayQuery,
+  context?: ServiceContext
+) {
+  const logger = getLogger(context, "getBoardAnomalyReplayPayload");
+  const data = replayBoardAnomaliesForGame({
+    gameId: query.gameId,
+    windowStart: query.windowStart,
+    windowEnd: query.windowEnd,
+    stepSeconds: query.stepSeconds ?? 30,
+  });
+  logger.debug(
+    { gameId: query.gameId, count: data?.alertDeck.length ?? 0 },
+    "Built board anomaly replay payload."
+  );
   return {
     data,
     meta: generatedMeta(),

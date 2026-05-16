@@ -4,6 +4,8 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ShellLayout } from "./ShellLayout";
 import { queryClient } from "../data/api";
+import { BoardAlertsPage } from "../features/alerts/BoardAlertsPage";
+import { BoardAlertsReplayPage } from "../features/alerts/BoardAlertsReplayPage";
 import { PlayerPropAlertsPage } from "../features/alerts/PlayerPropAlertsPage";
 import { MarketAnomaliesPage } from "../features/anomalies/MarketAnomaliesPage";
 import { CommandPalette } from "../features/command/CommandPalette";
@@ -25,7 +27,13 @@ export function App() {
           <CommandPalette />
           <Routes>
             <Route element={<ShellLayout />} path="/">
-              <Route element={<TraderDeskPage />} index />
+              <Route element={<BoardAlertsPage />} index />
+              <Route element={<TraderDeskPage />} path="legacy-desk" />
+              <Route element={<BoardAlertsPage />} path="board-alerts" />
+              <Route
+                element={<BoardAlertsReplayPage />}
+                path="board-alerts/:gameId"
+              />
               <Route
                 element={<MarketAnomaliesPage />}
                 path="market-anomalies"

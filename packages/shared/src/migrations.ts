@@ -2,7 +2,7 @@ import { DatabaseFailureError } from "./errors";
 
 import type Database from "better-sqlite3";
 
-export const currentSchemaVersion = 9;
+export const currentSchemaVersion = 12;
 
 function nowIso() {
   return new Date().toISOString();
@@ -338,6 +338,18 @@ export function applyMigrations(db: Database.Database, dbPath: string) {
   if (getAppliedVersion(db) < 9) {
     applyMarketAnomalySupport(db);
   }
+
+  if (getAppliedVersion(db) < 10) {
+    applyMarketAnomalyLookupIndexes(db);
+  }
+
+  if (getAppliedVersion(db) < 11) {
+    applyNbaPlayByPlayActionStorage(db);
+  }
+
+  if (getAppliedVersion(db) < 12) {
+    applySourceCoverageLookupIndexes(db);
+  }
 }
 
 function applyCanonicalInstrumentConsolidation(db: Database.Database) {
@@ -576,5 +588,78 @@ function applyMarketAnomalySupport(db: Database.Database) {
     `);
 
     insertMigration(db, 9, "market-anomaly-support");
+  })();
+}
+
+function applyMarketAnomalyLookupIndexes(db: Database.Database) {
+  db.transaction(() => {
+    if (tableExists(db, "market_microstructure_events")) {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_market_microstructure_event_latest
+          ON market_microstructure_events(event_timestamp DESC, id DESC);
+      `);
+    }
+    if (tableExists(db, "quote_ticks")) {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_quote_ticks_anomaly_captured_latest
+          ON quote_ticks(captured_at DESC, id DESC)
+          WHERE is_heartbeat = 0
+            AND (implied_probability IS NOT NULL OR price_raw IS NOT NULL);
+      `);
+    }
+
+    insertMigration(db, 10, "market-anomaly-lookup-indexes");
+  })();
+}
+
+function applyNbaPlayByPlayActionStorage(db: Database.Database) {
+  db.transaction(() => {
+    if (!tableExists(db, "games")) {
+      insertMigration(db, 11, "nba-play-by-play-action-storage");
+      return;
+    }
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS nba_play_by_play_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id TEXT NOT NULL,
+        action_number INTEGER NOT NULL,
+        action_type TEXT,
+        period INTEGER,
+        clock TEXT,
+        description TEXT,
+        score_away TEXT,
+        score_home TEXT,
+        team_tricode TEXT,
+        time_actual TEXT,
+        captured_at TEXT NOT NULL,
+        raw_metadata_json TEXT,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+        UNIQUE (game_id, action_number)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_nba_play_by_play_game_clock
+        ON nba_play_by_play_actions(game_id, period, clock, action_number);
+      CREATE INDEX IF NOT EXISTS idx_nba_play_by_play_game_time
+        ON nba_play_by_play_actions(game_id, time_actual, action_number);
+    `);
+
+    insertMigration(db, 11, "nba-play-by-play-action-storage");
+  })();
+}
+
+function applySourceCoverageLookupIndexes(db: Database.Database) {
+  db.transaction(() => {
+    if (tableExists(db, "source_markets")) {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_source_markets_game_id
+          ON source_markets(game_id);
+        CREATE INDEX IF NOT EXISTS idx_source_markets_game_instrument
+          ON source_markets(game_id, instrument_id);
+        CREATE INDEX IF NOT EXISTS idx_source_markets_game_mapping
+          ON source_markets(game_id, mapping_status);
+      `);
+    }
+
+    insertMigration(db, 12, "source-coverage-lookup-indexes");
   })();
 }

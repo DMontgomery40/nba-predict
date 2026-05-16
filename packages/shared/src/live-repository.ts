@@ -2197,7 +2197,7 @@ function selectCrossVenueContext(
           FROM quote_ticks q2
           WHERE q2.source_market_id = sm.id
             AND ABS(strftime('%s', q2.captured_at) - ?) <= ?
-            AND COALESCE(q2.implied_probability, q2.price_raw) IS NOT NULL
+            AND COALESCE(q2.implied_probability, CASE WHEN q2.price_raw BETWEEN 0 AND 1 THEN q2.price_raw END) IS NOT NULL
           ORDER BY ABS(strftime('%s', q2.captured_at) - ?) ASC, q2.id DESC
           LIMIT 1
         )
@@ -2539,7 +2539,7 @@ function selectQuoteAnomalyCandidates(
           JOIN source_markets sm ON sm.id = q.source_market_id
           JOIN games g ON g.id = sm.game_id
           LEFT JOIN market_instruments mi ON mi.id = sm.instrument_id
-          WHERE COALESCE(q.implied_probability, q.price_raw) IS NOT NULL
+          WHERE COALESCE(q.implied_probability, CASE WHEN q.price_raw BETWEEN 0 AND 1 THEN q.price_raw END) IS NOT NULL
             AND q.is_heartbeat = 0
             AND ${whereSql}
           ORDER BY datetime(q.captured_at) DESC, q.id DESC
@@ -2562,12 +2562,12 @@ function selectQuoteAnomalyCandidates(
           'quote-tick' AS apiSurface,
           q.captured_at AS eventTimestamp,
           q.captured_at AS capturedAt,
-          COALESCE(q.implied_probability, q.price_raw) AS price,
+          COALESCE(q.implied_probability, CASE WHEN q.price_raw BETWEEN 0 AND 1 THEN q.price_raw END) AS price,
           (
-            SELECT COALESCE(prev.implied_probability, prev.price_raw)
+            SELECT COALESCE(prev.implied_probability, CASE WHEN prev.price_raw BETWEEN 0 AND 1 THEN prev.price_raw END)
             FROM quote_ticks prev
             WHERE prev.source_market_id = q.source_market_id
-              AND COALESCE(prev.implied_probability, prev.price_raw) IS NOT NULL
+              AND COALESCE(prev.implied_probability, CASE WHEN prev.price_raw BETWEEN 0 AND 1 THEN prev.price_raw END) IS NOT NULL
               AND prev.is_heartbeat = 0
               AND (
                 datetime(prev.captured_at) < datetime(q.captured_at)
@@ -2606,12 +2606,14 @@ function selectQuoteAnomalyCandidates(
         LIMIT 2000
       `
     )
-    .all(...where.params) as Record<string, unknown>[];
+    .all(...where.params, ...where.params) as Record<string, unknown>[];
 
   return rows.map(marketAnomalyCandidateFromRow);
 }
 
-export function listMarketAnomalyAlerts(filters: MarketAnomalyFilters = {}) {
+export function listMarketAnomalyAlerts(
+  filters: MarketAnomalyFilters & { skipQuoteAnomalies?: boolean } = {}
+) {
   const storedConfig = getMarketAnomalyScoreConfig(filters.profileId);
   return executeDatabaseOperation(
     "research.marketAnomalies.list",
@@ -2634,10 +2636,12 @@ export function listMarketAnomalyAlerts(filters: MarketAnomalyFilters = {}) {
         },
       });
       const limit = clampAnomalyLimit(filters.limit);
-      const candidates = [
-        ...selectMicrostructureAnomalyCandidates(db, filters, config),
-        ...selectQuoteAnomalyCandidates(db, filters, config),
-      ];
+      const candidates = filters.skipQuoteAnomalies
+        ? selectMicrostructureAnomalyCandidates(db, filters, config)
+        : [
+            ...selectMicrostructureAnomalyCandidates(db, filters, config),
+            ...selectQuoteAnomalyCandidates(db, filters, config),
+          ];
       const seen = new Set<string>();
       return candidates
         .map((candidate) => scoreMarketAnomalyCandidate(db, candidate, config))

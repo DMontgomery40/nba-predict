@@ -3,6 +3,7 @@ import {
   syncBet365InternalDump,
   syncKalshiNbaDirect,
   syncKalshiNbaHistorical,
+  syncKalshiNbaTrades,
   syncPolymarketNbaHistorical,
 } from "@signal-console/adapters";
 import {
@@ -20,17 +21,22 @@ type BackfillTarget =
   | "bet365-internal"
   | "kalshi"
   | "kalshi-historical"
+  | "kalshi-trades"
   | "nba"
   | "polymarket";
 
 type BackfillOptions = {
   fidelityMinutes?: number;
+  gameId?: string;
+  league?: string;
   lookaheadDays?: number;
   lookbackDays?: number;
   maxEvents?: number;
+  maxTickers?: number;
   periodIntervalMinutes?: 1 | 60;
   since?: string;
   target: BackfillTarget;
+  until?: string;
 };
 
 const DEFAULT_LOOKBACK_DAYS = 30;
@@ -44,6 +50,7 @@ function parseArgs(argv: string[]): BackfillOptions {
     if (
       token === "kalshi" ||
       token === "kalshi-historical" ||
+      token === "kalshi-trades" ||
       token === "polymarket" ||
       token === "nba" ||
       token === "bet365-internal" ||
@@ -74,13 +81,17 @@ function parseArgs(argv: string[]): BackfillOptions {
   const period = asNumber(args.periodInterval);
   return {
     fidelityMinutes: asNumber(args.fidelity),
+    gameId: args.gameId,
+    league: args.league,
     lookaheadDays: asNumber(args.lookaheadDays),
     lookbackDays: asNumber(args.lookbackDays) ?? DEFAULT_LOOKBACK_DAYS,
     maxEvents: asNumber(args.maxEvents),
+    maxTickers: asNumber(args.maxTickers),
     periodIntervalMinutes:
       period === 1 || period === 60 ? (period as 1 | 60) : undefined,
     since: args.since,
     target,
+    until: args.until,
   };
 }
 
@@ -92,6 +103,7 @@ function printUsage() {
     "  pnpm backfill nba [--lookbackDays 365] [--lookaheadDays 0]",
     "  pnpm backfill kalshi [--since 2026-04-20] [--maxEvents N]",
     "  pnpm backfill kalshi-historical [--maxEvents N] [--periodInterval 1|60]",
+    "  pnpm backfill kalshi-trades --since 2026-05-11T20:00:00Z --until 2026-05-12T08:00:00Z [--gameId nba-0042500224] [--maxTickers N]",
     "  pnpm backfill polymarket [--since 2024-10-01] [--maxEvents N] [--fidelity 1]",
     "  pnpm backfill bet365-internal    # reads BET365_INTERNAL_DUMP_DIR/*.jsonl",
     "  pnpm backfill bet365-direct      # Playwright scrape, needs BET365_SESSION_STATE_PATH",
@@ -142,6 +154,26 @@ async function runKalshiHistorical(
   return summary;
 }
 
+async function runKalshiTrades(
+  logger: ReturnType<typeof createAppLogger>,
+  options: BackfillOptions
+) {
+  if (!options.since || !options.until) {
+    throw new Error(
+      "kalshi-trades requires --since and --until (ISO8601 timestamps)"
+    );
+  }
+  const summary = await syncKalshiNbaTrades({
+    since: options.since,
+    until: options.until,
+    gameId: options.gameId,
+    league: options.league,
+    maxTickers: options.maxTickers,
+  });
+  logger.info(summary, "Kalshi NBA trades backfill completed.");
+  return summary;
+}
+
 async function runPolymarket(
   logger: ReturnType<typeof createAppLogger>,
   options: BackfillOptions
@@ -188,6 +220,9 @@ export async function runBackfill(argv: string[] = process.argv.slice(2)) {
         break;
       case "kalshi-historical":
         await runKalshiHistorical(logger, options);
+        break;
+      case "kalshi-trades":
+        await runKalshiTrades(logger, options);
         break;
       case "polymarket":
         await runPolymarket(logger, options);

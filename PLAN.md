@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build a real research backend and operator console for live market comparison across bet365, Kalshi, Polymarket, and NBA game-state truth. The system should answer, from persisted history, what each source showed over time and how the game changed while those prices moved.
+Build a sparse NBA board-anomaly detector for Bet365 trader inspection. The system should score board-level transitions across Bet365, FanDuel, DraftKings, Kalshi, and Polymarket as a likelihood ratio of an abnormal board shock (H1) against normal market dynamics (H0), aggregate residual microstructure activity across coherent fanouts of related markets, classify the shock kind (pregame availability, near-tip availability, attribution-shaped, market-structure, cross-surface disagreement, coverage/mapping/timing gap), and surface a small number of high-confidence alert cards. All inputs are real persisted live data with no synthetic runtime modes; per-instrument divergence and per-source-market microstructure anomalies remain as building blocks and Inspect-time evidence rather than the headline product.
 
 ## Completed
 
@@ -73,3 +73,7 @@ Build a real research backend and operator console for live market comparison ac
 - No authored scenario packs.
 - No synthetic fallback for live routes.
 - No hiding line mismatch under generic divergence.
+- No claiming success because rows, clusters, source posts, chips, links, or tables are visible. Success is a board-level alert that a Bet365 trader can act on or dismiss in seconds.
+- Sportsbook line/odds movement and prediction-market orderbook/trade movement are scored separately; a sportsbook line move and a prediction-market off-price fill are not the same signal.
+- History replay must use only data captured at or before the replay clock. Post-game current divergence is not the primary history signal.
+- FanDuel and DraftKings paths must be backed by current (2026) evidence — either an implemented adapter or a concrete blocker scorecard. No imaginary providers.

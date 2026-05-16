@@ -709,6 +709,173 @@ export type MarketAnomalyScoreConfig = {
   };
 };
 
+export type BoardAnomalyAlertDto = {
+  id: string;
+  gameId: string;
+  gameLabel: string;
+  shockKind:
+    | "pregame-availability"
+    | "near-tip-availability"
+    | "attribution-shaped"
+    | "market-structure"
+    | "cross-surface-disagreement"
+    | "coverage-gap";
+  firstPopAt: string;
+  detectedAt: string;
+  score: number;
+  confidence: number;
+  severity: "low" | "medium" | "high" | "critical";
+  reason: string;
+  primaryEntityKey: string | null;
+  primaryFamily: string | null;
+  components: {
+    residual: number;
+    microstructure: number;
+    coherence: number;
+    coverage: number;
+  };
+  h0Adjustments: {
+    appliedSuppression: number;
+    drivers: string[];
+  };
+  evidence: Array<{
+    observationId: string;
+    source: string;
+    sourceKind: "sportsbook" | "prediction-market";
+    family?: string | null;
+    participantKey?: string | null;
+    displayLabel: string;
+    contribution: number;
+    reason: string;
+    evidenceUnmapped: boolean;
+  }>;
+  missingDataNotes: Array<{ source: string; reason: string }>;
+  inspect: {
+    payloadVersion: 1;
+    instrumentIds: string[];
+    sourceMarketIds: string[];
+    relationFamilies: string[];
+  };
+};
+
+export type BoardAnomalyAlertsPayload = {
+  data: BoardAnomalyAlertDto[];
+  meta: { generatedAt: string; now?: string };
+};
+
+export type BoardIncidentPbpAnchor = {
+  actionNumber: number;
+  actionType: string | null;
+  period: number | null;
+  clock: string | null;
+  description: string | null;
+  teamTricode: string | null;
+  timeActual: string | null;
+  offsetSeconds: number | null;
+};
+
+export type BoardIncidentPbpContext = {
+  available: boolean;
+  totalActions: number;
+  nearestBefore: BoardIncidentPbpAnchor | null;
+  nearestAfter: BoardIncidentPbpAnchor | null;
+};
+
+export type BoardIncidentVigSide = {
+  source: "bet365" | "kalshi" | "polymarket";
+  rawAskProbability: number | null;
+  rawOppositeAskProbability: number | null;
+  vigPercent: number | null;
+  fairProbability: number | null;
+  twoSided: boolean;
+  note: string;
+};
+
+export type BoardIncidentVigAdjusted = {
+  instrumentOverId: string;
+  instrumentUnderId: string | null;
+  rawGap: number;
+  fairGap: number | null;
+  sides: BoardIncidentVigSide[];
+  honestRead: string;
+};
+
+export type BoardIncidentDto = BoardAnomalyAlertDto & {
+  playByPlay: BoardIncidentPbpContext;
+  vigAdjusted: BoardIncidentVigAdjusted | null;
+};
+
+export type BoardIncidentsPayload = {
+  data: BoardIncidentDto[];
+  meta: { generatedAt: string; date: string };
+};
+
+export type BoardEventContextPayload = {
+  data: {
+    gameId: string;
+    gameLabel: string;
+    anchorAt: string;
+    windowStart: string;
+    windowEnd: string;
+    trades: Array<{
+      eventTimestamp: string;
+      source: string;
+      sourceMarketKey: string;
+      displayLabel: string | null;
+      family: string | null;
+      apiSurface: string;
+      tradePrice: number | null;
+      price: number | null;
+      size: number | null;
+      notional: number | null;
+      volumeShare: number | null;
+      finalMarketVolume: number | null;
+      offsetSeconds: number;
+    }>;
+    playByPlay: Array<{
+      actionNumber: number;
+      timeActual: string | null;
+      period: number | null;
+      clock: string | null;
+      description: string | null;
+      teamTricode: string | null;
+      offsetSeconds: number | null;
+    }>;
+  } | null;
+  meta: { generatedAt: string; error?: string };
+};
+
+export function getBoardAlertEventContext(options: {
+  gameId: string;
+  at: string;
+  windowSecondsBefore?: number;
+  windowSecondsAfter?: number;
+}) {
+  const params = new URLSearchParams();
+  params.set("gameId", options.gameId);
+  params.set("at", options.at);
+  if (options.windowSecondsBefore != null) {
+    params.set("windowSecondsBefore", String(options.windowSecondsBefore));
+  }
+  if (options.windowSecondsAfter != null) {
+    params.set("windowSecondsAfter", String(options.windowSecondsAfter));
+  }
+  return request<BoardEventContextPayload>(
+    `/api/v1/research/board-alerts/event-context?${params.toString()}`
+  );
+}
+
+export type BoardAnomalyReplayPayload = {
+  data: {
+    gameId: string;
+    gameLabel: string;
+    windowStart: string;
+    windowEnd: string;
+    alertDeck: BoardAnomalyAlertDto[];
+  } | null;
+  meta: { generatedAt: string };
+};
+
 export type MarketAnomaliesPayload = {
   data: Array<{
     action: "manual-review";
@@ -1160,6 +1327,55 @@ export function getPlayerPropAlertPlayback(options?: {
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
   return request<PlayerPropAlertPlaybackPayload>(
     `/api/v1/research/player-prop-alert-playback${suffix}`
+  );
+}
+
+export function getBoardAlerts(options?: {
+  now?: string;
+  limit?: number;
+  contextWindowMinutes?: number;
+}) {
+  const params = new URLSearchParams();
+  if (options?.now) params.set("now", options.now);
+  if (options?.limit != null) params.set("limit", String(options.limit));
+  if (options?.contextWindowMinutes != null) {
+    params.set("contextWindowMinutes", String(options.contextWindowMinutes));
+  }
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<BoardAnomalyAlertsPayload>(
+    `/api/v1/research/board-alerts${suffix}`
+  );
+}
+
+export function getBoardIncidents(options: {
+  date: string;
+  minGap?: number;
+  limit?: number;
+}) {
+  const params = new URLSearchParams();
+  params.set("date", options.date);
+  if (options.minGap != null) params.set("minGap", String(options.minGap));
+  if (options.limit != null) params.set("limit", String(options.limit));
+  return request<BoardIncidentsPayload>(
+    `/api/v1/research/board-alerts/incidents?${params.toString()}`
+  );
+}
+
+export function getBoardAlertReplay(options: {
+  gameId: string;
+  windowStart: string;
+  windowEnd: string;
+  stepSeconds?: number;
+}) {
+  const params = new URLSearchParams();
+  params.set("gameId", options.gameId);
+  params.set("windowStart", options.windowStart);
+  params.set("windowEnd", options.windowEnd);
+  if (options.stepSeconds != null) {
+    params.set("stepSeconds", String(options.stepSeconds));
+  }
+  return request<BoardAnomalyReplayPayload>(
+    `/api/v1/research/board-alerts/replay?${params.toString()}`
   );
 }
 

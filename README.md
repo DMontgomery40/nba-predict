@@ -21,7 +21,9 @@ cd /Users/davidmontgomery/nba-predict && printf '%s\n' 'SIGNAL_CONSOLE_DB_PATH=/
 
 # Signal Console
 
-Signal Console is a live research system for in-game market comparison. It captures bet365, Kalshi, Polymarket, and NBA game-state data, persists append-only quote and game-state history, and exposes instrument-first APIs and operator surfaces for divergence analysis.
+Signal Console is a sparse NBA board-anomaly detector for Bet365 trader inspection. It continuously monitors relevant NBA market boards across pregame, near-tip, live game, and immediate operational settlement context, comparing normal market dynamics (H0) against abnormal board shocks (H1) and surfacing a small number of high-confidence board-level alert cards.
+
+It is live-only, persisted-data-only, and never substitutes synthetic runtime modes for missing live data. Sportsbooks (Bet365, FanDuel, DraftKings) and prediction markets (Kalshi, Polymarket) are five distinct source families normalized onto a common probability axis but scored with distinct microstructure feature sets. Per-instrument divergence, per-source-market microstructure anomalies, and the exact-line player-prop monitor remain as building blocks and Inspect detail surfaces; they are not the headline product. See [`specs/01-product-requirements.md`](specs/01-product-requirements.md) and [`specs/06b-board-anomaly-model.md`](specs/06b-board-anomaly-model.md) for the full contract and model spec, and [`docs/board-state-inventory.md`](docs/board-state-inventory.md) for what the persisted `B(t)` actually contains today.
 
 ## Repo Layout
 

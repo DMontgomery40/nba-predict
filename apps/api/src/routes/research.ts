@@ -5,6 +5,10 @@ import {
 
 import { parseWithSchema } from "../lib/http";
 import {
+  getBoardAnomalyAlertsPayload,
+  getBoardAnomalyEventContextPayload,
+  getBoardAnomalyIncidentsPayload,
+  getBoardAnomalyReplayPayload,
   getClosedGameSummariesPayload,
   getInstrumentDeltaSeriesPayload,
   getInstrumentLeadLagPayload,
@@ -179,6 +183,126 @@ export async function registerResearchRoutes(app: FastifyInstance) {
         },
         {
           logger: request.log.child({ route: "research-market-anomalies" }),
+        }
+      );
+    }
+  );
+
+  app.get(
+    "/api/v1/research/board-alerts",
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string> }>
+    ) => {
+      const query = request.query ?? {};
+      return getBoardAnomalyAlertsPayload(
+        {
+          now: typeof query.now === "string" ? query.now : undefined,
+          limit: parseIntegerParam(query.limit, 10),
+          contextWindowMinutes: parseIntegerParam(
+            query.contextWindowMinutes,
+            30
+          ),
+        },
+        {
+          logger: request.log.child({ route: "research-board-alerts" }),
+        }
+      );
+    }
+  );
+
+  app.get(
+    "/api/v1/research/board-alerts/incidents",
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string> }>
+    ) => {
+      const query = request.query ?? {};
+      const date = parseDateParam(query.date);
+      if (!date) {
+        return {
+          data: [],
+          meta: {
+            generatedAt: new Date().toISOString(),
+            error: "date (YYYY-MM-DD) is required",
+          },
+        };
+      }
+      return getBoardAnomalyIncidentsPayload(
+        {
+          date,
+          minGap: parseNumberParam(query.minGap, 0.15),
+          limit: parseIntegerParam(query.limit, 10),
+        },
+        {
+          logger: request.log.child({
+            route: "research-board-alert-incidents",
+          }),
+        }
+      );
+    }
+  );
+
+  app.get(
+    "/api/v1/research/board-alerts/event-context",
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string> }>
+    ) => {
+      const query = request.query ?? {};
+      if (typeof query.gameId !== "string" || typeof query.at !== "string") {
+        return {
+          data: null,
+          meta: {
+            generatedAt: new Date().toISOString(),
+            error: "gameId and at (ISO timestamp) are required",
+          },
+        };
+      }
+      return getBoardAnomalyEventContextPayload(
+        {
+          gameId: query.gameId,
+          anchorAt: query.at,
+          windowSecondsBefore: parseIntegerParam(
+            query.windowSecondsBefore,
+            7200
+          ),
+          windowSecondsAfter: parseIntegerParam(query.windowSecondsAfter, 3600),
+        },
+        {
+          logger: request.log.child({
+            route: "research-board-alerts-event-context",
+          }),
+        }
+      );
+    }
+  );
+
+  app.get(
+    "/api/v1/research/board-alerts/replay",
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string> }>
+    ) => {
+      const query = request.query ?? {};
+      if (
+        typeof query.gameId !== "string" ||
+        typeof query.windowStart !== "string" ||
+        typeof query.windowEnd !== "string"
+      ) {
+        return {
+          data: null,
+          meta: {
+            error: "gameId, windowStart, and windowEnd are required",
+            generatedAt: new Date().toISOString(),
+          },
+        };
+      }
+      return getBoardAnomalyReplayPayload(
+        {
+          gameId: query.gameId,
+          windowStart: query.windowStart,
+          windowEnd: query.windowEnd,
+          stepSeconds: parseIntegerParam(query.stepSeconds, 30),
+        },
+        {
+          logger: request.log.child({ route: "research-board-alerts-replay" }),
         }
       );
     }

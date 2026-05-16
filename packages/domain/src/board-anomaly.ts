@@ -1,0 +1,289 @@
+import type {
+  MappingStatus,
+  MarketFamily,
+  ResearchGameStatus,
+  ResearchSourceId,
+} from "./live-types";
+import type { SeverityBand } from "./modes";
+
+export const boardAnomalySourceKinds = [
+  "sportsbook",
+  "prediction-market",
+] as const;
+export type BoardAnomalySourceKind = (typeof boardAnomalySourceKinds)[number];
+
+export const boardAnomalyShockKinds = [
+  "pregame-availability",
+  "near-tip-availability",
+  "attribution-shaped",
+  "market-structure",
+  "cross-surface-disagreement",
+  "coverage-gap",
+] as const;
+export type BoardAnomalyShockKind = (typeof boardAnomalyShockKinds)[number];
+
+export type BoardObservationFlags = {
+  isUnmapped: boolean;
+  isHeartbeat: boolean;
+  isSuspended: boolean;
+  isStale: boolean;
+};
+
+export type BoardObservationMissing = {
+  impliedProbability: boolean;
+  line: boolean;
+  bestBid: boolean;
+  bestAsk: boolean;
+  volume: boolean;
+  depthScore: boolean;
+  tradePrice: boolean;
+  tradeSize: boolean;
+  participantKey: boolean;
+};
+
+export type BoardObservationLabelTokens = {
+  rawFamily?: string | null;
+  rawLabel?: string | null;
+  normalizedTokens: string[];
+  participantHints: string[];
+  statFamilyHints: string[];
+};
+
+export type BoardObservationGameState = {
+  status: ResearchGameStatus;
+  period?: number | null;
+  clock?: string | null;
+  homeScore?: number | null;
+  awayScore?: number | null;
+  scoreMargin?: number | null;
+  minutesToTip?: number | null;
+};
+
+export type BoardObservation = {
+  observationId: string;
+  gameId: string;
+  source: ResearchSourceId;
+  sourceKind: BoardAnomalySourceKind;
+  sourceMarketId: string;
+  instrumentId?: string | null;
+  family?: MarketFamily | null;
+  selection?: string | null;
+  participantKey?: string | null;
+  line?: number | null;
+  mappingStatus: MappingStatus;
+  displayLabel: string;
+  labels: BoardObservationLabelTokens;
+  eventTimestamp: string;
+  capturedAt: string;
+  quoteAgeMs?: number | null;
+  impliedProbability?: number | null;
+  previousImpliedProbability?: number | null;
+  priceMove?: number | null;
+  lineMove?: number | null;
+  logitMove?: number | null;
+  bestBid?: number | null;
+  bestAsk?: number | null;
+  spread?: number | null;
+  depthScore?: number | null;
+  volume?: number | null;
+  tradePrice?: number | null;
+  tradeSize?: number | null;
+  notional?: number | null;
+  volumeShare?: number | null;
+  finalMarketVolume?: number | null;
+  flags: BoardObservationFlags;
+  missing: BoardObservationMissing;
+  gameState: BoardObservationGameState;
+};
+
+export type H0Adjustment = {
+  expectedAbsLogitMove: number;
+  expectedAbsLineMove: number;
+  expectedAbsTradeDistance: number;
+  expectedSpreadFloor: number;
+  pregameDriftCap: number;
+  closeGameRepricingCap: number;
+  staleQuoteSuppression: number;
+  reason: string;
+};
+
+export type BoardObservationScored = {
+  observation: BoardObservation;
+  residualLogit: number;
+  residualLine: number;
+  residualTradeDistance: number;
+  microstructure: {
+    crossVenue: number;
+    liquidity: number;
+    offPrice: number;
+    volatility: number;
+    volumeShare: number;
+  };
+  h0Adjustment: H0Adjustment;
+  h0Suppressed: number;
+  contribution: number;
+  reason: string;
+};
+
+export type BoardShockEvidence = {
+  observationId: string;
+  source: ResearchSourceId;
+  sourceKind: BoardAnomalySourceKind;
+  family?: MarketFamily | null;
+  participantKey?: string | null;
+  displayLabel: string;
+  contribution: number;
+  reason: string;
+  evidenceUnmapped: boolean;
+};
+
+export type BoardShockMissingNote = {
+  source: ResearchSourceId;
+  reason: string;
+};
+
+export type BoardAnomalyAlert = {
+  id: string;
+  gameId: string;
+  gameLabel: string;
+  shockKind: BoardAnomalyShockKind;
+  firstPopAt: string;
+  detectedAt: string;
+  score: number;
+  confidence: number;
+  severity: SeverityBand;
+  reason: string;
+  primaryEntityKey: string | null;
+  primaryFamily: MarketFamily | null;
+  components: {
+    residual: number;
+    microstructure: number;
+    coherence: number;
+    coverage: number;
+  };
+  h0Adjustments: {
+    appliedSuppression: number;
+    drivers: string[];
+  };
+  evidence: BoardShockEvidence[];
+  missingDataNotes: BoardShockMissingNote[];
+  inspect: {
+    payloadVersion: 1;
+    instrumentIds: string[];
+    sourceMarketIds: string[];
+    relationFamilies: string[];
+  };
+};
+
+export type BoardAnomalyDetectorConfig = {
+  shockWindowSeconds: number;
+  contextWindowMinutes: number;
+  minScore: number;
+  minConfidence: number;
+  thresholds: {
+    logitMove: number;
+    lineMove: number;
+    tradeDistance: number;
+    spread: number;
+    depthScoreDrop: number;
+    volumeShare: number;
+    staleQuoteAgeMinutes: number;
+    nearTipMinutes: number;
+    closeGameMarginAbs: number;
+  };
+  weights: {
+    residual: number;
+    microstructure: number;
+    coherence: number;
+    coverage: number;
+  };
+  fanout: {
+    sameParticipantBoost: number;
+    pairedParticipantBoost: number;
+    sameStatFamilyBoost: number;
+    sameTeamBoost: number;
+    sameFamilyBoost: number;
+    unmappedTokenBoost: number;
+    sportsbookPredictionDisagreementBoost: number;
+  };
+  classification: {
+    pregameMinutesToTip: number;
+    nearTipMinutesToTip: number;
+    attributionMinComponents: number;
+    coverageGapMinStaleMs: number;
+  };
+  suppression: {
+    dedupeWindowSeconds: number;
+    materialConfidenceJump: number;
+  };
+};
+
+export const defaultBoardAnomalyDetectorConfig: BoardAnomalyDetectorConfig = {
+  shockWindowSeconds: 60,
+  contextWindowMinutes: 5,
+  minScore: 55,
+  minConfidence: 0.55,
+  thresholds: {
+    logitMove: 0.4,
+    lineMove: 0.5,
+    tradeDistance: 0.08,
+    spread: 0.1,
+    depthScoreDrop: 0.3,
+    volumeShare: 0.15,
+    staleQuoteAgeMinutes: 10,
+    nearTipMinutes: 30,
+    closeGameMarginAbs: 5,
+  },
+  weights: {
+    residual: 0.4,
+    microstructure: 0.25,
+    coherence: 0.25,
+    coverage: 0.1,
+  },
+  fanout: {
+    sameParticipantBoost: 1.0,
+    pairedParticipantBoost: 0.6,
+    sameStatFamilyBoost: 0.5,
+    sameTeamBoost: 0.35,
+    sameFamilyBoost: 0.25,
+    unmappedTokenBoost: 0.2,
+    sportsbookPredictionDisagreementBoost: 0.4,
+  },
+  classification: {
+    pregameMinutesToTip: 240,
+    nearTipMinutesToTip: 30,
+    attributionMinComponents: 2,
+    coverageGapMinStaleMs: 10 * 60 * 1000,
+  },
+  suppression: {
+    dedupeWindowSeconds: 120,
+    materialConfidenceJump: 0.15,
+  },
+};
+
+export type BoardAnomalyDetectorInput = {
+  gameId: string;
+  gameLabel: string;
+  observations: BoardObservation[];
+  now: string;
+  config?: Partial<BoardAnomalyDetectorConfig>;
+};
+
+export type BoardAnomalyReplayInput = {
+  gameId: string;
+  gameLabel: string;
+  observations: BoardObservation[];
+  windowStart: string;
+  windowEnd: string;
+  stepSeconds?: number;
+  ingestionLatencyBufferSeconds?: number;
+  config?: Partial<BoardAnomalyDetectorConfig>;
+};
+
+export type BoardAnomalyReplayOutput = {
+  gameId: string;
+  gameLabel: string;
+  windowStart: string;
+  windowEnd: string;
+  alertDeck: BoardAnomalyAlert[];
+};
