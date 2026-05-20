@@ -15,6 +15,7 @@ export type BoardAnomalySourceKind = (typeof boardAnomalySourceKinds)[number];
 export const boardAnomalyShockKinds = [
   "pregame-availability",
   "near-tip-availability",
+  "game-state-volatility",
   "attribution-shaped",
   "market-structure",
   "cross-surface-disagreement",
@@ -175,6 +176,50 @@ export type BoardAnomalyAlert = {
   };
 };
 
+export type BoardGameStateVolatilityBand =
+  | "insufficient-data"
+  | "normal"
+  | "elevated"
+  | "alert"
+  | "critical";
+
+export type BoardGameStateVolatility = {
+  gameId: string;
+  gameLabel: string;
+  measuredAt: string;
+  score: number;
+  band: BoardGameStateVolatilityBand;
+  confidence: number;
+  thresholds: {
+    normalMaxScore: number;
+    elevatedMinScore: number;
+    alertMinScore: number;
+    criticalMinScore: number;
+  };
+  components: {
+    residual: number;
+    microstructure: number;
+    coherence: number;
+    coverage: number;
+  };
+  sample: {
+    predictionMarketRows: number;
+    sourceMarketCount: number;
+    shockRows: number;
+    families: MarketFamily[];
+    coreFamilies: MarketFamily[];
+    sources: ResearchSourceId[];
+    ready: boolean;
+  };
+  evidence: BoardShockEvidence[];
+  missingDataNotes: BoardShockMissingNote[];
+  h0Adjustments: {
+    appliedSuppression: number;
+    drivers: string[];
+  };
+  alertId: string | null;
+};
+
 export type BoardAnomalyDetectorConfig = {
   shockWindowSeconds: number;
   contextWindowMinutes: number;
@@ -211,6 +256,13 @@ export type BoardAnomalyDetectorConfig = {
     nearTipMinutesToTip: number;
     attributionMinComponents: number;
     coverageGapMinStaleMs: number;
+  };
+  gameStateVolatility: {
+    minPredictionMarketRows: number;
+    minShockRows: number;
+    minFamilies: number;
+    minCoreFamilies: number;
+    topEvidenceRows: number;
   };
   suppression: {
     dedupeWindowSeconds: number;
@@ -254,6 +306,13 @@ export const defaultBoardAnomalyDetectorConfig: BoardAnomalyDetectorConfig = {
     nearTipMinutesToTip: 30,
     attributionMinComponents: 2,
     coverageGapMinStaleMs: 10 * 60 * 1000,
+  },
+  gameStateVolatility: {
+    minPredictionMarketRows: 3,
+    minShockRows: 0,
+    minFamilies: 3,
+    minCoreFamilies: 2,
+    topEvidenceRows: 8,
   },
   suppression: {
     dedupeWindowSeconds: 120,

@@ -25,6 +25,8 @@ type PolymarketTeam = {
 type PolymarketMarket = {
   bestAsk?: number | null;
   bestBid?: number | null;
+  clobTokenIds?: string | string[] | null;
+  conditionId?: string | null;
   description?: string | null;
   groupItemTitle?: string | null;
   id: string;
@@ -38,6 +40,8 @@ type PolymarketMarket = {
 };
 
 type PolymarketEvent = {
+  active?: boolean | null;
+  closed?: boolean | null;
   eventDate?: string | null;
   id: string;
   liquidity?: number | string | null;
@@ -107,6 +111,19 @@ function parseJsonArray(
       : fallback;
   } catch {
     return fallback;
+  }
+}
+
+function parseOptionalJsonArray(
+  value: string | string[] | null | undefined
+): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(String);
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
   }
 }
 
@@ -186,16 +203,22 @@ function buildGameIndex(games: ResearchGameCard[]) {
   return index;
 }
 
-function buildEventKey(event: PolymarketEvent) {
-  if (!event.eventDate || !event.teams || event.teams.length !== 2) {
-    return null;
+function buildEventKeys(event: PolymarketEvent) {
+  if (!event.teams || event.teams.length !== 2) {
+    return [];
   }
 
   const teamKeys = event.teams.map(
     (team) => team.abbreviation ?? team.alias ?? team.name
   );
+  const dateCandidates = [
+    event.eventDate ?? null,
+    event.startTime ? event.startTime.slice(0, 10) : null,
+  ].filter((value): value is string => Boolean(value));
 
-  return buildGameKey(event.eventDate, teamKeys);
+  return Array.from(
+    new Set(dateCandidates.map((date) => buildGameKey(date, teamKeys)))
+  );
 }
 
 function resolveParticipantKey(
@@ -289,6 +312,7 @@ function buildMoneylineSelectionRecords(
   const prices = parseJsonArray(market.outcomePrices).map((price) =>
     toNumber(price)
   );
+  const clobTokenIds = parseOptionalJsonArray(market.clobTokenIds);
 
   return outcomes
     .map((outcome, index) => {
@@ -310,15 +334,19 @@ function buildMoneylineSelectionRecords(
         event: {
           eventDate: event.eventDate,
           id: event.id,
+          active: event.active ?? null,
+          closed: event.closed ?? null,
           slug: event.slug,
           startTime: event.startTime ?? null,
           title: event.title,
         },
         market,
         selection: {
+          clobTokenId: clobTokenIds[index] ?? null,
           label: outcome,
           participantKey,
           price: prices[index] ?? null,
+          outcomeIndex: index,
         },
       } satisfies Record<string, unknown>;
 
@@ -362,6 +390,7 @@ function buildSpreadSelectionRecords(
   const prices = parseJsonArray(market.outcomePrices).map((price) =>
     toNumber(price)
   );
+  const clobTokenIds = parseOptionalJsonArray(market.clobTokenIds);
   const baseLine = toNumber(market.line);
 
   return outcomes
@@ -386,15 +415,19 @@ function buildSpreadSelectionRecords(
         event: {
           eventDate: event.eventDate,
           id: event.id,
+          active: event.active ?? null,
+          closed: event.closed ?? null,
           slug: event.slug,
           startTime: event.startTime ?? null,
           title: event.title,
         },
         market,
         selection: {
+          clobTokenId: clobTokenIds[index] ?? null,
           label: outcome,
           participantKey,
           price: prices[index] ?? null,
+          outcomeIndex: index,
           signedLine,
         },
       } satisfies Record<string, unknown>;
@@ -439,6 +472,7 @@ function buildTotalSelectionRecords(
   const prices = parseJsonArray(market.outcomePrices).map((price) =>
     toNumber(price)
   );
+  const clobTokenIds = parseOptionalJsonArray(market.clobTokenIds);
   const line = toNumber(market.line);
 
   return outcomes
@@ -463,14 +497,18 @@ function buildTotalSelectionRecords(
         event: {
           eventDate: event.eventDate,
           id: event.id,
+          active: event.active ?? null,
+          closed: event.closed ?? null,
           slug: event.slug,
           startTime: event.startTime ?? null,
           title: event.title,
         },
         market,
         selection: {
+          clobTokenId: clobTokenIds[index] ?? null,
           label: outcome,
           price: prices[index] ?? null,
+          outcomeIndex: index,
           selection: normalizedSelection,
         },
       } satisfies Record<string, unknown>;
@@ -520,6 +558,7 @@ function buildPlayerPropSelectionRecords(
   const prices = parseJsonArray(market.outcomePrices).map((price) =>
     toNumber(price)
   );
+  const clobTokenIds = parseOptionalJsonArray(market.clobTokenIds);
   const line = toNumber(market.line);
 
   if (!subject || line == null || outcomes.length < 2) {
@@ -530,16 +569,20 @@ function buildPlayerPropSelectionRecords(
 
   return [
     {
+      clobTokenId: clobTokenIds[0] ?? null,
       outcome: outcomes[0] ?? "Yes",
+      outcomeIndex: 0,
       price: prices[0] ?? null,
       selection: "over",
     },
     {
+      clobTokenId: clobTokenIds[1] ?? null,
       outcome: outcomes[1] ?? "No",
+      outcomeIndex: 1,
       price: prices[1] ?? null,
       selection: "under",
     },
-  ].map(({ outcome, price, selection }) => {
+  ].map(({ clobTokenId, outcome, outcomeIndex, price, selection }) => {
     const displayLabel = `${subject} ${describeMetric(marketType)} ${selection} ${line}`;
     const instrumentId = buildStableId([
       game.game.id,
@@ -554,13 +597,17 @@ function buildPlayerPropSelectionRecords(
       event: {
         eventDate: event.eventDate,
         id: event.id,
+        active: event.active ?? null,
+        closed: event.closed ?? null,
         slug: event.slug,
         startTime: event.startTime ?? null,
         title: event.title,
       },
       market,
       selection: {
+        clobTokenId,
         label: outcome,
+        outcomeIndex,
         price,
         selection,
         subject,
@@ -700,12 +747,14 @@ export async function syncPolymarketNbaMarkets(options?: {
     let sourceMarketsObserved = 0;
 
     for (const event of events) {
-      const gameKey = buildEventKey(event);
-      if (!gameKey) {
+      const gameKeys = buildEventKeys(event);
+      if (gameKeys.length === 0) {
         continue;
       }
 
-      const game = gameIndex.get(gameKey);
+      const game = gameKeys
+        .map((gameKey) => gameIndex.get(gameKey) ?? null)
+        .find((candidate): candidate is ResearchGameCard => candidate != null);
       if (!game) {
         continue;
       }
@@ -746,12 +795,35 @@ export async function syncPolymarketNbaMarkets(options?: {
             rawFamily: record.rawFamily,
             rawLabel: record.rawLabel,
             rawMetadata: {
+              clobTokenId:
+                typeof record.rawPayloadJson.selection === "object" &&
+                record.rawPayloadJson.selection != null &&
+                "clobTokenId" in record.rawPayloadJson.selection
+                  ? record.rawPayloadJson.selection.clobTokenId
+                  : null,
+              conditionId: market.conditionId ?? null,
               eventDate: event.eventDate ?? null,
+              eventActive: event.active ?? null,
+              eventClosed: event.closed ?? null,
               eventId: event.id,
               eventSlug: event.slug,
               eventTitle: event.title,
+              marketClosed: event.closed ?? null,
               marketId: market.id,
               marketQuestion: market.question,
+              marketVolume: toNumber(market.volume),
+              outcome:
+                typeof record.rawPayloadJson.selection === "object" &&
+                record.rawPayloadJson.selection != null &&
+                "label" in record.rawPayloadJson.selection
+                  ? record.rawPayloadJson.selection.label
+                  : null,
+              outcomeIndex:
+                typeof record.rawPayloadJson.selection === "object" &&
+                record.rawPayloadJson.selection != null &&
+                "outcomeIndex" in record.rawPayloadJson.selection
+                  ? record.rawPayloadJson.selection.outcomeIndex
+                  : null,
               sportsMarketType: market.sportsMarketType ?? null,
               startTime: event.startTime ?? null,
             },

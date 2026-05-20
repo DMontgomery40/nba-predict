@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   recordAdapterRun,
@@ -458,6 +458,7 @@ describe("api routes", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     resetDatabase();
     delete process.env.SIGNAL_CONSOLE_DB_PATH;
     delete process.env.PLAYER_PROP_ALERT_PLAYBACK_DIR;
@@ -855,6 +856,21 @@ describe("api routes", () => {
       ]),
     });
 
+    const fastAnomalyResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/market-anomalies?includeHistorical=true&skipQuoteAnomalies=true&minScore=40&minConfidence=0.4",
+    });
+    expect(fastAnomalyResponse.statusCode).toBe(200);
+    expect(fastAnomalyResponse.json()).toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          apiSurface: "data-api/trades",
+          displayLabel: "Boston moneyline",
+          source: "polymarket",
+        }),
+      ]),
+    });
+
     const scoreConfigResponse = await app.inject({
       method: "GET",
       url: "/api/v1/research/market-anomaly-score-config",
@@ -924,6 +940,125 @@ describe("api routes", () => {
           notifiedAlertIds: [expect.any(String)],
         }),
       ],
+    });
+
+    const boardAlertsResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/board-alerts?now=2026-04-21T23:56:00.000Z&limit=3&contextWindowMinutes=60",
+    });
+    expect(boardAlertsResponse.statusCode).toBe(200);
+    expect(boardAlertsResponse.json()).toMatchObject({
+      data: expect.any(Array),
+      meta: expect.objectContaining({
+        now: "2026-04-21T23:56:00.000Z",
+      }),
+    });
+
+    const boardVolatilityResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/board-volatility?now=2026-04-21T23:56:00.000Z&limit=3&contextWindowMinutes=60",
+    });
+    expect(boardVolatilityResponse.statusCode).toBe(200);
+    expect(boardVolatilityResponse.json()).toMatchObject({
+      data: expect.any(Array),
+      meta: expect.objectContaining({
+        now: "2026-04-21T23:56:00.000Z",
+      }),
+    });
+
+    const boardIncidentsResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/board-alerts/incidents?date=2026-04-21&limit=3",
+    });
+    expect(boardIncidentsResponse.statusCode).toBe(200);
+    expect(boardIncidentsResponse.json()).toMatchObject({
+      data: expect.any(Array),
+      meta: expect.objectContaining({
+        date: "2026-04-21",
+      }),
+    });
+    expect(boardIncidentsResponse.json().data.length).toBeGreaterThan(0);
+    expect(JSON.stringify(boardIncidentsResponse.json().data)).toContain(
+      "Boston moneyline"
+    );
+    expect(JSON.stringify(boardIncidentsResponse.json().data)).toContain(
+      "volume share"
+    );
+
+    const boardContextResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/board-alerts/event-context?gameId=nba-bos-nyk-2026-04-21&at=2026-04-21T23:56:00.000Z&windowSecondsBefore=60&windowSecondsAfter=60",
+    });
+    expect(boardContextResponse.statusCode).toBe(200);
+    expect(boardContextResponse.json()).toMatchObject({
+      data: expect.objectContaining({
+        gameId: "nba-bos-nyk-2026-04-21",
+        playByPlay: [],
+      }),
+      meta: expect.objectContaining({
+        playByPlayHydration: expect.objectContaining({
+          error: expect.any(String),
+          hydrated: false,
+        }),
+      }),
+    });
+
+    process.env.NBA_SIDECAR_BASE_URL = "http://127.0.0.1:9393";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return {
+          headers: new Headers(),
+          json: async () => ({
+            data: {
+              actions: [
+                {
+                  actionNumber: 1,
+                  actionType: "made-shot",
+                  clock: "00:02",
+                  description: "Late shot",
+                  period: 4,
+                  teamTricode: "BOS",
+                  timeActual: "2026-04-21T23:55:40.000Z",
+                },
+              ],
+              gameId: "0022600001",
+              generatedAt: "2026-04-21T23:55:45.000Z",
+            },
+          }),
+          ok: true,
+          status: 200,
+          statusText: "OK",
+        } satisfies Partial<Response> as Response;
+      }) as unknown as typeof fetch
+    );
+    const hydratedBoardContextResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/board-alerts/event-context?gameId=nba-bos-nyk-2026-04-21&at=2026-04-21T23:56:00.000Z&windowSecondsBefore=60&windowSecondsAfter=60",
+    });
+    expect(hydratedBoardContextResponse.statusCode).toBe(200);
+    expect(hydratedBoardContextResponse.json()).toMatchObject({
+      data: expect.objectContaining({
+        gameId: "nba-bos-nyk-2026-04-21",
+        playByPlay: [
+          expect.objectContaining({
+            description: "Late shot",
+            period: 4,
+          }),
+        ],
+      }),
+    });
+
+    const boardReplayResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/research/board-alerts/replay?gameId=nba-bos-nyk-2026-04-21&windowStart=2026-04-21T23:50:00.000Z&windowEnd=2026-04-21T23:56:00.000Z&stepSeconds=60",
+    });
+    expect(boardReplayResponse.statusCode).toBe(200);
+    expect(boardReplayResponse.json()).toMatchObject({
+      data: expect.objectContaining({
+        alertDeck: expect.any(Array),
+        gameId: "nba-bos-nyk-2026-04-21",
+      }),
     });
 
     const sourcesResponse = await app.inject({
@@ -1081,6 +1216,32 @@ describe("api routes", () => {
         expect.objectContaining({ name: "bet365-capture", status: "error" }),
         expect.objectContaining({ name: "kalshi-capture", status: "error" }),
         expect.objectContaining({ name: "live-data", status: "error" }),
+      ]),
+      status: "error",
+    });
+
+    await app.close();
+  });
+
+  it("keeps readiness red when the NBA sidecar URL is configured but unreachable", async () => {
+    process.env.NBA_SIDECAR_BASE_URL = "http://127.0.0.1:1";
+    const app = buildApiServer();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/health/ready",
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({
+      checks: expect.arrayContaining([
+        expect.objectContaining({
+          name: "nba-sidecar",
+          operatorHint:
+            "Start the NBA sidecar or correct NBA_SIDECAR_BASE_URL before advertising live game-state readiness.",
+          status: "error",
+          summary: "NBA sidecar readiness check failed.",
+        }),
       ]),
       status: "error",
     });

@@ -32,7 +32,12 @@
 - `GET /api/v1/research/signal-mismatches?date=YYYY-MM-DD`
 - `GET /api/v1/research/player-prop-alerts`
 - `GET /api/v1/research/player-prop-alert-playback`
-- `GET /api/v1/research/market-anomalies`
+- `GET /api/v1/research/market-anomalies` with optional `skipQuoteAnomalies=true` for low-latency microstructure-only desk reads
+- `GET /api/v1/research/board-alerts`
+- `GET /api/v1/research/board-alerts/incidents`
+- `GET /api/v1/research/board-alerts/event-context`
+- `GET /api/v1/research/board-alerts/replay`
+- `GET /api/v1/research/board-volatility` returns per-game live game-state volatility scores and normal/elevated/alert thresholds as the earliest whole-board tripwire layer, without replacing the actionable `/board-alerts` incident contract
 - `GET /api/v1/research/market-anomaly-score-config`
 - `PUT /api/v1/research/market-anomaly-score-config`
 - `GET /api/v1/research/market-anomaly-playback`
@@ -50,6 +55,8 @@
 - `POST /api/v1/admin/timeline-materializations/rebuild`
 - `GET /api/v1/admin/storage/coverage`
 
+`POST /api/v1/admin/backfill/markets` accepts historical market backfill payloads for `source = bet365 | kalshi | polymarket` over a date window. The Bet365 path uses real settled-game Odds API historical endpoints; it must not reply with a “not wired” lie when the runtime can actually execute the backfill.
+
 ## Readiness
 
 - `API-005` Readiness shall return `503` when required live dependencies or persisted live data are missing.
@@ -62,3 +69,7 @@
 - `API-012` Divergence and signal-mismatch routes shall expose DB-derived same-time comparison summaries. Date-scoped requests stay scoped to `scheduled_start` date; undated divergence defaults to the current slate. Final-game rows may show peak historical divergence, but they must not be labeled or ranked as live action.
 - `API-013` Market anomaly routes shall score persisted quote ticks and microstructure events without requiring Bet365 exposure or exact player-prop pairing unless requested by query/config. Rows must expose score, confidence, signal labels, API surface, source market, mapping status, price/trade/volume/share, spread/depth, and instrument link when mapped.
 - `API-014` Readiness shall use bounded SQLite probes; large append-only storage counts may be high-water marks rather than exact `COUNT(*)` scans.
+- `API-015` `/api/v1/research/board-alerts/event-context` shall use persisted NBA play-by-play when already present, otherwise attempt sidecar hydration first. If trustworthy NBA context still cannot be obtained, the route shall fail honestly instead of returning synthetic or guessed game-clock confirmation.
+- `API-016` `/api/v1/research/board-alerts/incidents` may best-effort hydrate missing NBA play-by-play for historical warning audit, but it shall never invent NBA event anchors or pretend the feed was available when it was not.
+- `API-017` Historical board-alert incidents that occur before the first trustworthy NBA action row shall be labeled honestly as pregame or near-tip availability/timing tripwires. They shall not be presented as confirmed in-game attribution follow-up, and event-context surfaces shall not decorate many-hours-away NBA rows as nearby context.
+- `API-018` Date-scoped games/history reads shall not hide real past games merely because a stale `scheduled` state survived. If persisted market coverage, NBA play-by-play, or outcomes prove the game was real, the route must keep the row visible and fail closed on the missing canonical state instead of pretending the game never existed.

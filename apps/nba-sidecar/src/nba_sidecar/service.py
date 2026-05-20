@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import date
 from urllib.request import Request, urlopen
 
 from nba_api.live.nba.endpoints import boxscore, playbyplay, scoreboard
-from nba_api.stats.endpoints import scoreboardv2
+from nba_api.stats.endpoints import scoreboardv3
 
 from .models import BoxScoreResponse, PlayByPlayResponse, ScoreboardResponse
 from .normalizers import (
@@ -21,6 +22,9 @@ NBA_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagu
 NBA_LIVE_SCOREBOARD_CDN_URL = (
     "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
 )
+NBA_LIVE_PLAY_BY_PLAY_CDN_URL_TEMPLATE = (
+    "https://cdn.nba.com/static/json/liveData/playbyplay/playbyplay_{game_id}.json"
+)
 NBA_CDN_HEADERS = {
     "Referer": "https://www.nba.com/",
     "User-Agent": (
@@ -30,23 +34,56 @@ NBA_CDN_HEADERS = {
 }
 
 
+def _is_past_date(requested_date: str) -> bool:
+    try:
+        return date.fromisoformat(requested_date) < date.today()
+    except ValueError:
+        return False
+
+
+def _looks_like_stale_historical_preview(
+    payload: ScoreboardResponse, requested_date: str
+) -> bool:
+    if not _is_past_date(requested_date):
+        return False
+    if not payload.games:
+        return False
+    return all(
+        game.gameState.status == "scheduled"
+        and not game.gameState.isFinal
+        and (game.gameState.homeScore in (None, 0))
+        and (game.gameState.awayScore in (None, 0))
+        for game in payload.games
+    )
+
+
 @dataclass(slots=True)
 class NbaSidecarService:
     def get_scoreboard(self, requested_date: str | None = None) -> ScoreboardResponse:
         if requested_date and not is_today(requested_date):
             try:
-                payload = scoreboardv2.ScoreboardV2(
+                payload = scoreboardv3.ScoreboardV3(
                     game_date=requested_date,
-                    day_offset=0,
                     league_id="00",
                 ).get_dict()
-                normalized = normalize_stats_scoreboard_payload(
+                normalized = normalize_live_scoreboard_payload(
                     payload, requested_date=requested_date
                 )
-                if normalized.games:
+                if _looks_like_stale_historical_preview(normalized, requested_date):
+                    return ScoreboardResponse(
+                        games=[],
+                        generatedAt=normalized.generatedAt,
+                        requestedDate=requested_date,
+                    )
+                if normalized.games or _is_past_date(requested_date):
                     return normalized
             except Exception:
-                pass
+                if _is_past_date(requested_date):
+                    return ScoreboardResponse(
+                        games=[],
+                        generatedAt="",
+                        requestedDate=requested_date,
+                    )
 
             return self.get_schedule_scoreboard(requested_date)
 
@@ -76,6 +113,19 @@ class NbaSidecarService:
         payload = boxscore.BoxScore(game_id=game_id).get_dict()
         return normalize_live_boxscore_payload(game_id=game_id, payload=payload)
 
+    def get_live_play_by_play_payload(self, game_id: str) -> dict:
+        request = Request(
+            NBA_LIVE_PLAY_BY_PLAY_CDN_URL_TEMPLATE.format(game_id=game_id),
+            headers=NBA_CDN_HEADERS,
+        )
+        with urlopen(request, timeout=30) as response:
+            payload = response.read()
+
+        return json.loads(payload)
+
     def get_play_by_play(self, game_id: str) -> PlayByPlayResponse:
-        payload = playbyplay.PlayByPlay(game_id=game_id).get_dict()
+        try:
+            payload = playbyplay.PlayByPlay(game_id=game_id).get_dict()
+        except Exception:
+            payload = self.get_live_play_by_play_payload(game_id)
         return normalize_live_playbyplay_payload(game_id=game_id, payload=payload)

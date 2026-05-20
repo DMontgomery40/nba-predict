@@ -1,13 +1,25 @@
 import type { SeverityBand } from "./modes";
 
-export const researchSourceIds = [
+export const sportsbookResearchSourceIds = [
   "bet365",
-  "kalshi",
-  "polymarket",
-  "nba",
+  "fanduel",
+  "draftkings",
 ] as const;
 
+export const predictionMarketResearchSourceIds = [
+  "kalshi",
+  "polymarket",
+] as const;
+
+export const marketResearchSourceIds = [
+  ...sportsbookResearchSourceIds,
+  ...predictionMarketResearchSourceIds,
+] as const;
+
+export const researchSourceIds = [...marketResearchSourceIds, "nba"] as const;
+
 export type ResearchSourceId = (typeof researchSourceIds)[number];
+export type MarketResearchSourceId = (typeof marketResearchSourceIds)[number];
 
 export const marketFamilies = [
   "moneyline",
@@ -163,7 +175,7 @@ export type QuoteTick = {
 
 export type MarketMicrostructureEvent = {
   id: number;
-  source: Extract<ResearchSourceId, "bet365" | "kalshi" | "polymarket">;
+  source: MarketResearchSourceId;
   sourceMarketId: string;
   gameId: string;
   instrumentId?: string | null;

@@ -2,7 +2,7 @@ import { DatabaseFailureError } from "./errors";
 
 import type Database from "better-sqlite3";
 
-export const currentSchemaVersion = 12;
+export const currentSchemaVersion = 13;
 
 function nowIso() {
   return new Date().toISOString();
@@ -350,6 +350,10 @@ export function applyMigrations(db: Database.Database, dbPath: string) {
   if (getAppliedVersion(db) < 12) {
     applySourceCoverageLookupIndexes(db);
   }
+
+  if (getAppliedVersion(db) < 13) {
+    applyMarketMicrostructureTradeIdentityIndex(db);
+  }
 }
 
 function applyCanonicalInstrumentConsolidation(db: Database.Database) {
@@ -576,7 +580,8 @@ function applyMarketAnomalySupport(db: Database.Database) {
           api_surface,
           event_timestamp,
           COALESCE(trade_price, price, -1),
-          COALESCE(size, -1)
+          COALESCE(size, -1),
+          COALESCE(json_extract(raw_metadata_json, '$.transactionHash'), raw_payload_id, '')
         );
 
       CREATE TABLE IF NOT EXISTS market_anomaly_score_configs (
@@ -661,5 +666,27 @@ function applySourceCoverageLookupIndexes(db: Database.Database) {
     }
 
     insertMigration(db, 12, "source-coverage-lookup-indexes");
+  })();
+}
+
+function applyMarketMicrostructureTradeIdentityIndex(db: Database.Database) {
+  db.transaction(() => {
+    if (tableExists(db, "market_microstructure_events")) {
+      db.exec(`
+        DROP INDEX IF EXISTS idx_market_microstructure_unique_event;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_market_microstructure_unique_event
+          ON market_microstructure_events(
+            source_market_id,
+            event_type,
+            api_surface,
+            event_timestamp,
+            COALESCE(trade_price, price, -1),
+            COALESCE(size, -1),
+            COALESCE(json_extract(raw_metadata_json, '$.transactionHash'), raw_payload_id, '')
+          );
+      `);
+    }
+
+    insertMigration(db, 13, "market-microstructure-trade-identity-index");
   })();
 }

@@ -1,16 +1,38 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
-import { getBoardAlerts } from "../../data/api";
+import { getBoardAlerts, isApiRequestError } from "../../data/api";
+import {
+  BOARD_ALERT_KIND_LABELS,
+  buildBoardAlertInspectPath,
+  displayBoardAlertEntity,
+  preferPrimaryBoardAlert,
+} from "../alerts/boardAlertReview";
+
+function isTransientBoardAlertError(error: Error) {
+  return isApiRequestError(error)
+    ? error.status >= 500 || error.status === 0
+    : true;
+}
 
 export function BoardAlertsBanner() {
   const query = useQuery({
-    queryFn: () => getBoardAlerts({ limit: 1 }),
+    queryFn: () => getBoardAlerts({ limit: 5 }),
     queryKey: ["board-alerts-banner"],
     refetchInterval: 15_000,
-    retry: false,
+    refetchIntervalInBackground: true,
+    retry: (failureCount, error) =>
+      isTransientBoardAlertError(error) && failureCount < 2,
+    retryDelay: (attemptIndex) => Math.min(100 * 2 ** attemptIndex, 500),
+    staleTime: 10_000,
   });
-  const top = query.data?.data?.[0];
+  const rows = query.data?.data ?? [];
+  const top =
+    rows.length > 0
+      ? rows.reduce((best, row) =>
+          preferPrimaryBoardAlert(row, best) ? row : best
+        )
+      : null;
   if (!top) return null;
   const time = new Date(top.firstPopAt).toLocaleString("en-US", {
     hour: "numeric",
@@ -19,26 +41,26 @@ export function BoardAlertsBanner() {
     second: "2-digit",
   });
   return (
-    <section className="board-alerts-banner" aria-label="Top live board shock">
+    <section
+      className="board-alerts-banner"
+      aria-label="Top live trader incident"
+    >
       <div className="board-alerts-banner-inner">
         <span className="board-alerts-banner-tag">
-          Live board shock · {top.shockKind.replace(/-/g, " ")}
+          Live tripwire · {BOARD_ALERT_KIND_LABELS[top.shockKind]}
         </span>
         <strong>
           {top.gameLabel}
           {top.primaryEntityKey
-            ? ` · ${top.primaryEntityKey
-                .split(/[\s-]/)
-                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                .join(" ")}`
+            ? ` · ${displayBoardAlertEntity(top.primaryEntityKey)}`
             : ""}
         </strong>
         <span className="board-alerts-banner-reason">{top.reason}</span>
-        <span className="board-alerts-banner-time">{time}</span>
+        <span className="board-alerts-banner-time">first pop {time}</span>
       </div>
       <Link
         className="board-alerts-banner-link"
-        to={`/board-alerts/${encodeURIComponent(top.gameId)}?at=${encodeURIComponent(top.firstPopAt)}&label=${encodeURIComponent(top.gameLabel)}`}
+        to={buildBoardAlertInspectPath(top)}
       >
         Inspect →
       </Link>

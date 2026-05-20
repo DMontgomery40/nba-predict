@@ -10,6 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
   queryClient,
+  type BoardAnomalyAlertDto,
+  type BoardIncidentDto,
+  type BoardGameStateVolatilityDto,
   type MarketAnomaliesPayload,
   type MarketAnomalyPlaybackPayload,
   type MarketAnomalyScoreConfigPayload,
@@ -27,6 +30,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -63,6 +67,8 @@ function mockErrorResponse({
 }
 
 function createSettingsFetchImplementation(options?: {
+  boardAlertRows?: BoardAnomalyAlertDto[];
+  boardVolatilityRows?: BoardGameStateVolatilityDto[];
   divergenceRows?: Array<{
     captureRecencyMs?: number | null;
     comparableState: string;
@@ -133,7 +139,11 @@ function createSettingsFetchImplementation(options?: {
     };
     gameState?: {
       awayScore?: number | null;
+      capturedAt?: string | null;
+      clock?: string | null;
       homeScore?: number | null;
+      isFinal?: boolean | null;
+      period?: number | null;
       status: string;
     } | null;
     hasUnmappedMarkets: boolean;
@@ -171,6 +181,56 @@ function createSettingsFetchImplementation(options?: {
     };
   }>;
 }) {
+  const boardAlertRows = options?.boardAlertRows ?? [];
+  const boardVolatilityRows = options?.boardVolatilityRows ?? [
+    {
+      alertId:
+        "board-alert:nba-bos-nyk-2026-04-21:game-state-volatility:no-entity:2026-04-22T06:00:00.000Z",
+      band: "alert",
+      components: {
+        coherence: 0.8,
+        coverage: 0,
+        microstructure: 0.7,
+        residual: 0.9,
+      },
+      confidence: 0.88,
+      evidence: [
+        {
+          contribution: 1,
+          displayLabel: "Boston moneyline",
+          evidenceUnmapped: false,
+          family: "moneyline",
+          observationId: "quote-1",
+          participantKey: "bos",
+          reason:
+            "prediction-market game-state implied volatility across moneyline/spread/total; sources kalshi",
+          source: "kalshi",
+          sourceKind: "prediction-market",
+        },
+      ],
+      gameId: "nba-bos-nyk-2026-04-21",
+      gameLabel: "Celtics @ Knicks",
+      h0Adjustments: { appliedSuppression: 0, drivers: ["in-play baseline"] },
+      measuredAt: "2026-04-22T06:00:00.000Z",
+      missingDataNotes: [],
+      sample: {
+        coreFamilies: ["moneyline", "spread", "total"],
+        families: ["moneyline", "spread", "total"],
+        predictionMarketRows: 7,
+        ready: true,
+        shockRows: 4,
+        sourceMarketCount: 7,
+        sources: ["kalshi"],
+      },
+      score: 72,
+      thresholds: {
+        alertMinScore: 55,
+        criticalMinScore: 85,
+        elevatedMinScore: 40,
+        normalMaxScore: 39,
+      },
+    },
+  ];
   const games = options?.games ?? [];
   const divergenceRows = options?.divergenceRows ?? [
     {
@@ -444,6 +504,45 @@ function createSettingsFetchImplementation(options?: {
       return mockJsonResponse({
         data: divergenceRows,
         meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/research/board-alerts/incidents")) {
+      return mockJsonResponse({
+        data: [],
+        meta: {
+          date: "2026-04-22",
+          generatedAt: "2026-04-22T06:00:00.000Z",
+        },
+      });
+    }
+    if (url.startsWith("/api/v1/research/board-alerts/event-context")) {
+      return mockJsonResponse({
+        data: null,
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/research/board-alerts/replay")) {
+      return mockJsonResponse({
+        data: null,
+        meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+      });
+    }
+    if (url.startsWith("/api/v1/research/board-volatility")) {
+      return mockJsonResponse({
+        data: boardVolatilityRows,
+        meta: {
+          generatedAt: "2026-04-22T06:00:00.000Z",
+          now: "2026-04-22T06:00:00.000Z",
+        },
+      });
+    }
+    if (url.startsWith("/api/v1/research/board-alerts")) {
+      return mockJsonResponse({
+        data: boardAlertRows,
+        meta: {
+          generatedAt: "2026-04-22T06:00:00.000Z",
+          now: "2026-04-22T06:00:00.000Z",
+        },
       });
     }
     if (url === "/api/v1/admin/sources") {
@@ -899,7 +998,46 @@ function createSettingsFetchImplementation(options?: {
 describe("App routes", () => {
   it("renders the trader desk from persisted research surfaces", async () => {
     const requestedUrls: string[] = [];
-    const baseFetch = createSettingsFetchImplementation();
+    const baseFetch = createSettingsFetchImplementation({
+      games: [
+        {
+          activeInstrumentCount: 7,
+          coverage: {
+            activeSourceCount: 4,
+            availableSources: ["bet365", "kalshi", "polymarket", "nba"],
+            missingSources: [],
+            unmappedSourceMarketCount: 0,
+          },
+          game: {
+            awayParticipant: {
+              key: "nyk",
+              name: "New York Knicks",
+              shortName: "Knicks",
+            },
+            homeParticipant: {
+              key: "bos",
+              name: "Boston Celtics",
+              shortName: "Celtics",
+            },
+            id: "nba-bos-nyk-2026-04-21",
+            league: "NBA",
+            scheduledStart: "2026-04-21T23:00:00.000Z",
+            sport: "basketball",
+          },
+          gameState: {
+            awayScore: 108,
+            capturedAt: new Date().toISOString(),
+            clock: "PT07M18.00S",
+            homeScore: 112,
+            isFinal: false,
+            period: 4,
+            status: "in-play",
+          },
+          hasUnmappedMarkets: false,
+          topDivergences: [],
+        },
+      ],
+    });
     fetchMock.mockImplementation(async (input) => {
       requestedUrls.push(String(input));
       return baseFetch(input);
@@ -910,29 +1048,24 @@ describe("App routes", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "What the markets actually knew.",
+        name: "Volatility now",
       })
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("How predictive each source was at close.")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Closed-game source error")).toBeInTheDocument();
     expect(screen.getByText("Persisted source depth")).toBeInTheDocument();
     expect(
       screen.getByText("Most recent moneyline calls by source")
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("Which source moved first on the top-ranked market.")
-    ).toBeInTheDocument();
-    expect(
-      screen.getAllByText("Prediction-market weirdness").length
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Go look, something strange happened.")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Prediction-market weirdness")).toBeInTheDocument();
+    expect((await screen.findAllByText(/72\/100/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Q4 7:18/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/108-112/).length).toBeGreaterThan(0);
+    expect(screen.getByText("normal <40")).toBeInTheDocument();
+    expect(screen.getByText("alert 55+")).toBeInTheDocument();
     expect(
       (
         await screen.findAllByText(
-          "isolated off-price print, volume-share anomaly"
+          /prediction-market game-state implied volatility/i
         )
       ).length
     ).toBeGreaterThan(0);
@@ -952,6 +1085,173 @@ describe("App routes", () => {
     expect(requestedUrls).toContain(
       "/api/v1/divergence?sort=signalPriority&limit=25"
     );
+    const liveAnomalyUrl = requestedUrls.find((url) =>
+      url.startsWith("/api/v1/research/market-anomalies")
+    );
+    expect(liveAnomalyUrl).toBeDefined();
+    expect(
+      new URL(liveAnomalyUrl!, "http://signal-console.test").searchParams.get(
+        "skipQuoteAnomalies"
+      )
+    ).toBeNull();
+  });
+
+  it("keeps live desk primary surfaces polling after initial render", async () => {
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      requestedUrls.push(String(input));
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Volatility now",
+      })
+    ).toBeInTheDocument();
+
+    const initialGameRequests = requestedUrls.filter((url) =>
+      url.startsWith("/api/v1/games?limit=25")
+    ).length;
+    const initialDivergenceRequests = requestedUrls.filter((url) =>
+      url.startsWith("/api/v1/divergence?sort=signalPriority&limit=25")
+    ).length;
+
+    await waitFor(
+      () => {
+        expect(
+          requestedUrls.filter((url) =>
+            url.startsWith("/api/v1/games?limit=25")
+          ).length
+        ).toBeGreaterThan(initialGameRequests);
+        expect(
+          requestedUrls.filter((url) =>
+            url.startsWith("/api/v1/divergence?sort=signalPriority&limit=25")
+          ).length
+        ).toBeGreaterThan(initialDivergenceRequests);
+      },
+      { timeout: 6_500 }
+    );
+  }, 8_000);
+
+  it("keeps the trader desk off the failure screen when a primary request retries successfully", async () => {
+    const baseFetch = createSettingsFetchImplementation();
+    let divergenceAttempts = 0;
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/divergence")) {
+        divergenceAttempts += 1;
+        if (divergenceAttempts === 1) {
+          return mockErrorResponse({
+            message: "Ranked divergence queue flaked.",
+            status: 500,
+          });
+        }
+      }
+
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Volatility now",
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Trader desk failed to load",
+      })
+    ).not.toBeInTheDocument();
+    expect(divergenceAttempts).toBeGreaterThan(1);
+  });
+
+  it("keeps cached primary data visible when a later primary refresh fails", async () => {
+    const baseFetch = createSettingsFetchImplementation();
+    const cachedGames = await (
+      await baseFetch("/api/v1/games?limit=25")
+    ).json();
+    const cachedDivergence = await (
+      await baseFetch("/api/v1/divergence?sort=signalPriority&limit=25")
+    ).json();
+
+    queryClient.setQueryData(["games", { limit: 25 }], cachedGames, {
+      updatedAt: 0,
+    });
+    queryClient.setQueryData(
+      ["divergence", { limit: 25, sort: "signalPriority" }],
+      cachedDivergence,
+      { updatedAt: 0 }
+    );
+
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (
+        url === "/api/v1/games" ||
+        url.startsWith("/api/v1/games?") ||
+        url.startsWith("/api/v1/divergence")
+      ) {
+        return mockErrorResponse({
+          message: "Primary refresh failed.",
+          status: 500,
+        });
+      }
+
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Volatility now",
+      })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("Showing last trusted persisted data.")
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Primary refresh failed/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Trader desk failed to load",
+      })
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the primary trader queue visible when the market-anomalies feed fails", async () => {
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/market-anomalies")) {
+        return mockErrorResponse({
+          message: "Market anomaly feed timed out.",
+          status: 500,
+        });
+      }
+
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Volatility now",
+      })
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/supporting desk feed/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Trader desk failed to load",
+      })
+    ).not.toBeInTheDocument();
   });
 
   it("fails the trader desk honestly when primary research surfaces cannot load", async () => {
@@ -984,6 +1284,1495 @@ describe("App routes", () => {
     expect(
       screen.queryByText(/No ranked market pressure is persisted yet/i)
     ).not.toBeInTheDocument();
+  });
+
+  it("does not crash the board alerts history view while a date is invalid", async () => {
+    window.history.replaceState({}, "", "/board-alerts");
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts/incidents")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-17T19:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-17T19:00:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "NBA trader incidents" })
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Historic" }));
+    fireEvent.change(screen.getByLabelText("Research date (UTC)"), {
+      target: { value: "" },
+    });
+
+    expect(
+      screen.getByText("Choose a valid research date.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Console shell crashed")).not.toBeInTheDocument();
+  });
+
+  it("keeps multiple same-game historic incidents visible on the requested research date", async () => {
+    window.history.replaceState({}, "", "/board-alerts?date=2026-05-16");
+    const common = {
+      components: {
+        coherence: 0.8,
+        coverage: 0,
+        microstructure: 0.7,
+        residual: 0.8,
+      },
+      confidence: 0.9,
+      detectedAt: "2026-05-16T02:10:00.000Z",
+      firstPopAt: "2026-05-16T02:01:48.000Z",
+      gameId: "nba-0042500206",
+      gameLabel: "Pistons at Cavaliers",
+      h0Adjustments: { appliedSuppression: 0, drivers: [] },
+      inspect: {
+        instrumentIds: [],
+        payloadVersion: 1 as const,
+        relationFamilies: [],
+        sourceMarketIds: [],
+      },
+      missingDataNotes: [],
+      severity: "high" as const,
+    };
+    const cadeIncident: BoardAnomalyAlertDto = {
+      ...common,
+      evidence: [
+        {
+          contribution: 0.62,
+          displayLabel: "Cade Cunningham over 8.5 assists",
+          evidenceUnmapped: false,
+          family: "player-prop",
+          observationId: "cade-assists",
+          participantKey: "cade cunningham",
+          reason: "62.0% share · $80 @ $0.55",
+          source: "polymarket",
+          sourceKind: "prediction-market",
+        },
+      ],
+      id: "incident-cade",
+      primaryEntityKey: "cade cunningham",
+      primaryFamily: "player-prop",
+      reason:
+        "Movement is concentrated around Cade Cunningham's assists and rebounds within 10m.",
+      score: 92,
+      shockKind: "attribution-shaped",
+    };
+    const evanIncident: BoardAnomalyAlertDto = {
+      ...common,
+      detectedAt: "2026-05-16T01:44:07.000Z",
+      evidence: [
+        {
+          contribution: 0.98,
+          displayLabel: "Evan Mobley rebounds under 8.5",
+          evidenceUnmapped: false,
+          family: "player-prop",
+          observationId: "evan-rebounds",
+          participantKey: "evan mobley",
+          reason: "98.0% score · off-price print",
+          source: "polymarket",
+          sourceKind: "prediction-market",
+        },
+      ],
+      firstPopAt: "2026-05-16T01:44:07.000Z",
+      id: "incident-evan",
+      primaryEntityKey: "evan mobley",
+      primaryFamily: "player-prop",
+      reason:
+        "Evan Mobley rebounds market printed off-price during the same incident window.",
+      score: 80,
+      shockKind: "market-structure",
+    };
+    const baseFetch = createSettingsFetchImplementation();
+    const incidentUrls: string[] = [];
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts/incidents")) {
+        incidentUrls.push(url);
+      }
+      if (
+        url.startsWith(
+          "/api/v1/research/board-alerts/incidents?date=2026-05-16"
+        )
+      ) {
+        return mockJsonResponse({
+          data: [cadeIncident, evanIncident],
+          meta: { date: "2026-05-16", generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "NBA trader incidents" })
+    ).toBeInTheDocument();
+
+    expect(screen.getByDisplayValue("2026-05-16")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Cade Cunningham" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Evan Mobley" })
+    ).toBeInTheDocument();
+    expect(incidentUrls).toEqual([
+      "/api/v1/research/board-alerts/incidents?date=2026-05-16&limit=50",
+    ]);
+
+    const cadeHeading = screen.getByRole("heading", {
+      name: "Cade Cunningham",
+    });
+    const cadeCard = cadeHeading.closest("article");
+    expect(cadeCard).not.toBeNull();
+    expect(
+      within(cadeCard as HTMLElement)
+        .getByRole("link", { name: "Inspect →" })
+        .getAttribute("href")
+    ).toContain("date=2026-05-16");
+  });
+
+  it("keeps the more specific prop shock visible when whole-game volatility is also present", async () => {
+    window.history.replaceState({}, "", "/board-alerts");
+    const common = {
+      components: {
+        coherence: 0.9,
+        coverage: 0,
+        microstructure: 0.8,
+        residual: 0.9,
+      },
+      confidence: 0.9,
+      detectedAt: "2026-05-17T23:00:30.000Z",
+      firstPopAt: "2026-05-17T23:00:00.000Z",
+      gameId: "nba-cle-det-2026-05-17",
+      gameLabel: "Cavaliers @ Pistons",
+      h0Adjustments: { appliedSuppression: 0, drivers: [] },
+      inspect: {
+        instrumentIds: [],
+        payloadVersion: 1 as const,
+        relationFamilies: [],
+        sourceMarketIds: [],
+      },
+      missingDataNotes: [],
+      severity: "high" as const,
+    };
+    const rows: BoardAnomalyAlertDto[] = [
+      {
+        ...common,
+        evidence: [
+          {
+            contribution: 1,
+            displayLabel: "Cade Cunningham Over 24.5 Points",
+            evidenceUnmapped: false,
+            family: "player-prop",
+            observationId: "prop-1",
+            participantKey: "cade-cunningham",
+            reason: "logit 1.00 after H0",
+            source: "kalshi",
+            sourceKind: "prediction-market",
+          },
+        ],
+        id: "board-alert-prop",
+        primaryEntityKey: "cade-cunningham",
+        primaryFamily: "player-prop",
+        reason: "attribution-shaped fanout on cade-cunningham",
+        score: 99,
+        shockKind: "attribution-shaped",
+      },
+      {
+        ...common,
+        evidence: [
+          {
+            contribution: 1,
+            displayLabel: "Cavaliers win",
+            evidenceUnmapped: false,
+            family: "moneyline",
+            observationId: "game-1",
+            participantKey: null,
+            reason: "logit 1.00 after H0",
+            source: "kalshi",
+            sourceKind: "prediction-market",
+          },
+        ],
+        id: "board-alert-game-state",
+        primaryEntityKey: null,
+        primaryFamily: null,
+        reason:
+          "prediction-market game-state implied volatility across moneyline, spread, total",
+        score: 61,
+        shockKind: "game-state-volatility",
+      },
+    ];
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: rows,
+          meta: { generatedAt: "2026-05-17T23:00:30.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Cade Cunningham",
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/attribution-shaped fanout on cade-cunningham/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Full game-state volatility/)
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the clicked prop shock visible on the inspect route", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/board-alerts/nba-cle-det-2026-05-17?at=2026-05-17T23:00:00.000Z&label=Cavaliers%20%40%20Pistons&alertId=board-alert-prop&date=2026-05-16"
+    );
+    const common = {
+      components: {
+        coherence: 0.9,
+        coverage: 0,
+        microstructure: 0.8,
+        residual: 0.9,
+      },
+      confidence: 0.9,
+      detectedAt: "2026-05-17T23:00:30.000Z",
+      firstPopAt: "2026-05-17T23:00:00.000Z",
+      gameId: "nba-cle-det-2026-05-17",
+      gameLabel: "Cavaliers @ Pistons",
+      h0Adjustments: { appliedSuppression: 0, drivers: [] },
+      inspect: {
+        instrumentIds: [],
+        payloadVersion: 1 as const,
+        relationFamilies: [],
+        sourceMarketIds: [],
+      },
+      missingDataNotes: [],
+      severity: "high" as const,
+    };
+    const propRow: BoardAnomalyAlertDto = {
+      ...common,
+      evidence: [
+        {
+          contribution: 1,
+          displayLabel: "Cade Cunningham Over 24.5 Points",
+          evidenceUnmapped: false,
+          family: "player-prop",
+          observationId: "prop-1",
+          participantKey: "cade-cunningham",
+          reason: "logit 1.00 after H0",
+          source: "kalshi",
+          sourceKind: "prediction-market",
+        },
+      ],
+      id: "board-alert-prop",
+      primaryEntityKey: "cade-cunningham",
+      primaryFamily: "player-prop",
+      reason: "attribution-shaped fanout on cade-cunningham",
+      score: 99,
+      shockKind: "attribution-shaped",
+    };
+    const propIncident: BoardIncidentDto = {
+      ...propRow,
+      playByPlay: {
+        available: true,
+        firstActionAt: "2026-05-17T22:55:00.000Z",
+        lastActionAt: "2026-05-18T00:45:00.000Z",
+        nearestAfter: null,
+        nearestBefore: {
+          actionNumber: 14,
+          actionType: "made-shot",
+          clock: "4:16",
+          description: "Cade Cunningham makes 3-pt jump shot",
+          offsetSeconds: -4,
+          period: 3,
+          teamTricode: "DET",
+          timeActual: "2026-05-17T22:59:56.000Z",
+        },
+        totalActions: 1,
+      },
+      vigAdjusted: null,
+    };
+    const gameStateRow: BoardAnomalyAlertDto = {
+      ...common,
+      evidence: [
+        {
+          contribution: 1,
+          displayLabel: "Cavaliers win",
+          evidenceUnmapped: false,
+          family: "moneyline",
+          observationId: "game-1",
+          participantKey: null,
+          reason: "logit 1.00 after H0",
+          source: "kalshi",
+          sourceKind: "prediction-market",
+        },
+      ],
+      id: "board-alert-game-state",
+      primaryEntityKey: null,
+      primaryFamily: null,
+      reason:
+        "prediction-market game-state implied volatility across moneyline, spread, total",
+      score: 61,
+      shockKind: "game-state-volatility",
+    };
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts/event-context")) {
+        return mockJsonResponse({
+          data: {
+            anchorAt: "2026-05-17T23:00:00.000Z",
+            gameId: "nba-cle-det-2026-05-17",
+            gameLabel: "Cavaliers @ Pistons",
+            playByPlay: [],
+            predictionMarketContext: { bySource: [], rows: [] },
+            windowEnd: "2026-05-17T23:30:00.000Z",
+            windowStart: "2026-05-17T22:30:00.000Z",
+          },
+          meta: { generatedAt: "2026-05-17T23:00:30.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts/replay")) {
+        return mockJsonResponse({
+          data: {
+            alertDeck: [propRow],
+            gameId: "nba-cle-det-2026-05-17",
+            gameLabel: "Cavaliers @ Pistons",
+            windowEnd: "2026-05-17T23:30:00.000Z",
+            windowStart: "2026-05-17T22:30:00.000Z",
+          },
+          meta: { generatedAt: "2026-05-17T23:00:30.000Z" },
+        });
+      }
+      if (
+        url.startsWith(
+          "/api/v1/research/board-alerts/incidents?date=2026-05-16"
+        )
+      ) {
+        return mockJsonResponse({
+          data: [propIncident],
+          meta: { date: "2026-05-16", generatedAt: "2026-05-17T23:00:30.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [propRow, gameStateRow],
+          meta: { generatedAt: "2026-05-17T23:00:30.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    const anchor = await screen.findByRole("region", {
+      name: "Trader read",
+    });
+    expect(within(anchor).getByText("Cade Cunningham")).toBeInTheDocument();
+    expect(
+      within(anchor).getByText(
+        /review or suspend cade cunningham player prop markets first/i
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(anchor).getByText(/q3 4:16/i, { selector: "strong" })
+    ).toBeInTheDocument();
+    expect(
+      within(anchor).getByText(/cade cunningham makes 3-pt jump shot/i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to desk" })).toHaveAttribute(
+      "href",
+      "/board-alerts?date=2026-05-16"
+    );
+  });
+
+  it("does not present a many-hours-away NBA row as nearby context on the inspect route", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/board-alerts/nba-0042500206?at=2026-05-15T17:18:26.000Z&label=Pistons%20at%20Cavaliers&alertId=incident-pregame&date=2026-05-15"
+    );
+    const incident: BoardIncidentDto = {
+      components: {
+        coherence: 0.8,
+        coverage: 0,
+        microstructure: 0.7,
+        residual: 0.8,
+      },
+      confidence: 0.9,
+      detectedAt: "2026-05-15T17:18:26.000Z",
+      evidence: [],
+      firstPopAt: "2026-05-15T17:18:26.000Z",
+      gameId: "nba-0042500206",
+      gameLabel: "Pistons at Cavaliers",
+      h0Adjustments: { appliedSuppression: 0, drivers: [] },
+      id: "incident-pregame",
+      inspect: {
+        instrumentIds: [],
+        payloadVersion: 1 as const,
+        relationFamilies: [],
+        sourceMarketIds: [],
+      },
+      missingDataNotes: [],
+      playByPlay: {
+        available: true,
+        firstActionAt: "2026-05-15T23:12:09.500Z",
+        lastActionAt: "2026-05-16T01:58:38.500Z",
+        nearestAfter: null,
+        nearestBefore: null,
+        totalActions: 200,
+      },
+      primaryEntityKey: null,
+      primaryFamily: "player-prop",
+      reason: "Pregame availability tripwire.",
+      score: 74,
+      severity: "high",
+      shockKind: "pregame-availability",
+      vigAdjusted: null,
+    };
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts/event-context")) {
+        return mockJsonResponse({
+          data: {
+            anchorAt: "2026-05-15T17:18:26.000Z",
+            gameId: "nba-0042500206",
+            gameLabel: "Pistons @ Cavaliers",
+            playByPlay: [],
+            predictionMarketContext: { bySource: [], rows: [] },
+            windowEnd: "2026-05-15T17:48:26.000Z",
+            windowStart: "2026-05-15T16:48:26.000Z",
+          },
+          meta: { generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts/replay")) {
+        return mockJsonResponse({
+          data: {
+            alertDeck: [],
+            gameId: "nba-0042500206",
+            gameLabel: "Pistons @ Cavaliers",
+            windowEnd: "2026-05-15T17:48:26.000Z",
+            windowStart: "2026-05-15T16:48:26.000Z",
+          },
+          meta: { generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      if (
+        url.startsWith(
+          "/api/v1/research/board-alerts/incidents?date=2026-05-15"
+        )
+      ) {
+        return mockJsonResponse({
+          data: [incident],
+          meta: { date: "2026-05-15", generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    const traderRead = await screen.findByRole("region", {
+      name: "Trader read",
+    });
+    expect(
+      within(traderRead).getByText(/pregame \/ no game clock yet/i)
+    ).toBeInTheDocument();
+    expect(within(traderRead).queryByText(/Nearest NBA feed row:/i)).toBeNull();
+    expect(within(traderRead).queryByText(/PT12M00/i)).toBeNull();
+    expect(
+      screen.queryByText(/Persisted NBA play-by-play is missing here/i)
+    ).toBeNull();
+  });
+
+  it("does not block a historical inspect route on replay data that it does not need", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/board-alerts/nba-0042500206?at=2026-05-15T17:18:26.000Z&label=Pistons%20at%20Cavaliers&alertId=incident-pregame&date=2026-05-15"
+    );
+    let replayCalled = false;
+    const incident: BoardIncidentDto = {
+      components: {
+        coherence: 0.8,
+        coverage: 0,
+        microstructure: 0.7,
+        residual: 0.8,
+      },
+      confidence: 0.9,
+      detectedAt: "2026-05-15T17:18:26.000Z",
+      evidence: [],
+      firstPopAt: "2026-05-15T17:18:26.000Z",
+      gameId: "nba-0042500206",
+      gameLabel: "Pistons at Cavaliers",
+      h0Adjustments: { appliedSuppression: 0, drivers: [] },
+      id: "incident-pregame",
+      inspect: {
+        instrumentIds: [],
+        payloadVersion: 1 as const,
+        relationFamilies: [],
+        sourceMarketIds: [],
+      },
+      missingDataNotes: [],
+      playByPlay: {
+        available: true,
+        firstActionAt: "2026-05-15T23:12:09.500Z",
+        lastActionAt: "2026-05-16T01:58:38.500Z",
+        nearestAfter: null,
+        nearestBefore: null,
+        totalActions: 200,
+      },
+      primaryEntityKey: null,
+      primaryFamily: "player-prop",
+      reason: "Pregame availability tripwire.",
+      score: 74,
+      severity: "high",
+      shockKind: "pregame-availability",
+      vigAdjusted: null,
+    };
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts/event-context")) {
+        return mockJsonResponse({
+          data: {
+            anchorAt: "2026-05-15T17:18:26.000Z",
+            gameId: "nba-0042500206",
+            gameLabel: "Pistons @ Cavaliers",
+            playByPlay: [],
+            predictionMarketContext: { bySource: [], rows: [] },
+            windowEnd: "2026-05-15T17:48:26.000Z",
+            windowStart: "2026-05-15T16:48:26.000Z",
+          },
+          meta: { generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts/replay")) {
+        replayCalled = true;
+        return mockJsonResponse({
+          data: null,
+          meta: { generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      if (
+        url.startsWith(
+          "/api/v1/research/board-alerts/incidents?date=2026-05-15"
+        )
+      ) {
+        return mockJsonResponse({
+          data: [incident],
+          meta: { date: "2026-05-15", generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("region", { name: "Trader read" })
+    ).toBeInTheDocument();
+    expect(replayCalled).toBe(false);
+  });
+
+  it("shows the exact historical participant incident from real event-context data while the broad incidents list is still unresolved", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/board-alerts/nba-0042500301?at=2026-05-20T00:17:30.000Z&label=Cavaliers%20at%20Knicks&alertId=historic-participant%3Anba-0042500301%3Adean+wade%3A2026-05-20T00%3A17%3A30.000Z&date=2026-05-20"
+    );
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts/event-context")) {
+        return mockJsonResponse({
+          data: {
+            anchorAt: "2026-05-20T00:17:30.000Z",
+            gameId: "nba-0042500301",
+            gameLabel: "Cavaliers @ Knicks",
+            resolvedIncident: {
+              components: {
+                coherence: 0.5,
+                coverage: 0,
+                microstructure: 1,
+                residual: 1,
+              },
+              confidence: 0.97,
+              detectedAt: "2026-05-20T00:17:30.000Z",
+              evidence: [
+                {
+                  contribution: 0.9,
+                  displayLabel: "Dean Wade rebounds over 1.5",
+                  evidenceUnmapped: false,
+                  family: "rebounds",
+                  observationId:
+                    "historic-participant:sm-dean-wade-rebounds:2026-05-20T00:17:30.000Z",
+                  participantKey: "dean-wade",
+                  reason: "68.0% share · $119 @ $0.99",
+                  source: "polymarket",
+                  sourceKind: "prediction-market",
+                },
+                {
+                  contribution: 0.6,
+                  displayLabel: "Dean Wade assists over 0.5",
+                  evidenceUnmapped: false,
+                  family: "assists",
+                  observationId:
+                    "historic-participant:sm-dean-wade-assists:2026-05-20T00:17:48.000Z",
+                  participantKey: "dean-wade",
+                  reason: "13.0% share · $52 @ $0.99",
+                  source: "polymarket",
+                  sourceKind: "prediction-market",
+                },
+              ],
+              firstPopAt: "2026-05-20T00:17:30.000Z",
+              gameId: "nba-0042500301",
+              gameLabel: "Cavaliers @ Knicks",
+              h0Adjustments: {
+                appliedSuppression: 0,
+                drivers: [
+                  "2 prediction-market observations (2 trades) across 2 stat families",
+                  "play-by-play context available",
+                ],
+              },
+              id: "historic-participant:nba-0042500301:dean-wade:2026-05-20T00:17:30.000Z",
+              inspect: {
+                instrumentIds: [
+                  "nba-0042500301-player-prop-rebounds-dean-wade-over-1-5",
+                  "nba-0042500301-player-prop-assists-dean-wade-over-0-5",
+                ],
+                payloadVersion: 1,
+                relationFamilies: ["rebounds", "assists"],
+                sourceMarketIds: [
+                  "sm-dean-wade-rebounds",
+                  "sm-dean-wade-assists",
+                ],
+              },
+              missingDataNotes: [],
+              playByPlay: {
+                available: true,
+                firstActionAt: "2026-05-20T00:13:43.700Z",
+                lastActionAt: "2026-05-20T02:59:58.000Z",
+                nearestAfter: {
+                  actionNumber: 29,
+                  actionType: "3pt",
+                  clock: "PT09M24.00S",
+                  description:
+                    "D. Mitchell 25' 3PT pullup (3 PTS) (D. Wade 2 AST)",
+                  offsetSeconds: -8,
+                  period: 1,
+                  teamTricode: "CLE",
+                  timeActual: "2026-05-20T00:17:37.800Z",
+                },
+                nearestBefore: {
+                  actionNumber: 28,
+                  actionType: "rebound",
+                  clock: "PT09M38.00S",
+                  description: "D. Wade REBOUND (Off:1 Def:1)",
+                  offsetSeconds: 6,
+                  period: 1,
+                  teamTricode: "CLE",
+                  timeActual: "2026-05-20T00:17:24.200Z",
+                },
+                totalActions: 634,
+              },
+              primaryEntityKey: "dean-wade",
+              primaryFamily: "rebounds",
+              reason:
+                "Movement is concentrated around Dean Wade's assists, rebounds markets within 1m. Pattern is consistent with a player-specific stat event affecting related props.",
+              score: 100,
+              severity: "critical",
+              shockKind: "attribution-shaped",
+              vigAdjusted: null,
+            },
+            playByPlay: [
+              {
+                actionNumber: 1,
+                clock: "PT09M38.00S",
+                description: "D. Wade REBOUND (Off:1 Def:1)",
+                offsetSeconds: -6,
+                period: 1,
+                teamTricode: "CLE",
+                timeActual: "2026-05-20T00:17:24.000Z",
+              },
+            ],
+            predictionMarketContext: {
+              bySource: [
+                {
+                  families: ["rebounds", "assists"],
+                  nearestOffsetSeconds: 0,
+                  nearestTimestamp: "2026-05-20T00:17:30.000Z",
+                  observationCount: 2,
+                  participantKeys: ["dean-wade"],
+                  quoteCount: 0,
+                  source: "polymarket",
+                  topRows: [
+                    {
+                      bestAsk: null,
+                      bestBid: null,
+                      capturedAt: "2026-05-20T00:17:30.000Z",
+                      depthScore: null,
+                      displayLabel: "Dean Wade rebounds over 1.5",
+                      eventTimestamp: "2026-05-20T00:17:30.000Z",
+                      family: "rebounds",
+                      finalMarketVolume: null,
+                      impliedProbability: 0.99,
+                      kind: "trade",
+                      mappingStatus: "auto",
+                      notional: 118.79,
+                      observationId: "microstructure:1",
+                      offsetSeconds: 0,
+                      participantKey: "dean-wade",
+                      previousImpliedProbability: 0.31,
+                      signalStrength: 0.9,
+                      source: "polymarket",
+                      sourceMarketId: "sm-dean-wade-rebounds",
+                      spread: null,
+                      tradePrice: 0.99,
+                      tradeSize: 119.99,
+                      volume: null,
+                      volumeShare: 0.68,
+                    },
+                    {
+                      bestAsk: null,
+                      bestBid: null,
+                      capturedAt: "2026-05-20T00:17:48.000Z",
+                      depthScore: null,
+                      displayLabel: "Dean Wade assists over 0.5",
+                      eventTimestamp: "2026-05-20T00:17:48.000Z",
+                      family: "assists",
+                      finalMarketVolume: null,
+                      impliedProbability: 0.99,
+                      kind: "trade",
+                      mappingStatus: "auto",
+                      notional: 52,
+                      observationId: "microstructure:2",
+                      offsetSeconds: 18,
+                      participantKey: "dean-wade",
+                      previousImpliedProbability: 0.43,
+                      signalStrength: 0.6,
+                      source: "polymarket",
+                      sourceMarketId: "sm-dean-wade-assists",
+                      spread: null,
+                      tradePrice: 0.99,
+                      tradeSize: 52.53,
+                      volume: null,
+                      volumeShare: 0.13,
+                    },
+                  ],
+                  tradeCount: 2,
+                },
+              ],
+              rows: [
+                {
+                  bestAsk: null,
+                  bestBid: null,
+                  capturedAt: "2026-05-20T00:17:30.000Z",
+                  depthScore: null,
+                  displayLabel: "Dean Wade rebounds over 1.5",
+                  eventTimestamp: "2026-05-20T00:17:30.000Z",
+                  family: "rebounds",
+                  finalMarketVolume: null,
+                  impliedProbability: 0.99,
+                  kind: "trade",
+                  mappingStatus: "auto",
+                  notional: 118.79,
+                  observationId: "microstructure:1",
+                  offsetSeconds: 0,
+                  participantKey: "dean-wade",
+                  previousImpliedProbability: 0.31,
+                  signalStrength: 0.9,
+                  source: "polymarket",
+                  sourceMarketId: "sm-dean-wade-rebounds",
+                  spread: null,
+                  tradePrice: 0.99,
+                  tradeSize: 119.99,
+                  volume: null,
+                  volumeShare: 0.68,
+                },
+                {
+                  bestAsk: null,
+                  bestBid: null,
+                  capturedAt: "2026-05-20T00:17:48.000Z",
+                  depthScore: null,
+                  displayLabel: "Dean Wade assists over 0.5",
+                  eventTimestamp: "2026-05-20T00:17:48.000Z",
+                  family: "assists",
+                  finalMarketVolume: null,
+                  impliedProbability: 0.99,
+                  kind: "trade",
+                  mappingStatus: "auto",
+                  notional: 52,
+                  observationId: "microstructure:2",
+                  offsetSeconds: 18,
+                  participantKey: "dean-wade",
+                  previousImpliedProbability: 0.43,
+                  signalStrength: 0.6,
+                  source: "polymarket",
+                  sourceMarketId: "sm-dean-wade-assists",
+                  spread: null,
+                  tradePrice: 0.99,
+                  tradeSize: 52.53,
+                  volume: null,
+                  volumeShare: 0.13,
+                },
+              ],
+            },
+            windowEnd: "2026-05-20T00:47:30.000Z",
+            windowStart: "2026-05-19T23:47:30.000Z",
+          },
+          meta: { generatedAt: "2026-05-20T04:00:00.000Z" },
+        });
+      }
+      if (
+        url.startsWith(
+          "/api/v1/research/board-alerts/incidents?date=2026-05-20"
+        )
+      ) {
+        return mockJsonResponse({
+          data: [],
+          meta: { date: "2026-05-20", generatedAt: "2026-05-20T04:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts/replay")) {
+        return mockJsonResponse({
+          data: null,
+          meta: { generatedAt: "2026-05-20T04:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-20T04:00:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /dean wade incident review/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/persisted incident read still resolving/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /review or suspend dean wade rebounds, assists markets first/i
+      )
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Dean Wade rebounds over 1.5").length).toBe(2);
+    expect(screen.getAllByText("Dean Wade assists over 0.5").length).toBe(2);
+  });
+
+  it("keeps fallback review targets pinned to the selected participant on a historical participant inspect page", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/board-alerts/nba-0042500301?at=2026-05-20T00:17:30.000Z&label=Cavaliers%20at%20Knicks&alertId=historic-participant%3Anba-0042500301%3Adean+wade%3A2026-05-20T00%3A17%3A30.000Z&date=2026-05-20"
+    );
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts/event-context")) {
+        return mockJsonResponse({
+          data: {
+            anchorAt: "2026-05-20T00:17:30.000Z",
+            gameId: "nba-0042500301",
+            gameLabel: "Cavaliers @ Knicks",
+            resolvedIncident: {
+              components: {
+                coherence: 0.5,
+                coverage: 0,
+                microstructure: 1,
+                residual: 1,
+              },
+              confidence: 0.97,
+              detectedAt: "2026-05-20T00:17:30.000Z",
+              evidence: [],
+              firstPopAt: "2026-05-20T00:17:30.000Z",
+              gameId: "nba-0042500301",
+              gameLabel: "Cavaliers @ Knicks",
+              h0Adjustments: {
+                appliedSuppression: 0,
+                drivers: [],
+              },
+              id: "historic-participant:nba-0042500301:dean-wade:2026-05-20T00:17:30.000Z",
+              inspect: {
+                instrumentIds: [],
+                payloadVersion: 1,
+                relationFamilies: ["rebounds"],
+                sourceMarketIds: [],
+              },
+              missingDataNotes: [],
+              playByPlay: {
+                available: true,
+                firstActionAt: "2026-05-20T00:13:43.700Z",
+                lastActionAt: "2026-05-20T02:59:58.000Z",
+                nearestAfter: null,
+                nearestBefore: {
+                  actionNumber: 28,
+                  actionType: "rebound",
+                  clock: "PT09M38.00S",
+                  description: "D. Wade REBOUND (Off:1 Def:1)",
+                  offsetSeconds: 6,
+                  period: 1,
+                  teamTricode: "CLE",
+                  timeActual: "2026-05-20T00:17:24.200Z",
+                },
+                totalActions: 634,
+              },
+              primaryEntityKey: "dean-wade",
+              primaryFamily: "rebounds",
+              reason: "Dean Wade incident.",
+              score: 100,
+              severity: "critical",
+              shockKind: "attribution-shaped",
+              vigAdjusted: null,
+            },
+            playByPlay: [],
+            predictionMarketContext: {
+              bySource: [
+                {
+                  families: ["points", "rebounds"],
+                  nearestOffsetSeconds: 0,
+                  nearestTimestamp: "2026-05-20T00:17:30.000Z",
+                  observationCount: 2,
+                  participantKeys: ["dean-wade", "other-player"],
+                  quoteCount: 0,
+                  source: "polymarket",
+                  topRows: [
+                    {
+                      bestAsk: null,
+                      bestBid: null,
+                      capturedAt: "2026-05-20T00:17:30.000Z",
+                      depthScore: null,
+                      displayLabel: "Other Player points over 10.5",
+                      eventTimestamp: "2026-05-20T00:17:30.000Z",
+                      family: "points",
+                      finalMarketVolume: null,
+                      impliedProbability: 0.99,
+                      kind: "trade",
+                      mappingStatus: "auto",
+                      notional: 300,
+                      observationId: "microstructure:other",
+                      offsetSeconds: 0,
+                      participantKey: "other-player",
+                      previousImpliedProbability: 0.12,
+                      signalStrength: 1,
+                      source: "polymarket",
+                      sourceMarketId: "sm-other-player-points",
+                      spread: null,
+                      tradePrice: 0.99,
+                      tradeSize: 300,
+                      volume: null,
+                      volumeShare: 0.5,
+                    },
+                    {
+                      bestAsk: null,
+                      bestBid: null,
+                      capturedAt: "2026-05-20T00:17:31.000Z",
+                      depthScore: null,
+                      displayLabel: "Dean Wade rebounds over 1.5",
+                      eventTimestamp: "2026-05-20T00:17:31.000Z",
+                      family: "rebounds",
+                      finalMarketVolume: null,
+                      impliedProbability: 0.75,
+                      kind: "trade",
+                      mappingStatus: "auto",
+                      notional: 25,
+                      observationId: "microstructure:dean",
+                      offsetSeconds: 1,
+                      participantKey: "dean-wade",
+                      previousImpliedProbability: 0.4,
+                      signalStrength: 0.35,
+                      source: "polymarket",
+                      sourceMarketId: "sm-dean-wade-rebounds",
+                      spread: null,
+                      tradePrice: 0.75,
+                      tradeSize: 33,
+                      volume: null,
+                      volumeShare: 0.08,
+                    },
+                  ],
+                  tradeCount: 2,
+                },
+              ],
+              rows: [
+                {
+                  bestAsk: null,
+                  bestBid: null,
+                  capturedAt: "2026-05-20T00:17:30.000Z",
+                  depthScore: null,
+                  displayLabel: "Other Player points over 10.5",
+                  eventTimestamp: "2026-05-20T00:17:30.000Z",
+                  family: "points",
+                  finalMarketVolume: null,
+                  impliedProbability: 0.99,
+                  kind: "trade",
+                  mappingStatus: "auto",
+                  notional: 300,
+                  observationId: "microstructure:other",
+                  offsetSeconds: 0,
+                  participantKey: "other-player",
+                  previousImpliedProbability: 0.12,
+                  signalStrength: 1,
+                  source: "polymarket",
+                  sourceMarketId: "sm-other-player-points",
+                  spread: null,
+                  tradePrice: 0.99,
+                  tradeSize: 300,
+                  volume: null,
+                  volumeShare: 0.5,
+                },
+                {
+                  bestAsk: null,
+                  bestBid: null,
+                  capturedAt: "2026-05-20T00:17:31.000Z",
+                  depthScore: null,
+                  displayLabel: "Dean Wade rebounds over 1.5",
+                  eventTimestamp: "2026-05-20T00:17:31.000Z",
+                  family: "rebounds",
+                  finalMarketVolume: null,
+                  impliedProbability: 0.75,
+                  kind: "trade",
+                  mappingStatus: "auto",
+                  notional: 25,
+                  observationId: "microstructure:dean",
+                  offsetSeconds: 1,
+                  participantKey: "dean-wade",
+                  previousImpliedProbability: 0.4,
+                  signalStrength: 0.35,
+                  source: "polymarket",
+                  sourceMarketId: "sm-dean-wade-rebounds",
+                  spread: null,
+                  tradePrice: 0.75,
+                  tradeSize: 33,
+                  volume: null,
+                  volumeShare: 0.08,
+                },
+              ],
+            },
+            windowEnd: "2026-05-20T00:47:30.000Z",
+            windowStart: "2026-05-19T23:47:30.000Z",
+          },
+          meta: { generatedAt: "2026-05-20T04:00:00.000Z" },
+        });
+      }
+      if (
+        url.startsWith(
+          "/api/v1/research/board-alerts/incidents?date=2026-05-20"
+        )
+      ) {
+        return mockJsonResponse({
+          data: [],
+          meta: { date: "2026-05-20", generatedAt: "2026-05-20T04:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts/replay")) {
+        return mockJsonResponse({
+          data: null,
+          meta: { generatedAt: "2026-05-20T04:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-20T04:00:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    const reviewTargets = await screen.findByRole("region", {
+      name: "Review targets",
+    });
+    expect(
+      within(reviewTargets).getByText("Dean Wade rebounds over 1.5")
+    ).toBeInTheDocument();
+    expect(
+      within(reviewTargets).queryByText("Other Player points over 10.5")
+    ).not.toBeInTheDocument();
+  });
+
+  it("filters same-game historical follow-up down to the same incident burst", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/board-alerts/nba-cle-det-2026-05-17?at=2026-05-17T23:00:00.000Z&label=Cavaliers%20%40%20Pistons&alertId=board-alert-broad&date=2026-05-16"
+    );
+    const common = {
+      components: {
+        coherence: 0.9,
+        coverage: 0,
+        microstructure: 0.8,
+        residual: 0.9,
+      },
+      confidence: 0.9,
+      gameId: "nba-cle-det-2026-05-17",
+      gameLabel: "Cavaliers @ Pistons",
+      h0Adjustments: { appliedSuppression: 0, drivers: [] },
+      inspect: {
+        instrumentIds: [],
+        payloadVersion: 1 as const,
+        relationFamilies: [],
+        sourceMarketIds: [],
+      },
+      missingDataNotes: [],
+      severity: "high" as const,
+    };
+    const broadIncident: BoardIncidentDto = {
+      ...common,
+      detectedAt: "2026-05-17T23:00:00.000Z",
+      firstPopAt: "2026-05-17T23:00:00.000Z",
+      id: "board-alert-broad",
+      evidence: [
+        {
+          contribution: 1,
+          displayLabel: "Over 203.5 total",
+          evidenceUnmapped: false,
+          family: "total",
+          observationId: "broad-1",
+          participantKey: null,
+          reason: "100.0% share · $133 @ $0.99",
+          source: "polymarket",
+          sourceKind: "prediction-market",
+        },
+      ],
+      playByPlay: {
+        available: false,
+        firstActionAt: null,
+        lastActionAt: null,
+        nearestAfter: null,
+        nearestBefore: null,
+        totalActions: 0,
+      },
+      primaryEntityKey: null,
+      primaryFamily: "total",
+      reason: "Broad total tripwire.",
+      score: 80,
+      shockKind: "market-structure",
+      vigAdjusted: null,
+    };
+    const nearIncident: BoardIncidentDto = {
+      ...common,
+      detectedAt: "2026-05-17T22:59:10.000Z",
+      firstPopAt: "2026-05-17T22:59:10.000Z",
+      id: "board-alert-near",
+      evidence: [
+        {
+          contribution: 1,
+          displayLabel: "Cade Cunningham rebounds under 5.5",
+          evidenceUnmapped: false,
+          family: "player-prop",
+          observationId: "near-1",
+          participantKey: "cade-cunningham",
+          reason: "12.0% share · $29 @ $0.77",
+          source: "polymarket",
+          sourceKind: "prediction-market",
+        },
+      ],
+      playByPlay: {
+        available: false,
+        firstActionAt: null,
+        lastActionAt: null,
+        nearestAfter: null,
+        nearestBefore: null,
+        totalActions: 0,
+      },
+      primaryEntityKey: "cade-cunningham",
+      primaryFamily: "player-prop",
+      reason: "Cade follow-up.",
+      score: 72,
+      shockKind: "attribution-shaped",
+      vigAdjusted: null,
+    };
+    const farIncident: BoardIncidentDto = {
+      ...common,
+      detectedAt: "2026-05-17T21:30:00.000Z",
+      firstPopAt: "2026-05-17T21:30:00.000Z",
+      id: "board-alert-far",
+      evidence: [
+        {
+          contribution: 1,
+          displayLabel: "Dean Wade points over 0.5",
+          evidenceUnmapped: false,
+          family: "player-prop",
+          observationId: "far-1",
+          participantKey: "dean-wade",
+          reason: "60.0% share · $99 @ $0.99",
+          source: "polymarket",
+          sourceKind: "prediction-market",
+        },
+      ],
+      playByPlay: {
+        available: false,
+        firstActionAt: null,
+        lastActionAt: null,
+        nearestAfter: null,
+        nearestBefore: null,
+        totalActions: 0,
+      },
+      primaryEntityKey: "dean-wade",
+      primaryFamily: "player-prop",
+      reason: "Dean far-away incident.",
+      score: 95,
+      shockKind: "attribution-shaped",
+      vigAdjusted: null,
+    };
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts/event-context")) {
+        return mockJsonResponse({
+          data: {
+            anchorAt: "2026-05-17T23:00:00.000Z",
+            gameId: "nba-cle-det-2026-05-17",
+            gameLabel: "Cavaliers @ Pistons",
+            playByPlay: [],
+            predictionMarketContext: { bySource: [], rows: [] },
+            windowEnd: "2026-05-17T23:30:00.000Z",
+            windowStart: "2026-05-17T22:30:00.000Z",
+          },
+          meta: { generatedAt: "2026-05-17T23:00:30.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts/replay")) {
+        return mockJsonResponse({
+          data: {
+            alertDeck: [],
+            gameId: "nba-cle-det-2026-05-17",
+            gameLabel: "Cavaliers @ Pistons",
+            windowEnd: "2026-05-17T23:30:00.000Z",
+            windowStart: "2026-05-17T22:30:00.000Z",
+          },
+          meta: { generatedAt: "2026-05-17T23:00:30.000Z" },
+        });
+      }
+      if (
+        url.startsWith(
+          "/api/v1/research/board-alerts/incidents?date=2026-05-16"
+        )
+      ) {
+        return mockJsonResponse({
+          data: [broadIncident, nearIncident, farIncident],
+          meta: { date: "2026-05-16", generatedAt: "2026-05-17T23:00:30.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-17T23:00:30.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    const followUp = await screen.findByRole("region", {
+      name: "Nearby incidents",
+    });
+    const traderRead = screen.getByRole("region", {
+      name: "Trader read",
+    });
+    expect(
+      within(followUp).getByText(/same-burst follow-up/i)
+    ).toBeInTheDocument();
+    expect(within(followUp).getByText(/cade cunningham/i)).toBeInTheDocument();
+    expect(within(followUp).queryByText(/dean wade/i)).not.toBeInTheDocument();
+    expect(
+      within(traderRead).getByText(
+        /persisted nba row missing|no nearby nba row/i
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(traderRead).queryByText(/^Unavailable$/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps historic same-game cards in time order and surfaces trader-usable timing labels", async () => {
+    window.history.replaceState({}, "", "/board-alerts?date=2026-05-16");
+    const common = {
+      components: {
+        coherence: 0.8,
+        coverage: 0,
+        microstructure: 0.7,
+        residual: 0.8,
+      },
+      confidence: 0.9,
+      gameId: "nba-0042500206",
+      gameLabel: "Pistons at Cavaliers",
+      h0Adjustments: { appliedSuppression: 0, drivers: [] },
+      inspect: {
+        instrumentIds: [],
+        payloadVersion: 1 as const,
+        relationFamilies: [],
+        sourceMarketIds: [],
+      },
+      missingDataNotes: [],
+      severity: "high" as const,
+      vigAdjusted: null,
+    };
+    const pregameIncident: BoardIncidentDto = {
+      ...common,
+      detectedAt: "2026-05-16T17:18:26.000Z",
+      evidence: [],
+      firstPopAt: "2026-05-16T17:18:26.000Z",
+      id: "incident-pregame",
+      playByPlay: {
+        available: true,
+        firstActionAt: "2026-05-16T23:12:09.500Z",
+        lastActionAt: "2026-05-17T01:58:38.500Z",
+        nearestAfter: null,
+        nearestBefore: null,
+        totalActions: 200,
+      },
+      primaryEntityKey: null,
+      primaryFamily: "player-prop",
+      reason: "Pregame availability tripwire.",
+      score: 95,
+      shockKind: "pregame-availability",
+    };
+    const inGameIncident: BoardIncidentDto = {
+      ...common,
+      detectedAt: "2026-05-16T23:16:04.000Z",
+      evidence: [],
+      firstPopAt: "2026-05-16T23:16:04.000Z",
+      id: "incident-ingame",
+      playByPlay: {
+        available: true,
+        firstActionAt: "2026-05-16T23:12:09.500Z",
+        lastActionAt: "2026-05-17T01:58:38.500Z",
+        nearestAfter: null,
+        nearestBefore: {
+          actionNumber: 39,
+          actionType: "2pt",
+          clock: "PT08M43.00S",
+          description: "A. Thompson running Layup",
+          offsetSeconds: 0,
+          period: 1,
+          teamTricode: "DET",
+          timeActual: "2026-05-16T23:16:04.500Z",
+        },
+        totalActions: 200,
+      },
+      primaryEntityKey: "ausar thompson",
+      primaryFamily: "player-prop",
+      reason: "In-game player follow-up.",
+      score: 70,
+      shockKind: "attribution-shaped",
+    };
+    const lateIncident: BoardIncidentDto = {
+      ...common,
+      detectedAt: "2026-05-16T23:36:27.000Z",
+      evidence: [],
+      firstPopAt: "2026-05-16T23:36:27.000Z",
+      id: "incident-late",
+      playByPlay: {
+        available: true,
+        firstActionAt: "2026-05-16T23:12:09.500Z",
+        lastActionAt: "2026-05-17T01:58:38.500Z",
+        nearestAfter: null,
+        nearestBefore: {
+          actionNumber: 136,
+          actionType: "turnover",
+          clock: "PT00M56.80S",
+          description: "C. Cunningham offensive foul turnover",
+          offsetSeconds: 8,
+          period: 1,
+          teamTricode: "DET",
+          timeActual: "2026-05-16T23:36:19.400Z",
+        },
+        totalActions: 200,
+      },
+      primaryEntityKey: "ausar thompson",
+      primaryFamily: "player-prop",
+      reason: "Late in-game market structure alert.",
+      score: 99,
+      shockKind: "market-structure",
+    };
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (
+        url.startsWith(
+          "/api/v1/research/board-alerts/incidents?date=2026-05-16"
+        )
+      ) {
+        return mockJsonResponse({
+          data: [lateIncident, pregameIncident, inGameIncident],
+          meta: { date: "2026-05-16", generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-19T20:00:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    const { container } = render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "NBA trader incidents" })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findAllByRole("link", { name: "Inspect →" })
+    ).toHaveLength(3);
+
+    const whenLabels = Array.from(
+      container.querySelectorAll(".trader-incident-card-when")
+    ).map((node) => node.textContent ?? "");
+    expect(whenLabels).toHaveLength(3);
+    expect(whenLabels[0]).toMatch(/Pregame .*before tip/i);
+    expect(whenLabels[1]).toMatch(/Q1 8:43/i);
+    expect(whenLabels[2]).toMatch(/Q1 0:56/i);
   });
 
   it("does not report zero player props while the family-filtered divergence request is loading", async () => {
@@ -1419,12 +3208,7 @@ describe("App routes", () => {
     render(<App />);
 
     expect(
-      await screen.findByText(
-        /No Bet365-vs-exchange trading signal is populated/i
-      )
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", {
+      await screen.findByRole("heading", {
         name: "Review: Boston moneyline",
       })
     ).toBeInTheDocument();
@@ -1504,12 +3288,7 @@ describe("App routes", () => {
     render(<App />);
 
     expect(
-      await screen.findByText(
-        /No current Bet365-vs-exchange trading signal is populated/i
-      )
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", {
+      await screen.findByRole("heading", {
         name: "Past comparison: Boston moneyline",
       })
     ).toBeInTheDocument();
@@ -1790,7 +3569,7 @@ describe("App routes", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "What the markets actually knew.",
+        name: "Volatility now",
       })
     ).toBeInTheDocument();
 

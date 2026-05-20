@@ -5,5 +5,9 @@ export { buildCoherenceClusters, deriveRelationKeys } from "./fanout";
 export type { CoherenceCluster, RelationKey } from "./fanout";
 export { classifyShock } from "./classifier";
 export type { ShockClassification } from "./classifier";
-export { detectBoardAnomalies } from "./detector";
+export {
+  compareBoardAnomalyAlerts,
+  detectBoardAnomalies,
+  measureBoardGameStateVolatility,
+} from "./detector";
 export { replayBoardAnomalies } from "./replay";

@@ -68,7 +68,7 @@ export function buildApiServer() {
   app.get("/health/live", async () => buildLivenessPayload());
 
   app.get("/health/ready", async (request, reply) => {
-    const payload = buildReadinessPayload({
+    const payload = await buildReadinessPayload({
       logger: request.log.child({ route: "health-ready" }),
     });
 
@@ -77,7 +77,7 @@ export function buildApiServer() {
 
   app.get("/health", async (request, reply) => {
     const live = buildLivenessPayload();
-    const ready = buildReadinessPayload({
+    const ready = await buildReadinessPayload({
       logger: request.log.child({ route: "health" }),
     });
 

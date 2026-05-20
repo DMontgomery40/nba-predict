@@ -104,7 +104,7 @@ export function classifyShock(
   const primaryEntityKey = dominantParticipantKey(cluster);
   const reasonParts: string[] = [];
 
-  if (status.hasPregame) {
+  if (status.hasPregame && !status.hasInPlay) {
     const isNearTip =
       status.minMinutesToTip != null &&
       status.minMinutesToTip <= config.classification.nearTipMinutesToTip;

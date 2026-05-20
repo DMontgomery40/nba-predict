@@ -13,6 +13,7 @@ import {
   getAdminSources,
   getAdminStorageCoverage,
   getClosedGames,
+  getBoardVolatility,
   getDivergence,
   getGames,
   getInstrumentLeadLag,
@@ -21,6 +22,7 @@ import {
   getReadyHealth,
   getSignalQualityReport,
   getSignalMismatches,
+  isApiRequestError,
   type AdminCaptureRunsPayload,
   type AdminSourcesPayload,
   type AdminStorageCoveragePayload,
@@ -29,7 +31,11 @@ import {
   type GamesPayload,
 } from "../../data/api";
 import { buildDivergenceTraceSummary } from "../../lib/divergence-history";
-import { getGameOperationalState } from "../../lib/game-state";
+import {
+  formatGamePeriodClock,
+  formatGameScoreClock,
+  getGameOperationalState,
+} from "../../lib/game-state";
 import { buildGameTriage, getMarketSources } from "../../lib/game-triage";
 import {
   formatGapPoints,
@@ -49,6 +55,30 @@ type StorageCoverageRow = AdminStorageCoveragePayload["data"][number];
 type ClosedGameSummary = ClosedGamesPayload["data"][number];
 
 const ACTIONABLE_BET365_RECENCY_MS = 15 * 60_000;
+
+function isTransientDeskError(error: Error) {
+  return isApiRequestError(error)
+    ? error.status >= 500 || error.status === 0
+    : true;
+}
+
+function retryTransientDeskQuery(failureCount: number, error: Error) {
+  return isTransientDeskError(error) && failureCount < 2;
+}
+
+function deskRetryDelay(attemptIndex: number) {
+  return Math.min(100 * 2 ** attemptIndex, 500);
+}
+
+function formatDeskQueryError(error: unknown) {
+  if (isApiRequestError(error)) {
+    return `${error.message}${error.requestId ? ` (${error.requestId})` : ""}`;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Unknown error";
+}
 
 function formatProbability(value?: number | null) {
   if (value == null) {
@@ -103,25 +133,6 @@ function formatDuration(value?: number | null) {
   return `${(value / (60 * 60_000)).toFixed(1)}h`;
 }
 
-function scoreLine(game: GameRow) {
-  const state = getGameOperationalState(game);
-  if (state.kind === "final") {
-    const awayScore =
-      game.outcome?.finalAwayScore ?? game.gameState?.awayScore ?? "-";
-    const homeScore =
-      game.outcome?.finalHomeScore ?? game.gameState?.homeScore ?? "-";
-    return `${awayScore}-${homeScore} final`;
-  }
-
-  if (!game.gameState) {
-    return "no NBA state";
-  }
-
-  const period = game.gameState.period ? ` P${game.gameState.period}` : "";
-  const clock = game.gameState.clock ? ` ${game.gameState.clock}` : "";
-  return `${game.gameState.awayScore ?? "-"}-${game.gameState.homeScore ?? "-"} ${game.gameState.status}${period}${clock}`;
-}
-
 function rowTone(row: DivergenceRow) {
   if (row.severity === "critical") {
     return "danger";
@@ -146,6 +157,31 @@ function alertTone(row: { severity: string }) {
     return "warm";
   }
   return "cool";
+}
+
+function volatilityTone(band?: string) {
+  if (band === "critical" || band === "alert") return "danger";
+  if (band === "elevated") return "hot";
+  if (band === "normal") return "cool";
+  return "warm";
+}
+
+function formatVolatilityBand(band?: string) {
+  if (!band) return "No data";
+  return band.replace(/-/g, " ");
+}
+
+function boardVolatilityAnchorAt(alertId?: string | null, measuredAt?: string) {
+  if (typeof alertId === "string") {
+    const prefix = "board-alert:";
+    if (alertId.startsWith(prefix)) {
+      const parts = alertId.split(":");
+      if (parts.length >= 5) {
+        return parts.slice(4).join(":");
+      }
+    }
+  }
+  return measuredAt;
 }
 
 function freshnessTone(row: DivergenceRow) {
@@ -357,10 +393,32 @@ export function TraderDeskPage() {
   const games = useQuery({
     queryKey: ["games", { limit: 25 }],
     queryFn: () => getGames({ limit: 25 }),
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: true,
+    retry: retryTransientDeskQuery,
+    retryDelay: deskRetryDelay,
+    staleTime: 5_000,
   });
   const divergence = useQuery({
     queryKey: ["divergence", { limit: 25, sort: "signalPriority" }],
     queryFn: () => getDivergence({ limit: 25, sort: "signalPriority" }),
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: true,
+    retry: retryTransientDeskQuery,
+    retryDelay: deskRetryDelay,
+    staleTime: 5_000,
+  });
+  const primarySurfacesReady = Boolean(games.data && divergence.data);
+  const boardVolatility = useQuery({
+    queryKey: ["research-board-volatility", "live", 5],
+    queryFn: () => getBoardVolatility({ contextWindowMinutes: 30, limit: 5 }),
+    enabled: primarySurfacesReady,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: true,
+    retry: (failureCount, error) =>
+      isTransientDeskError(error) && failureCount < 1,
+    retryDelay: deskRetryDelay,
+    staleTime: 4_000,
   });
   const marketAnomalies = useQuery({
     queryKey: ["research-market-anomalies", "live"],
@@ -371,12 +429,15 @@ export function TraderDeskPage() {
         minConfidence: 0.45,
         minScore: 45,
       }),
-    refetchInterval: 5000,
+    enabled: primarySurfacesReady,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
+    retry: (failureCount, error) =>
+      isTransientDeskError(error) && failureCount < 1,
+    retryDelay: deskRetryDelay,
+    staleTime: 10_000,
   });
-  const primarySurfacesReady = Boolean(games.data && divergence.data);
-  const supportingQueriesEnabled = Boolean(
-    primarySurfacesReady && (marketAnomalies.data || marketAnomalies.isError)
-  );
+  const supportingQueriesEnabled = primarySurfacesReady;
   const deskReviewAnalyticsEnabled = true;
   const topCandidate = divergence.data?.data[0];
   const pregameSignalQuality = useQuery({
@@ -441,12 +502,19 @@ export function TraderDeskPage() {
     queryFn: getReadyHealth,
   });
 
-  if (games.isError || divergence.isError) {
+  const primaryLoadError =
+    games.isError && !games.data
+      ? games.error
+      : divergence.isError && !divergence.data
+        ? divergence.error
+        : null;
+
+  if (primaryLoadError) {
     return (
       <PageFrame>
         <ErrorState
           description="The trader desk needs the persisted game list and ranked divergence queue before it can be trusted."
-          error={games.error ?? divergence.error}
+          error={primaryLoadError}
           onAction={() => {
             void games.refetch();
             void divergence.refetch();
@@ -499,17 +567,28 @@ export function TraderDeskPage() {
       : null;
   const anomalyRows = marketAnomalies.data?.data ?? [];
   const topAnomaly = anomalyRows[0] ?? null;
+  const volatilityRows = boardVolatility.data?.data ?? [];
+  const topVolatility = volatilityRows[0] ?? null;
+  const gameById = new Map(gameRows.map((game) => [game.game.id, game]));
+  const topVolatilityGame = topVolatility
+    ? gameById.get(topVolatility.gameId)
+    : null;
+  const topVolatilityScoreClock = topVolatilityGame
+    ? formatGameScoreClock(topVolatilityGame)
+    : null;
+  const topVolatilityPeriodClock = formatGamePeriodClock(
+    topVolatilityGame?.gameState
+  );
+  const topVolatilityAnchorAt = boardVolatilityAnchorAt(
+    topVolatility?.alertId,
+    topVolatility?.measuredAt
+  );
+  const volatilityEvidence = topVolatility?.evidence.slice(0, 4) ?? [];
   const showAnomalyPopup =
     topAnomaly != null && topAnomaly.id !== dismissedAnomalyAlertId;
   const liveTrackedRows = gameRows.filter(
     (row) => getGameOperationalState(row).tone === "live"
   ).length;
-  const quoteTicksPersisted = storageCoverage.data
-    ? storageCoverage.data.data.reduce(
-        (sum, row) => sum + row.quoteTickCount,
-        0
-      )
-    : null;
   const lineMismatchRows = rows.filter((row) => row.lineMismatch).length;
   const unmappedCoverageRows = gameRows.filter(
     (row) =>
@@ -546,9 +625,20 @@ export function TraderDeskPage() {
     : readiness.isError
       ? "error"
       : (readiness.data?.status ?? "unknown");
+  const primaryRefreshErrors = [
+    {
+      error: games.error,
+      hasData: games.data != null,
+      label: "Persisted game list",
+    },
+    {
+      error: divergence.error,
+      hasData: divergence.data != null,
+      label: "Ranked divergence queue",
+    },
+  ].filter((entry) => entry.error && entry.hasData);
   const supportingErrorCount = [
-    games,
-    divergence,
+    boardVolatility,
     marketAnomalies,
     pregameSignalQuality,
     liveFinalSignalQuality,
@@ -584,7 +674,7 @@ export function TraderDeskPage() {
           </div>
           <nav className="ops-tabs" aria-label="Desk sections">
             <a className="ops-tab" href="#market-weirdness">
-              Weirdness
+              Volatility
             </a>
             <a className="ops-tab" href="#market-review">
               Review
@@ -605,62 +695,70 @@ export function TraderDeskPage() {
         </header>
 
         <BoardAlertsBanner />
-        <section className="ops-thesis" aria-labelledby="desk-thesis-title">
+        <section
+          className={`ops-thesis ops-volatility-${volatilityTone(
+            topVolatility?.band
+          )}`}
+          aria-labelledby="desk-thesis-title"
+        >
           <div className="ops-thesis-copy">
-            <span>Today&apos;s thesis:</span>
+            <span>Game state</span>
             <div>
-              <h1 id="desk-thesis-title">What the markets actually knew.</h1>
+              <h1 id="desk-thesis-title">Volatility now</h1>
               <p>
-                {topRow
-                  ? `${topRow.displayLabel} is the top live Bet365-vs-exchange market: ${formatGapPoints(
-                      topRow.impliedProbabilityGap
-                    )} cross-source divergence, priority ${topRow.signalPriority}, ${formatAge(
-                      topRow.captureRecencyMs
-                    )} quote age.`
-                  : reviewBet365Rows[0]
-                    ? `No current Bet365-vs-exchange trading signal is populated. Highest past Bet365-vs-exchange comparison is ${reviewBet365Rows[0].displayLabel}: ${formatGapPoints(
-                        reviewBet365Rows[0].impliedProbabilityGap
-                      )} divergence, priority ${reviewBet365Rows[0].signalPriority}, ${formatAge(
-                        reviewBet365Rows[0].captureRecencyMs
-                      )} quote age.`
-                    : diagnosticRow
-                      ? `No Bet365-vs-exchange trading signal is populated. Highest external-only row is ${diagnosticRow.displayLabel}: ${formatGapPoints(
-                          diagnosticRow.impliedProbabilityGap
-                        )} divergence, priority ${diagnosticRow.signalPriority}, ${formatAge(
-                          diagnosticRow.captureRecencyMs
-                        )} quote age.`
-                      : rows.length > 0
-                        ? "No same-time Bet365-vs-exchange divergence is populated; the desk stays quiet instead of ranking coverage-only rows."
-                        : "No ranked market pressure is persisted yet; the desk stays quiet instead of inventing a slate."}
+                {topVolatility
+                  ? `${topVolatility.gameLabel} · ${
+                      topVolatilityScoreClock
+                        ? `${topVolatilityScoreClock} · `
+                        : ""
+                    }${formatVolatilityBand(
+                      topVolatility.band
+                    )} · ${topVolatility.score}/100`
+                  : boardVolatility.isLoading
+                    ? "Measuring live prediction-market game state..."
+                    : "No live prediction-market game-state sample."}
               </p>
             </div>
           </div>
           <div className="ops-thesis-metrics">
             <div>
-              <span>Rows</span>
-              <strong>{formatCount(rows.length)}</strong>
-            </div>
-            <div>
-              <span>Live bet365+exchange</span>
+              <span>{topVolatilityPeriodClock ? "Clock" : "Current"}</span>
               <strong
-                className={liveBet365Rows.length > 0 ? "ops-green" : "ops-red"}
+                className={`ops-volatility-number ops-${volatilityTone(
+                  topVolatility?.band
+                )}`}
               >
-                {formatCount(liveBet365Rows.length)}
+                {topVolatilityPeriodClock ??
+                  (topVolatility ? topVolatility.score : "n/a")}
               </strong>
             </div>
+            {topVolatilityPeriodClock ? (
+              <div>
+                <span>Vol</span>
+                <strong
+                  className={`ops-volatility-number ops-${volatilityTone(
+                    topVolatility?.band
+                  )}`}
+                >
+                  {topVolatility ? topVolatility.score : "n/a"}
+                </strong>
+              </div>
+            ) : null}
             <div>
-              <span>Review bet365+exchange</span>
-              <strong className="ops-yellow">
-                {formatCount(reviewBet365Rows.length)}
-              </strong>
-            </div>
-            <div>
-              <span>Ticks</span>
+              <span>Normal</span>
               <strong>
-                {quoteTicksPersisted == null
-                  ? "n/a"
-                  : formatCount(quoteTicksPersisted)}
+                &lt;{topVolatility?.thresholds.elevatedMinScore ?? 40}
               </strong>
+            </div>
+            <div>
+              <span>Elevated</span>
+              <strong>
+                {topVolatility?.thresholds.elevatedMinScore ?? 40}+
+              </strong>
+            </div>
+            <div>
+              <span>Alert</span>
+              <strong>{topVolatility?.thresholds.alertMinScore ?? 55}+</strong>
             </div>
           </div>
         </section>
@@ -670,6 +768,18 @@ export function TraderDeskPage() {
             {supportingErrorCount} supporting desk feed
             {supportingErrorCount === 1 ? "" : "s"} failed. The ranked queue is
             visible, but source health, history, or readiness may be incomplete.
+          </Panel>
+        ) : null}
+
+        {primaryRefreshErrors.length > 0 ? (
+          <Panel className="desk-panel desk-warning ops-warning">
+            <strong>Showing last trusted persisted data.</strong>{" "}
+            {primaryRefreshErrors
+              .map(
+                (entry) =>
+                  `${entry.label}: ${formatDeskQueryError(entry.error)}`
+              )
+              .join(" · ")}
           </Panel>
         ) : null}
 
@@ -709,7 +819,7 @@ export function TraderDeskPage() {
               <AlertTriangle aria-hidden="true" size={20} />
             </div>
             <div>
-              <span>Prediction-market weirdness</span>
+              <span>Market anomaly</span>
               <h2 id="prop-alert-popup-title">{topAnomaly.displayLabel}</h2>
               <p>
                 {topAnomaly.source} · score {topAnomaly.score} ·{" "}
@@ -742,16 +852,80 @@ export function TraderDeskPage() {
         <div className="ops-grid">
           <Panel className="ops-panel ops-prop-risk" id="market-weirdness">
             <header className="ops-panel-head">
-              <span className="ops-panel-index">!</span>
+              <span className="ops-panel-index">0</span>
               <div>
                 <span>Prediction-market weirdness</span>
-                <h2>Go look, something strange happened.</h2>
+                <h2>
+                  {topVolatility
+                    ? `${formatVolatilityBand(topVolatility.band)} · ${topVolatility.score}/100`
+                    : "No live score"}
+                </h2>
               </div>
               <p>
-                Current poll: Kalshi/Polymarket microstructure, volatility,
-                liquidity, volume share, and cross-venue disagreement.
+                Whole-game volatility plus the specific prop and market noise
+                underneath it.
               </p>
             </header>
+            {boardVolatility.isLoading ? (
+              <p className="desk-note">Measuring game-state volatility...</p>
+            ) : boardVolatility.isError ? (
+              <p className="desk-note">Game-state volatility failed to load.</p>
+            ) : !topVolatility ? (
+              <div className="prop-risk-empty">
+                <strong>No live prediction-market sample.</strong>
+              </div>
+            ) : (
+              <div className="ops-volatility-body">
+                <div
+                  className={`ops-volatility-score ops-volatility-${volatilityTone(
+                    topVolatility.band
+                  )}`}
+                >
+                  <span>
+                    {topVolatility.gameLabel}
+                    {topVolatilityScoreClock
+                      ? ` · ${topVolatilityScoreClock}`
+                      : ""}
+                  </span>
+                  <strong>{topVolatility.score}</strong>
+                  <em>{formatVolatilityBand(topVolatility.band)}</em>
+                </div>
+                <div className="ops-volatility-thresholds">
+                  <span>
+                    normal &lt;{topVolatility.thresholds.elevatedMinScore}
+                  </span>
+                  <span>
+                    elevated {topVolatility.thresholds.elevatedMinScore}+
+                  </span>
+                  <span>alert {topVolatility.thresholds.alertMinScore}+</span>
+                  <span>
+                    {topVolatility.sample.sourceMarketCount} markets ·{" "}
+                    {topVolatility.sample.families.join(", ") || "no families"}
+                  </span>
+                </div>
+                {volatilityEvidence.length > 0 ? (
+                  <div className="ops-volatility-evidence">
+                    {volatilityEvidence.map((row) => (
+                      <span key={row.observationId}>
+                        {row.displayLabel} · {row.reason}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                {topVolatility.alertId ? (
+                  <Link
+                    className="desk-link ops-wide-link"
+                    to={`/board-alerts/${encodeURIComponent(
+                      topVolatility.gameId
+                    )}?at=${encodeURIComponent(
+                      topVolatilityAnchorAt ?? topVolatility.measuredAt
+                    )}&label=${encodeURIComponent(topVolatility.gameLabel)}&alertId=${encodeURIComponent(topVolatility.alertId)}`}
+                  >
+                    Inspect board
+                  </Link>
+                ) : null}
+              </div>
+            )}
             {marketAnomalies.isLoading ? (
               <p className="desk-note">Listening for market anomalies...</p>
             ) : marketAnomalies.isError ? (
@@ -812,7 +986,7 @@ export function TraderDeskPage() {
             <header className="ops-panel-head">
               <span className="ops-panel-index">1</span>
               <div>
-                <span>Market review</span>
+                <span>Prop support</span>
                 <h2>
                   {topRow?.displayLabel ??
                     (diagnosticRow
@@ -888,12 +1062,8 @@ export function TraderDeskPage() {
               <span className="ops-panel-index">2</span>
               <div>
                 <span>Pressure ranking</span>
-                <h2>Highest ranked market disagreement.</h2>
+                <h2>Bet365 vs exchange props</h2>
               </div>
-              <p>
-                Sorted by persisted divergence priority. Divergence is the pp
-                distance between same-time Bet365 and exchange prices.
-              </p>
             </header>
             <div className="table-shell ops-table-shell">
               <table className="desk-table ops-table">
@@ -989,13 +1159,9 @@ export function TraderDeskPage() {
               <span className="ops-panel-index">3</span>
               <div>
                 <span>Calibration leaderboard</span>
-                <h2>How predictive each source was at close.</h2>
+                <h2>Closed-game source error</h2>
               </div>
             </header>
-            <p className="ops-panel-note">
-              Brier and log-loss use persisted closed-game moneyline outcomes.
-              Pregame uses the last tick before tip.
-            </p>
             <div className="table-shell ops-table-shell ops-table-short">
               <table className="desk-table compact ops-table">
                 <thead>
@@ -1049,15 +1215,15 @@ export function TraderDeskPage() {
             </div>
           </Panel>
 
-          <Panel className="ops-panel ops-leadlag">
-            <header className="ops-panel-head">
-              <span className="ops-panel-index">4</span>
-              <div>
-                <span>Source timing</span>
-                <h2>Which source moved first on the top-ranked market.</h2>
-              </div>
-            </header>
-            {topCandidate ? (
+          {topCandidate && (topLeadLag.isLoading || trustedLeadLagPair) ? (
+            <Panel className="ops-panel ops-leadlag">
+              <header className="ops-panel-head">
+                <span className="ops-panel-index">4</span>
+                <div>
+                  <span>Source timing</span>
+                  <h2>Lead / lag only if dependable</h2>
+                </div>
+              </header>
               <div className="ops-leadlag-body">
                 <div className="ops-instrument-line">
                   <span>Market</span>
@@ -1104,17 +1270,10 @@ export function TraderDeskPage() {
                       </strong>
                     </div>
                   </div>
-                ) : (
-                  <p className="desk-note">
-                    No dependable source-timing pattern in the overlapping quote
-                    buckets.
-                  </p>
-                )}
+                ) : null}
               </div>
-            ) : (
-              <p className="desk-note">No ranked market selected yet.</p>
-            )}
-          </Panel>
+            </Panel>
+          ) : null}
 
           <Panel className="ops-panel ops-feed" id="feed-health">
             <header className="ops-panel-head">
@@ -1239,7 +1398,7 @@ export function TraderDeskPage() {
               <span className="ops-panel-index">7</span>
               <div>
                 <span>Game pressure map</span>
-                <h2>Signal boards only</h2>
+                <h2>Games with signal</h2>
               </div>
             </header>
             <div className="table-shell ops-table-shell ops-table-short">
@@ -1255,10 +1414,7 @@ export function TraderDeskPage() {
                 <tbody>
                   {pressureRows.length === 0 ? (
                     <tr>
-                      <td colSpan={4}>
-                        No signal game boards visible. Scoreboard-only backfill
-                        rows are collapsed instead of repeated.
-                      </td>
+                      <td colSpan={4}>No signal game boards.</td>
                     </tr>
                   ) : (
                     pressureRows.map((game) => {
@@ -1280,7 +1436,7 @@ export function TraderDeskPage() {
                             >
                               {stateReadout.label}
                             </span>
-                            <span>{scoreLine(game)}</span>
+                            <span>{formatGameScoreClock(game)}</span>
                           </td>
                           <td>
                             <span>

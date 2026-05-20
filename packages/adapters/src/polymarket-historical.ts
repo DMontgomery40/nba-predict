@@ -88,6 +88,18 @@ function buildGameKey(date: string, teamKeys: string[]) {
     .join("::")}`;
 }
 
+function buildEventDateCandidates(event: {
+  eventDate?: string | null;
+  startTime?: string | null;
+}) {
+  const candidates = new Set<string>();
+  const eventDate = event.eventDate?.slice(0, 10);
+  const startDate = event.startTime?.slice(0, 10);
+  if (eventDate) candidates.add(eventDate);
+  if (startDate) candidates.add(startDate);
+  return [...candidates];
+}
+
 function shiftIsoDate(iso: string, deltaDays: number) {
   const [y, m, d] = iso.split("-").map(Number);
   const shifted = new Date(Date.UTC(y, m - 1, d + deltaDays));
@@ -211,15 +223,21 @@ function resolveEventGame(
   event: PolymarketEvent,
   gameIndex: Map<string, ResearchGameCard>
 ) {
-  if (!event.eventDate || !event.teams || event.teams.length !== 2) {
+  if (!event.teams || event.teams.length !== 2) {
     return null;
   }
 
   const teamKeys = event.teams.map(
     (team) => team.abbreviation ?? team.alias ?? team.name
   );
-  const key = buildGameKey(event.eventDate.slice(0, 10), teamKeys);
-  return gameIndex.get(key) ?? null;
+  for (const date of buildEventDateCandidates(event)) {
+    const key = buildGameKey(date, teamKeys);
+    const game = gameIndex.get(key);
+    if (game) {
+      return game;
+    }
+  }
+  return null;
 }
 
 function resolveOutcomeParticipantKey(
@@ -310,8 +328,8 @@ export async function fetchPolymarketClosedNbaEvents(options?: {
     }
 
     const filtered = options?.since
-      ? events.filter(
-          (event) => (event.eventDate ?? "").slice(0, 10) >= options.since!
+      ? events.filter((event) =>
+          buildEventDateCandidates(event).some((date) => date >= options.since!)
         )
       : events;
 
@@ -323,8 +341,8 @@ export async function fetchPolymarketClosedNbaEvents(options?: {
 
     if (
       options?.since &&
-      events.every(
-        (event) => (event.eventDate ?? "").slice(0, 10) < options.since!
+      events.every((event) =>
+        buildEventDateCandidates(event).every((date) => date < options.since!)
       )
     ) {
       break;

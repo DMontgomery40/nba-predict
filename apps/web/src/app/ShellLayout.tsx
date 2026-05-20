@@ -35,7 +35,7 @@ function workspaceStatus(pathname: string, activeGameCount: number) {
     return "Prediction-market weirdness queue";
   }
   if (pathname.startsWith("/board-alerts")) {
-    return "NBA board shock alerts (H0 vs H1)";
+    return "Trader incidents, tripwires, and warning audit";
   }
   if (pathname === "/games") {
     return `${activeGameCount} tracked game${activeGameCount === 1 ? "" : "s"}`;
@@ -72,7 +72,7 @@ function workspaceTitle(pathname: string) {
     return "Market anomalies";
   }
   if (pathname.startsWith("/board-alerts")) {
-    return "Board anomaly desk";
+    return "Trader incident desk";
   }
   if (pathname.startsWith("/divergence")) {
     return "Divergence review";

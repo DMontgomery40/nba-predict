@@ -53,7 +53,7 @@ describe("shared db", () => {
       counts: {
         watchlistCount: 1,
       },
-      schemaVersion: 12,
+      schemaVersion: 13,
       status: "ok",
     });
 
@@ -225,7 +225,7 @@ describe("shared db", () => {
         .prepare("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
         .pluck()
         .get()
-    ).toBe(12);
+    ).toBe(13);
     expect(
       db
         .prepare(

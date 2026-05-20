@@ -5,8 +5,6 @@ import {
   type AdminRuntimeConfigItem,
 } from "@signal-console/domain";
 import {
-  createAppLogger,
-  getMarketAnomalyScoreConfig,
   enqueueCaptureRestart,
   enqueueGameBackfill,
   enqueueMarketBackfill,
@@ -20,12 +18,9 @@ import {
   getLeadLagSeries,
   listPlayerPropDisagreementAlerts,
   listPlayerPropAlertPlaybackFrames,
-  getBoardAlertEventContext,
-  listBoardAnomaliesAcrossGames,
-  listFinishedGameIncidents,
   listMarketAnomalyAlerts,
-  replayBoardAnomaliesForGame,
   listMarketAnomalyPlaybackFrames,
+  getMarketAnomalyScoreConfig,
   getResearchCoverage,
   getResearchGame,
   getSignalQualityReport,
@@ -44,6 +39,13 @@ import {
   type ClosingCutoff,
   upsertMarketAnomalyScoreConfig,
 } from "@signal-console/shared";
+
+import {
+  createServiceLogger,
+  generatedMeta,
+  getLogger as getServiceLogger,
+  type ServiceContext,
+} from "./service-support";
 
 type GamesQuery = Parameters<typeof listResearchGames>[0];
 type GameMarketsQuery = Parameters<typeof listGameMarkets>[1];
@@ -79,28 +81,10 @@ type BackfillMarketsBody = {
   gameId?: string;
   source?: string;
 };
-
-type ServiceLogger = {
-  child: (bindings: Record<string, unknown>) => ServiceLogger;
-  debug: (bindings: Record<string, unknown>, message?: string) => void;
-  info: (bindings: Record<string, unknown>, message?: string) => void;
-  warn: (bindings: Record<string, unknown>, message?: string) => void;
-};
-
-type ServiceContext = {
-  logger?: ServiceLogger;
-};
-
-const researchLogger = createAppLogger({ component: "research-service" });
+const researchLogger = createServiceLogger("research-service");
 
 function getLogger(context: ServiceContext | undefined, operation: string) {
-  return (context?.logger ?? researchLogger).child({ operation });
-}
-
-function generatedMeta() {
-  return {
-    generatedAt: new Date().toISOString(),
-  };
+  return getServiceLogger(researchLogger, context, operation);
 }
 
 type RuntimeConfigDefinition = Omit<
@@ -1115,110 +1099,6 @@ export function getMarketAnomalyAlertsPayload(
   const logger = getLogger(context, "getMarketAnomalyAlertsPayload");
   const data = listMarketAnomalyAlerts(query);
   logger.debug({ count: data.length, query }, "Built market anomaly payload.");
-  return {
-    data,
-    meta: generatedMeta(),
-  };
-}
-
-type BoardAlertsQuery = {
-  now?: string;
-  limit?: number;
-  contextWindowMinutes?: number;
-};
-
-export function getBoardAnomalyAlertsPayload(
-  query: BoardAlertsQuery,
-  context?: ServiceContext
-) {
-  const logger = getLogger(context, "getBoardAnomalyAlertsPayload");
-  const now = query.now ?? new Date().toISOString();
-  const data = listBoardAnomaliesAcrossGames({
-    now,
-    limit: query.limit ?? 10,
-    contextWindowMinutes: query.contextWindowMinutes ?? 30,
-  });
-  logger.debug({ count: data.length, now }, "Built board anomaly payload.");
-  return {
-    data,
-    meta: { ...generatedMeta(), now },
-  };
-}
-
-type BoardIncidentsQuery = {
-  date: string;
-  minGap?: number;
-  limit?: number;
-};
-
-export function getBoardAnomalyIncidentsPayload(
-  query: BoardIncidentsQuery,
-  context?: ServiceContext
-) {
-  const logger = getLogger(context, "getBoardAnomalyIncidentsPayload");
-  const data = listFinishedGameIncidents({
-    date: query.date,
-    minGap: query.minGap ?? 0.15,
-    limit: query.limit ?? 10,
-  });
-  logger.debug(
-    { count: data.length, date: query.date },
-    "Built board anomaly incidents payload."
-  );
-  return { data, meta: { ...generatedMeta(), date: query.date } };
-}
-
-type BoardEventContextQuery = {
-  gameId: string;
-  anchorAt: string;
-  windowSecondsBefore?: number;
-  windowSecondsAfter?: number;
-};
-
-export function getBoardAnomalyEventContextPayload(
-  query: BoardEventContextQuery,
-  context?: ServiceContext
-) {
-  const logger = getLogger(context, "getBoardAnomalyEventContextPayload");
-  const data = getBoardAlertEventContext({
-    gameId: query.gameId,
-    anchorAt: query.anchorAt,
-    windowSecondsBefore: query.windowSecondsBefore,
-    windowSecondsAfter: query.windowSecondsAfter,
-  });
-  logger.debug(
-    {
-      gameId: query.gameId,
-      trades: data.trades.length,
-      pbp: data.playByPlay.length,
-    },
-    "Built board alert event context payload."
-  );
-  return { data, meta: generatedMeta() };
-}
-
-type BoardAlertsReplayQuery = {
-  gameId: string;
-  windowStart: string;
-  windowEnd: string;
-  stepSeconds?: number;
-};
-
-export function getBoardAnomalyReplayPayload(
-  query: BoardAlertsReplayQuery,
-  context?: ServiceContext
-) {
-  const logger = getLogger(context, "getBoardAnomalyReplayPayload");
-  const data = replayBoardAnomaliesForGame({
-    gameId: query.gameId,
-    windowStart: query.windowStart,
-    windowEnd: query.windowEnd,
-    stepSeconds: query.stepSeconds ?? 30,
-  });
-  logger.debug(
-    { gameId: query.gameId, count: data?.alertDeck.length ?? 0 },
-    "Built board anomaly replay payload."
-  );
   return {
     data,
     meta: generatedMeta(),

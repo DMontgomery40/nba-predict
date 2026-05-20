@@ -45,6 +45,48 @@ def test_normalize_live_scoreboard_payload_maps_game_and_state() -> None:
     assert normalized.games[0].gameState.homeScore == 112
 
 
+def test_normalize_live_scoreboard_payload_replaces_naive_meta_timestamp(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "nba_sidecar.normalizers._now_iso",
+        lambda: "2026-05-18T00:55:00+00:00",
+    )
+    payload = {
+        "meta": {"time": "2026-05-17 08:55:00.5555", "code": 200},
+        "scoreboard": {
+            "gameDate": "2026-05-17",
+            "games": [
+                {
+                    "awayTeam": {
+                        "score": 36,
+                        "teamCity": "Cleveland",
+                        "teamName": "Cavaliers",
+                        "teamTricode": "CLE",
+                    },
+                    "gameClock": "PT09M11.00S",
+                    "gameId": "0042500207",
+                    "gameStatus": 2,
+                    "gameTimeUTC": "2026-05-18T00:00:00Z",
+                    "homeTeam": {
+                        "score": 26,
+                        "teamCity": "Detroit",
+                        "teamName": "Pistons",
+                        "teamTricode": "DET",
+                    },
+                    "period": 2,
+                }
+            ],
+        },
+    }
+
+    normalized = normalize_live_scoreboard_payload(payload)
+
+    assert normalized.generatedAt == "2026-05-18T00:55:00+00:00"
+    assert normalized.games[0].gameState.capturedAt == "2026-05-18T00:55:00+00:00"
+    assert normalized.games[0].gameState.status == "in-play"
+
+
 def test_normalize_live_boxscore_payload_derives_final_outcome() -> None:
     payload = {
         "meta": {"time": "2026-04-22T06:12:00.000Z"},
@@ -209,17 +251,12 @@ def test_normalize_schedule_league_payload_maps_future_playoff_games() -> None:
 
 
 def test_service_falls_back_to_schedule_when_stats_scoreboard_is_empty(monkeypatch) -> None:
-    class EmptyScoreboard:
+    class EmptyScoreboardV3:
         def __init__(self, **_kwargs) -> None:
             pass
 
         def get_dict(self) -> dict:
-            return {
-                "resultSets": [
-                    {"headers": ["GAME_ID"], "name": "GameHeader", "rowSet": []},
-                    {"headers": ["GAME_ID"], "name": "LineScore", "rowSet": []},
-                ]
-            }
+            return {"scoreboard": {"games": []}}
 
     class FakeResponse:
         def __enter__(self) -> "FakeResponse":
@@ -263,10 +300,9 @@ def test_service_falls_back_to_schedule_when_stats_scoreboard_is_empty(monkeypat
             }
             """
 
-    monkeypatch.setattr(
-        "nba_sidecar.service.scoreboardv2.ScoreboardV2", EmptyScoreboard
-    )
+    monkeypatch.setattr("nba_sidecar.service.scoreboardv3.ScoreboardV3", EmptyScoreboardV3)
     monkeypatch.setattr("nba_sidecar.service.is_today", lambda _requested_date: False)
+    monkeypatch.setattr("nba_sidecar.service._is_past_date", lambda _requested_date: False)
     monkeypatch.setattr(
         "nba_sidecar.service.urlopen", lambda *_args, **_kwargs: FakeResponse()
     )
@@ -275,6 +311,108 @@ def test_service_falls_back_to_schedule_when_stats_scoreboard_is_empty(monkeypat
 
     assert len(normalized.games) == 1
     assert normalized.games[0].game.id == "nba-0042500224"
+
+
+def test_service_prefers_scoreboard_v3_for_historical_dates(monkeypatch) -> None:
+    class FakeScoreboardV3:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        def get_dict(self) -> dict:
+            return {
+                "meta": {"time": "2026-05-20T06:00:00.000Z"},
+                "scoreboard": {
+                    "gameDate": "2026-05-17",
+                    "games": [
+                        {
+                            "awayTeam": {
+                                "score": 125,
+                                "teamCity": "Cleveland",
+                                "teamName": "Cavaliers",
+                                "teamTricode": "CLE",
+                            },
+                            "gameClock": "",
+                            "gameId": "0042500207",
+                            "gameStatus": 3,
+                            "gameStatusText": "Final",
+                            "gameTimeUTC": "2026-05-17T00:00:00Z",
+                            "homeTeam": {
+                                "score": 94,
+                                "teamCity": "Detroit",
+                                "teamName": "Pistons",
+                                "teamTricode": "DET",
+                            },
+                            "period": 4,
+                        }
+                    ],
+                },
+            }
+
+    monkeypatch.setattr("nba_sidecar.service.scoreboardv3.ScoreboardV3", FakeScoreboardV3)
+    monkeypatch.setattr("nba_sidecar.service.is_today", lambda _requested_date: False)
+
+    normalized = NbaSidecarService().get_scoreboard("2026-05-17")
+
+    assert len(normalized.games) == 1
+    assert normalized.games[0].game.id == "nba-0042500207"
+    assert normalized.games[0].gameState.status == "final"
+    assert normalized.games[0].gameState.homeScore == 94
+    assert normalized.games[0].outcome is not None
+
+
+def test_service_does_not_fall_back_to_schedule_for_past_dates_when_v3_is_empty(
+    monkeypatch,
+) -> None:
+    class StaleScheduledScoreboardV3:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        def get_dict(self) -> dict:
+            return {
+                "meta": {"time": "2026-05-11T05:00:11.011Z"},
+                "scoreboard": {
+                    "gameDate": "2026-05-16",
+                    "games": [
+                        {
+                            "awayTeam": {
+                                "score": 0,
+                                "teamCity": "Oklahoma City",
+                                "teamName": "Thunder",
+                                "teamTricode": "OKC",
+                            },
+                            "gameClock": "",
+                            "gameId": "0042500226",
+                            "gameStatus": 1,
+                            "gameStatusText": "TBD",
+                            "gameTimeUTC": "2026-05-16T04:00:00Z",
+                            "homeTeam": {
+                                "score": 0,
+                                "teamCity": "Los Angeles",
+                                "teamName": "Lakers",
+                                "teamTricode": "LAL",
+                            },
+                            "period": 0,
+                        }
+                    ],
+                },
+            }
+
+    monkeypatch.setattr(
+        "nba_sidecar.service.scoreboardv3.ScoreboardV3", StaleScheduledScoreboardV3
+    )
+    monkeypatch.setattr("nba_sidecar.service.is_today", lambda _requested_date: False)
+    monkeypatch.setattr("nba_sidecar.service._is_past_date", lambda _requested_date: True)
+    monkeypatch.setattr(
+        "nba_sidecar.service.NbaSidecarService.get_schedule_scoreboard",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("Past dates should not fall back to schedule payloads.")
+        ),
+    )
+
+    normalized = NbaSidecarService().get_scoreboard("2026-05-16")
+
+    assert normalized.requestedDate == "2026-05-16"
+    assert normalized.games == []
 
 
 def test_service_falls_back_to_cdn_when_live_scoreboard_rejects_default_request(
