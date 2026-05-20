@@ -4,7 +4,7 @@ test("trader desk opens the top ranked instrument", async ({ page }) => {
   await page.goto("/");
   await expect(
     page.getByRole("heading", {
-      name: "What the markets actually knew.",
+      name: "Volatility now",
     })
   ).toBeVisible();
 
