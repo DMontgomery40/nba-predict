@@ -28,6 +28,10 @@ export function resolveBoardAnomalyConfig(
       ...defaultBoardAnomalyDetectorConfig.classification,
       ...(partial.classification ?? {}),
     },
+    gameStateVolatility: {
+      ...defaultBoardAnomalyDetectorConfig.gameStateVolatility,
+      ...(partial.gameStateVolatility ?? {}),
+    },
     suppression: {
       ...defaultBoardAnomalyDetectorConfig.suppression,
       ...(partial.suppression ?? {}),

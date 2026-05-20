@@ -1,5 +1,7 @@
 import {
+  type MarketResearchSourceId,
   marketAnomalyScoreConfigSchema,
+  marketResearchSourceIds,
   researchDivergenceQuerySchema,
 } from "@signal-console/domain";
 
@@ -9,6 +11,9 @@ import {
   getBoardAnomalyEventContextPayload,
   getBoardAnomalyIncidentsPayload,
   getBoardAnomalyReplayPayload,
+  getBoardGameStateVolatilityPayload,
+} from "../services/board-alert-service";
+import {
   getClosedGameSummariesPayload,
   getInstrumentDeltaSeriesPayload,
   getInstrumentLeadLagPayload,
@@ -95,8 +100,11 @@ function parseFamilyParam(value: unknown) {
 }
 
 function parseMarketSourceParam(value: unknown) {
-  if (value === "bet365" || value === "kalshi" || value === "polymarket") {
-    return value;
+  if (
+    typeof value === "string" &&
+    (marketResearchSourceIds as readonly string[]).includes(value)
+  ) {
+    return value as MarketResearchSourceId;
   }
   return undefined;
 }
@@ -179,6 +187,7 @@ export async function registerResearchRoutes(app: FastifyInstance) {
           minScore: parseNumberParam(query.minScore),
           profileId: query.profileId,
           requireBet365: parseBooleanParam(query.requireBet365),
+          skipQuoteAnomalies: parseBooleanParam(query.skipQuoteAnomalies),
           source: parseMarketSourceParam(query.source),
         },
         {
@@ -211,6 +220,28 @@ export async function registerResearchRoutes(app: FastifyInstance) {
   );
 
   app.get(
+    "/api/v1/research/board-volatility",
+    async (
+      request: FastifyRequest<{ Querystring: Record<string, string> }>
+    ) => {
+      const query = request.query ?? {};
+      return getBoardGameStateVolatilityPayload(
+        {
+          now: typeof query.now === "string" ? query.now : undefined,
+          limit: parseIntegerParam(query.limit, 10),
+          contextWindowMinutes: parseIntegerParam(
+            query.contextWindowMinutes,
+            30
+          ),
+        },
+        {
+          logger: request.log.child({ route: "research-board-volatility" }),
+        }
+      );
+    }
+  );
+
+  app.get(
     "/api/v1/research/board-alerts/incidents",
     async (
       request: FastifyRequest<{ Querystring: Record<string, string> }>
@@ -229,6 +260,7 @@ export async function registerResearchRoutes(app: FastifyInstance) {
       return getBoardAnomalyIncidentsPayload(
         {
           date,
+          gameId: typeof query.gameId === "string" ? query.gameId : undefined,
           minGap: parseNumberParam(query.minGap, 0.15),
           limit: parseIntegerParam(query.limit, 10),
         },
@@ -258,8 +290,11 @@ export async function registerResearchRoutes(app: FastifyInstance) {
       }
       return getBoardAnomalyEventContextPayload(
         {
+          alertId:
+            typeof query.alertId === "string" ? query.alertId : undefined,
           gameId: query.gameId,
           anchorAt: query.at,
+          limit: parseIntegerParam(query.limit, 200),
           windowSecondsBefore: parseIntegerParam(
             query.windowSecondsBefore,
             7200

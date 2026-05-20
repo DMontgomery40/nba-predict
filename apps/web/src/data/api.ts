@@ -2,6 +2,13 @@ import { QueryClient } from "@tanstack/react-query";
 
 import { clientLogger } from "../lib/client-logger";
 
+type MarketResearchSourceDto =
+  | "bet365"
+  | "fanduel"
+  | "draftkings"
+  | "kalshi"
+  | "polymarket";
+
 type ApiErrorResponse = {
   error?: {
     code?: string;
@@ -14,6 +21,7 @@ type ApiErrorResponse = {
 
 type RequestOptions = {
   allowStatuses?: number[];
+  timeoutMs?: number;
 };
 
 const API_REQUEST_TIMEOUT_MS = 10_000;
@@ -84,7 +92,7 @@ async function request<T>(
   const controller = new AbortController();
   const timeoutId = setTimeout(
     () => controller.abort(),
-    API_REQUEST_TIMEOUT_MS
+    options?.timeoutMs ?? API_REQUEST_TIMEOUT_MS
   );
 
   try {
@@ -716,6 +724,7 @@ export type BoardAnomalyAlertDto = {
   shockKind:
     | "pregame-availability"
     | "near-tip-availability"
+    | "game-state-volatility"
     | "attribution-shaped"
     | "market-structure"
     | "cross-surface-disagreement"
@@ -758,8 +767,47 @@ export type BoardAnomalyAlertDto = {
   };
 };
 
+export type BoardGameStateVolatilityDto = {
+  alertId: string | null;
+  band: "insufficient-data" | "normal" | "elevated" | "alert" | "critical";
+  components: {
+    coherence: number;
+    coverage: number;
+    microstructure: number;
+    residual: number;
+  };
+  confidence: number;
+  evidence: BoardAnomalyAlertDto["evidence"];
+  gameId: string;
+  gameLabel: string;
+  h0Adjustments: BoardAnomalyAlertDto["h0Adjustments"];
+  measuredAt: string;
+  missingDataNotes: BoardAnomalyAlertDto["missingDataNotes"];
+  sample: {
+    coreFamilies: string[];
+    families: string[];
+    predictionMarketRows: number;
+    ready: boolean;
+    shockRows: number;
+    sourceMarketCount: number;
+    sources: string[];
+  };
+  score: number;
+  thresholds: {
+    alertMinScore: number;
+    criticalMinScore: number;
+    elevatedMinScore: number;
+    normalMaxScore: number;
+  };
+};
+
 export type BoardAnomalyAlertsPayload = {
   data: BoardAnomalyAlertDto[];
+  meta: { generatedAt: string; now?: string };
+};
+
+export type BoardGameStateVolatilityPayload = {
+  data: BoardGameStateVolatilityDto[];
   meta: { generatedAt: string; now?: string };
 };
 
@@ -776,13 +824,15 @@ export type BoardIncidentPbpAnchor = {
 
 export type BoardIncidentPbpContext = {
   available: boolean;
+  firstActionAt: string | null;
+  lastActionAt: string | null;
   totalActions: number;
   nearestBefore: BoardIncidentPbpAnchor | null;
   nearestAfter: BoardIncidentPbpAnchor | null;
 };
 
 export type BoardIncidentVigSide = {
-  source: "bet365" | "kalshi" | "polymarket";
+  source: MarketResearchSourceDto;
   rawAskProbability: number | null;
   rawOppositeAskProbability: number | null;
   vigPercent: number | null;
@@ -815,23 +865,73 @@ export type BoardEventContextPayload = {
     gameId: string;
     gameLabel: string;
     anchorAt: string;
+    resolvedIncident?: BoardIncidentDto | null;
     windowStart: string;
     windowEnd: string;
-    trades: Array<{
-      eventTimestamp: string;
-      source: string;
-      sourceMarketKey: string;
-      displayLabel: string | null;
-      family: string | null;
-      apiSurface: string;
-      tradePrice: number | null;
-      price: number | null;
-      size: number | null;
-      notional: number | null;
-      volumeShare: number | null;
-      finalMarketVolume: number | null;
-      offsetSeconds: number;
-    }>;
+    predictionMarketContext: {
+      bySource: Array<{
+        families: string[];
+        nearestOffsetSeconds: number | null;
+        nearestTimestamp: string | null;
+        observationCount: number;
+        participantKeys: string[];
+        quoteCount: number;
+        source: string;
+        topRows: Array<{
+          bestAsk: number | null;
+          bestBid: number | null;
+          capturedAt: string;
+          depthScore: number | null;
+          displayLabel: string;
+          eventTimestamp: string;
+          family: string | null;
+          finalMarketVolume: number | null;
+          impliedProbability: number | null;
+          kind: "quote" | "trade";
+          mappingStatus: "auto" | "manual" | "unmapped";
+          notional: number | null;
+          observationId: string;
+          offsetSeconds: number;
+          participantKey: string | null;
+          previousImpliedProbability: number | null;
+          signalStrength: number;
+          source: string;
+          sourceMarketId: string;
+          spread: number | null;
+          tradePrice: number | null;
+          tradeSize: number | null;
+          volume: number | null;
+          volumeShare: number | null;
+        }>;
+        tradeCount: number;
+      }>;
+      rows: Array<{
+        bestAsk: number | null;
+        bestBid: number | null;
+        capturedAt: string;
+        depthScore: number | null;
+        displayLabel: string;
+        eventTimestamp: string;
+        family: string | null;
+        finalMarketVolume: number | null;
+        impliedProbability: number | null;
+        kind: "quote" | "trade";
+        mappingStatus: "auto" | "manual" | "unmapped";
+        notional: number | null;
+        observationId: string;
+        offsetSeconds: number;
+        participantKey: string | null;
+        previousImpliedProbability: number | null;
+        signalStrength: number;
+        source: string;
+        sourceMarketId: string;
+        spread: number | null;
+        tradePrice: number | null;
+        tradeSize: number | null;
+        volume: number | null;
+        volumeShare: number | null;
+      }>;
+    };
     playByPlay: Array<{
       actionNumber: number;
       timeActual: string | null;
@@ -848,12 +948,18 @@ export type BoardEventContextPayload = {
 export function getBoardAlertEventContext(options: {
   gameId: string;
   at: string;
+  alertId?: string;
+  limit?: number;
   windowSecondsBefore?: number;
   windowSecondsAfter?: number;
 }) {
   const params = new URLSearchParams();
   params.set("gameId", options.gameId);
   params.set("at", options.at);
+  if (options.alertId) params.set("alertId", options.alertId);
+  if (options.limit != null) {
+    params.set("limit", String(options.limit));
+  }
   if (options.windowSecondsBefore != null) {
     params.set("windowSecondsBefore", String(options.windowSecondsBefore));
   }
@@ -920,7 +1026,7 @@ export type MarketAnomaliesPayload = {
     rawLabel?: string | null;
     score: number;
     severity: string;
-    source: "bet365" | "kalshi" | "polymarket";
+    source: MarketResearchSourceDto;
     sourceMarketId: string;
     sourceMarketKey: string;
     sourceSelectionKey?: string | null;
@@ -1347,13 +1453,32 @@ export function getBoardAlerts(options?: {
   );
 }
 
+export function getBoardVolatility(options?: {
+  now?: string;
+  limit?: number;
+  contextWindowMinutes?: number;
+}) {
+  const params = new URLSearchParams();
+  if (options?.now) params.set("now", options.now);
+  if (options?.limit != null) params.set("limit", String(options.limit));
+  if (options?.contextWindowMinutes != null) {
+    params.set("contextWindowMinutes", String(options.contextWindowMinutes));
+  }
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<BoardGameStateVolatilityPayload>(
+    `/api/v1/research/board-volatility${suffix}`
+  );
+}
+
 export function getBoardIncidents(options: {
   date: string;
+  gameId?: string;
   minGap?: number;
   limit?: number;
 }) {
   const params = new URLSearchParams();
   params.set("date", options.date);
+  if (options.gameId) params.set("gameId", options.gameId);
   if (options.minGap != null) params.set("minGap", String(options.minGap));
   if (options.limit != null) params.set("limit", String(options.limit));
   return request<BoardIncidentsPayload>(
@@ -1388,6 +1513,7 @@ export function getMarketAnomalies(options?: {
   minConfidence?: number;
   minScore?: number;
   requireBet365?: boolean;
+  skipQuoteAnomalies?: boolean;
   source?: string;
 }) {
   const params = new URLSearchParams();
@@ -1408,10 +1534,15 @@ export function getMarketAnomalies(options?: {
   if (options?.requireBet365 != null) {
     params.set("requireBet365", String(options.requireBet365));
   }
+  if (options?.skipQuoteAnomalies != null) {
+    params.set("skipQuoteAnomalies", String(options.skipQuoteAnomalies));
+  }
   if (options?.source) params.set("source", options.source);
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
   return request<MarketAnomaliesPayload>(
-    `/api/v1/research/market-anomalies${suffix}`
+    `/api/v1/research/market-anomalies${suffix}`,
+    undefined,
+    { timeoutMs: 20_000 }
   );
 }
 
@@ -1493,7 +1624,16 @@ export type SignalQualityReportPayload = {
       calibrationIntercept: number | null;
     }>;
   };
-  meta: { generatedAt: string };
+  meta: {
+    generatedAt: string;
+    playByPlayHydration?: {
+      actionsSeen: number;
+      actionsWritten: number;
+      error: string | null;
+      hydrated: boolean;
+      persistedCountAfter: number | null;
+    };
+  };
 };
 
 export type ClosedGamesPayload = {

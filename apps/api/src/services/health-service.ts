@@ -31,6 +31,92 @@ function buildBaseHealthMetadata() {
   };
 }
 
+async function checkNbaSidecarReadiness(
+  baseUrl: string | undefined
+): Promise<HealthCheck> {
+  if (!baseUrl) {
+    return {
+      details: {
+        baseUrl: null,
+      },
+      name: "nba-sidecar",
+      operatorHint:
+        "Set NBA_SIDECAR_BASE_URL and bring the sidecar up before advertising live readiness.",
+      status: "error",
+      summary: "NBA sidecar base URL is missing.",
+    };
+  }
+
+  const healthUrl = new URL("/health/ready", baseUrl);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1_500);
+
+  try {
+    const response = await fetch(healthUrl, {
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      return {
+        details: {
+          baseUrl,
+          statusCode: response.status,
+        },
+        name: "nba-sidecar",
+        operatorHint:
+          "Bring the NBA sidecar to ready state before advertising live game-state readiness.",
+        status: "error",
+        summary: `NBA sidecar readiness check returned HTTP ${response.status}.`,
+      };
+    }
+
+    const payload = (await response.json().catch(() => null)) as {
+      status?: unknown;
+      summary?: unknown;
+    } | null;
+    if (payload?.status !== "ok") {
+      return {
+        details: {
+          baseUrl,
+          sidecarStatus: payload?.status ?? null,
+          sidecarSummary: payload?.summary ?? null,
+        },
+        name: "nba-sidecar",
+        operatorHint:
+          "Bring the NBA sidecar to ready state before advertising live game-state readiness.",
+        status: "error",
+        summary: "NBA sidecar did not report ready.",
+      };
+    }
+
+    return {
+      details: {
+        baseUrl,
+        sidecarSummary: payload.summary ?? null,
+      },
+      name: "nba-sidecar",
+      status: "ok",
+      summary: "NBA sidecar is reachable and ready.",
+    };
+  } catch (error) {
+    return {
+      details: {
+        baseUrl,
+        error:
+          error instanceof Error
+            ? { message: error.message, name: error.name }
+            : String(error),
+      },
+      name: "nba-sidecar",
+      operatorHint:
+        "Start the NBA sidecar or correct NBA_SIDECAR_BASE_URL before advertising live game-state readiness.",
+      status: "error",
+      summary: "NBA sidecar readiness check failed.",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export function buildLivenessPayload() {
   return {
     ...buildBaseHealthMetadata(),
@@ -45,7 +131,9 @@ export function buildLivenessPayload() {
   };
 }
 
-export function buildReadinessPayload(context?: { logger?: HealthLogger }) {
+export async function buildReadinessPayload(context?: {
+  logger?: HealthLogger;
+}) {
   const logger =
     context?.logger ?? createAppLogger({ component: "api-readiness" });
   const checks: HealthCheck[] = [];
@@ -66,19 +154,7 @@ export function buildReadinessPayload(context?: { logger?: HealthLogger }) {
   });
 
   const nbaSidecarBaseUrl = process.env.NBA_SIDECAR_BASE_URL;
-  checks.push({
-    details: {
-      baseUrl: nbaSidecarBaseUrl ?? null,
-    },
-    name: "nba-sidecar",
-    operatorHint: nbaSidecarBaseUrl
-      ? undefined
-      : "Set NBA_SIDECAR_BASE_URL and bring the sidecar up before advertising live readiness.",
-    status: nbaSidecarBaseUrl ? "ok" : "error",
-    summary: nbaSidecarBaseUrl
-      ? "NBA sidecar base URL is configured."
-      : "NBA sidecar base URL is missing.",
-  });
+  checks.push(await checkNbaSidecarReadiness(nbaSidecarBaseUrl));
 
   const oddsApiKey = getOddsApiKey();
   const bet365SessionStatePath = process.env.BET365_SESSION_STATE_PATH;

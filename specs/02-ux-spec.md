@@ -20,8 +20,9 @@
 - `UX-020` Slate and desk surfaces shall call out missing NBA score updates or missing final confirmation when a scheduled game is inside the expected live/final window, rather than calling future games stale or silently displaying an old `scheduled` state.
 - `UX-021` Divergence rows shall show peak divergence, latest measured divergence, threshold duration, and market-match state from DB-backed summaries. Final games may be review evidence; only live games with fresh same-time quotes may read as actionable now.
 - `UX-022` Slate and desk game cards shall display market feeds separately from NBA state. A top signal may only appear when a same-time market comparison exists; coverage-only rows must read as coverage or mapping work, not `0.0%` disagreement.
-- `UX-024` The trader desk shall prioritize a generalized prediction-market weirdness queue ahead of exact player-prop attribution risk. The queue shall show score, confidence, venue, market, API surface, timestamp, signal labels, price/trade/volume/share, spread/depth, mapping status, and a direct review link.
-- `UX-025` A dedicated market-anomalies route shall expose the anomaly queue and tunable scoring controls. The existing prop-alerts route remains a stricter exact-line compatibility surface.
+- `UX-024` The trader desk shall allow a broad volatility or weirdness tripwire to appear first when it is the fastest reliable signal, but it shall immediately fan out into the implicated players, props, and related derivative markets that a trader may need to suspend.
+- `UX-025` A dedicated market-anomalies route shall expose the anomaly queue and tunable scoring controls. The existing prop-alerts route remains a stricter exact-line compatibility surface, while `/board-alerts` is the broader trader-incident queue and warning-audit route.
+- `UX-026` Inspect on a board alert shall show actual local timestamp first, game period/clock if known, the likely review or suspension targets, nearby player-specific follow-up when the first alert was only a broad tripwire, and honest missing-feed or pregame/near-tip notes when the NBA feed cannot yet confirm the event. It shall not present an hours-away NBA row as if it were nearby incident context.
 
 ## Interaction Rules
 

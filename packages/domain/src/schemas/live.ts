@@ -6,6 +6,7 @@ import {
   adminActionStatuses,
   comparableStates,
   mappingStatuses,
+  marketResearchSourceIds,
   marketMicrostructureEventTypes,
   marketFamilies,
   researchGameStatuses,
@@ -13,6 +14,7 @@ import {
 } from "../live-types";
 
 export const researchSourceIdSchema = z.enum(researchSourceIds);
+export const marketResearchSourceIdSchema = z.enum(marketResearchSourceIds);
 export const marketFamilySchema = z.enum(marketFamilies);
 export const researchGameStatusSchema = z.enum(researchGameStatuses);
 export const mappingStatusSchema = z.enum(mappingStatuses);
@@ -105,7 +107,7 @@ export const quoteTickSchema = z.object({
 
 export const marketMicrostructureEventSchema = z.object({
   id: z.number().int().nonnegative(),
-  source: z.enum(["bet365", "kalshi", "polymarket"]),
+  source: marketResearchSourceIdSchema,
   sourceMarketId: z.string(),
   gameId: z.string(),
   instrumentId: z.string().nullable().optional(),

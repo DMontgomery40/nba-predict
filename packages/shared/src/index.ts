@@ -1,6 +1,13 @@
 export * as boardAnomaly from "./board-anomaly";
 export * from "./board-anomaly";
-export * from "./board-anomaly-repository";
+export * from "./board-anomaly-event-context";
+export * from "./board-anomaly-game-runtime";
+export * from "./board-anomaly-historical-fanouts";
+export * from "./board-anomaly-historical-listings";
+export * from "./board-anomaly-live-fanouts";
+export * from "./board-anomaly-live-listings";
+export * from "./board-anomaly-observations";
+export * from "./board-anomaly-play-by-play";
 export * from "./db";
 export * from "./env";
 export * from "./errors";

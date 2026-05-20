@@ -67,10 +67,31 @@ export function replayBoardAnomalies(
 
   const alertDeck: BoardAnomalyAlert[] = [];
   const lastEmittedByKey = new Map<string, BoardAnomalyAlert>();
+  const contextWindowMs = config.contextWindowMinutes * 60 * 1000;
+  let firstObservationIndex = 0;
+  let nextObservationIndex = 0;
 
   for (let clockMs = startMs; clockMs <= cappedEndMs; clockMs += stepMs) {
-    const observationsUpToClock = inOperationalWindow.filter(
-      (observation) => observationTimestampMs(observation) <= clockMs
+    const startObservationIndex = nextObservationIndex;
+    while (
+      nextObservationIndex < inOperationalWindow.length &&
+      observationTimestampMs(inOperationalWindow[nextObservationIndex]) <=
+        clockMs
+    ) {
+      nextObservationIndex += 1;
+    }
+    if (nextObservationIndex === startObservationIndex) continue;
+    if (nextObservationIndex < 2) continue;
+    while (
+      firstObservationIndex < nextObservationIndex &&
+      observationTimestampMs(inOperationalWindow[firstObservationIndex]) <
+        clockMs - contextWindowMs
+    ) {
+      firstObservationIndex += 1;
+    }
+    const observationsUpToClock = inOperationalWindow.slice(
+      firstObservationIndex,
+      nextObservationIndex
     );
     if (observationsUpToClock.length < 2) continue;
 

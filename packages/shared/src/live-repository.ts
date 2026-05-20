@@ -82,6 +82,7 @@ type DivergenceFilters = {
   date?: string;
   family?: MarketFamily;
   freshness?: string;
+  gameId?: string;
   inPlay?: boolean;
   league?: string;
   limit?: number;
@@ -109,14 +110,20 @@ type PlayerPropAlertFilters = {
 type MarketAnomalyFilters = {
   date?: string;
   family?: MarketFamily;
+  gameId?: string;
   includeHistorical?: boolean;
   includeUnmapped?: boolean;
   limit?: number;
   minConfidence?: number;
   minScore?: number;
+  now?: Date | string;
   profileId?: string;
   requireBet365?: boolean;
-  source?: Extract<ResearchSourceId, "bet365" | "kalshi" | "polymarket">;
+  skipQuoteAnomalies?: boolean;
+  source?: Extract<
+    ResearchSourceId,
+    "bet365" | "fanduel" | "draftkings" | "kalshi" | "polymarket"
+  >;
 };
 
 type QuoteObservationInput = Omit<QuoteTick, "id" | "isHeartbeat"> & {
@@ -134,6 +141,18 @@ type AdminActionPayload = {
   payloadJson: Record<string, unknown>;
   requestedBy?: string;
   scope: string;
+};
+
+export type AdminActionStatus = "completed" | "error" | "queued" | "running";
+
+export type AdminActionRecord = {
+  actionType: string;
+  id: number;
+  payloadJson: Record<string, unknown>;
+  requestedAt: string;
+  requestedBy: string;
+  scope: string;
+  status: AdminActionStatus;
 };
 
 function parseJson<T>(payload: string | null | undefined, fallback: T): T {
@@ -171,7 +190,7 @@ function nullableNumber(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
-function timestampValue(value: string | null | undefined) {
+function timestampValue(value: Date | string | null | undefined) {
   if (!value) {
     return -1;
   }
@@ -796,6 +815,58 @@ function rowToRawPayload(
   };
 }
 
+function gameStateLifecycleRank(
+  state:
+    | Pick<CanonicalGameState, "isFinal" | "status" | "startedAt">
+    | null
+    | undefined
+) {
+  if (!state) return 0;
+  if (state.isFinal || state.status === "final") return 4;
+  if (state.status === "in-play" || state.startedAt != null) return 3;
+  if (state.status === "cancelled" || state.status === "postponed") return 2;
+  return 1;
+}
+
+function isScheduledRegression(
+  latest:
+    | Pick<CanonicalGameState, "isFinal" | "status" | "startedAt">
+    | null
+    | undefined,
+  incoming: Pick<
+    CanonicalGameState,
+    | "awayScore"
+    | "clock"
+    | "finalAt"
+    | "homeScore"
+    | "isFinal"
+    | "period"
+    | "startedAt"
+    | "status"
+  >
+) {
+  if (!latest) return false;
+
+  if (latest.isFinal && !incoming.isFinal) {
+    return true;
+  }
+
+  if (
+    incoming.status === "scheduled" &&
+    latest.startedAt != null &&
+    incoming.startedAt == null &&
+    (incoming.period ?? 0) <= 0 &&
+    incoming.clock == null &&
+    incoming.homeScore == null &&
+    incoming.awayScore == null &&
+    incoming.finalAt == null
+  ) {
+    return true;
+  }
+
+  return gameStateLifecycleRank(latest) > gameStateLifecycleRank(incoming);
+}
+
 function selectLatestGameState(db: Database.Database, gameId: string) {
   return rowToGameState(
     db
@@ -816,6 +887,12 @@ function selectLatestGameState(db: Database.Database, gameId: string) {
           FROM game_states
           WHERE game_id = ?
           ORDER BY
+            CASE
+              WHEN is_final = 1 OR status = 'final' THEN 4
+              WHEN status = 'in-play' OR started_at IS NOT NULL THEN 3
+              WHEN status = 'cancelled' OR status = 'postponed' THEN 2
+              ELSE 1
+            END DESC,
             CASE
               WHEN datetime(captured_at) > datetime('now', '+10 minutes') THEN 1
               ELSE 0
@@ -1187,6 +1264,37 @@ function deriveResearchGameStatus(
   return bundle.gameState?.status ?? ("scheduled" as const);
 }
 
+function isExpiredScheduledGhostGame(
+  bundle: NonNullable<ReturnType<typeof selectGameBundle>>,
+  referenceNow: string
+) {
+  if (bundle.outcome) return false;
+  if (!bundle.gameState) return false;
+  if (bundle.gameState.status !== "scheduled") return false;
+  if (bundle.gameState.startedAt != null || bundle.gameState.isFinal) {
+    return false;
+  }
+  if (bundle.sourceMarkets.length > 0) {
+    const sources = new Set(
+      bundle.sourceMarkets.map((sourceMarket) => sourceMarket.source)
+    );
+    const hasOnlyPolymarketCoverage =
+      sources.size > 0 &&
+      Array.from(sources).every((source) => source === "polymarket");
+    if (!hasOnlyPolymarketCoverage) {
+      return false;
+    }
+  }
+
+  const scheduledMs = Date.parse(bundle.game.scheduledStart);
+  const referenceMs = Date.parse(referenceNow);
+  if (!Number.isFinite(scheduledMs) || !Number.isFinite(referenceMs)) {
+    return false;
+  }
+
+  return scheduledMs < referenceMs - 8 * 60 * 60_000;
+}
+
 function selectGameBundle(db: Database.Database, gameId: string) {
   const gameRow = db
     .prepare(
@@ -1347,6 +1455,12 @@ function selectFilteredGameBundles(
           WHERE gs.game_id = games.id
           ORDER BY
             CASE
+              WHEN gs.is_final = 1 OR gs.status = 'final' THEN 4
+              WHEN gs.status = 'in-play' OR gs.started_at IS NOT NULL THEN 3
+              WHEN gs.status = 'cancelled' OR gs.status = 'postponed' THEN 2
+              ELSE 1
+            END DESC,
+            CASE
               WHEN datetime(gs.captured_at) > datetime(?, '+10 minutes') THEN 1
               ELSE 0
             END,
@@ -1375,6 +1489,12 @@ function selectFilteredGameBundles(
               FROM game_states gs
               WHERE gs.game_id = games.id
               ORDER BY
+                CASE
+                  WHEN gs.is_final = 1 OR gs.status = 'final' THEN 4
+                  WHEN gs.status = 'in-play' OR gs.started_at IS NOT NULL THEN 3
+                  WHEN gs.status = 'cancelled' OR gs.status = 'postponed' THEN 2
+                  ELSE 1
+                END DESC,
                 CASE
                   WHEN datetime(gs.captured_at) > datetime(?, '+10 minutes') THEN 1
                   ELSE 0
@@ -1453,6 +1573,12 @@ function selectFilteredGameBundles(
             ROW_NUMBER() OVER (
               PARTITION BY game_id
               ORDER BY
+                CASE
+                  WHEN is_final = 1 OR status = 'final' THEN 4
+                  WHEN status = 'in-play' OR started_at IS NOT NULL THEN 3
+                  WHEN status = 'cancelled' OR status = 'postponed' THEN 2
+                  ELSE 1
+                END DESC,
                 CASE
                   WHEN datetime(captured_at) > datetime(?, '+10 minutes') THEN 1
                   ELSE 0
@@ -1590,7 +1716,7 @@ function selectFilteredGameBundles(
         sourceMarkets: sourceMarketsByGame.get(gameId) ?? [],
       };
     })
-    .filter((bundle) => bundle !== null);
+    .filter((bundle) => !isExpiredScheduledGhostGame(bundle, referenceNow));
 }
 
 function compareDivergenceRows(
@@ -1630,7 +1756,7 @@ function buildResearchDivergenceEntries(filters: DivergenceFilters = {}) {
     limit: currentSlateGameLimit,
     order: filters.date ? "scheduledAsc" : "currentSlate",
     sport: filters.sport,
-  });
+  }).filter((bundle) => !filters.gameId || bundle.game.id === filters.gameId);
   const candidateInstrumentIds = bundles.flatMap((bundle) =>
     bundle.instruments
       .filter((instrument) => {
@@ -2086,6 +2212,8 @@ type MarketAnomalyCandidate = {
   volumeShare: number | null;
 };
 
+type MarketAnomalyScoreComponents = MarketAnomalyAlert["components"];
+
 function familyFromRaw(value: unknown): MarketFamily | null {
   if (typeof value !== "string") {
     return null;
@@ -2242,6 +2370,52 @@ function selectCrossVenueContext(
   return { gap, hasBet365 };
 }
 
+function scoreMarketAnomalyComponents(
+  components: MarketAnomalyScoreComponents,
+  config: MarketAnomalyScoreConfig
+) {
+  const weightTotal = Math.max(
+    0.001,
+    Object.values(config.weights).reduce((sum, value) => sum + value, 0)
+  );
+  return Math.round(
+    (components.crossVenue * config.weights.crossVenue +
+      components.liquidity * config.weights.liquidity +
+      components.offPrice * config.weights.offPrice +
+      components.volatility * config.weights.volatility +
+      components.volumeShare * config.weights.volumeShare) *
+      (100 / weightTotal)
+  );
+}
+
+function normalizeVolumeShare(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return null;
+  if (value < 0 || value > 1) return null;
+  return value;
+}
+
+function confidenceForMarketAnomalyCandidate(
+  candidate: MarketAnomalyCandidate,
+  score: number
+) {
+  const surface = candidate.apiSurface.toLowerCase();
+  const typeConfidence =
+    candidate.eventType === "trade"
+      ? 0.9
+      : candidate.eventType === "book-snapshot"
+        ? 0.85
+        : candidate.eventType === "candlestick" || surface.includes("candle")
+          ? 0.55
+          : surface.includes("price-history")
+            ? 0.65
+            : 0.7;
+  return clampScorePercent(
+    typeConfidence -
+      (candidate.mappingStatus === "unmapped" ? 0.15 : 0) +
+      Math.min(0.1, score / 1000)
+  );
+}
+
 function scoreMarketAnomalyCandidate(
   db: Database.Database,
   candidate: MarketAnomalyCandidate,
@@ -2271,28 +2445,21 @@ function scoreMarketAnomalyCandidate(
       ? Math.abs(candidate.price - candidate.previousPrice)
       : null;
   const volumeShare =
-    candidate.volumeShare ??
-    (candidate.finalMarketVolume != null &&
-    candidate.finalMarketVolume > 0 &&
-    candidate.size != null
-      ? candidate.size / candidate.finalMarketVolume
-      : null);
+    normalizeVolumeShare(candidate.volumeShare) ??
+    normalizeVolumeShare(
+      candidate.finalMarketVolume != null &&
+        candidate.finalMarketVolume > 0 &&
+        candidate.size != null
+        ? candidate.size / candidate.finalMarketVolume
+        : null
+    );
   const spread =
     candidate.spread ??
     (candidate.bestBid != null && candidate.bestAsk != null
       ? Math.max(0, candidate.bestAsk - candidate.bestBid)
       : null);
-  const crossVenue = selectCrossVenueContext(db, candidate, config);
-  if (config.toggles.requireBet365 && !crossVenue.hasBet365) {
-    return null;
-  }
-
-  const components = {
-    crossVenue: clampScorePercent(
-      crossVenue.gap == null
-        ? 0
-        : crossVenue.gap / Math.max(config.thresholds.priceJump, 0.001)
-    ),
+  const componentsWithoutCrossVenue = {
+    crossVenue: 0,
     liquidity: clampScorePercent(
       Math.max(
         spread == null ? 0 : spread / Math.max(config.thresholds.spread, 0.001),
@@ -2318,35 +2485,40 @@ function scoreMarketAnomalyCandidate(
         : volumeShare / Math.max(config.thresholds.volumeShare, 0.001)
     ),
   };
-  const weightTotal = Math.max(
-    0.001,
-    Object.values(config.weights).reduce((sum, value) => sum + value, 0)
+  const maxPossibleScore = scoreMarketAnomalyComponents(
+    {
+      ...componentsWithoutCrossVenue,
+      crossVenue: 1,
+    },
+    config
   );
-  const score = Math.round(
-    (components.crossVenue * config.weights.crossVenue +
-      components.liquidity * config.weights.liquidity +
-      components.offPrice * config.weights.offPrice +
-      components.volatility * config.weights.volatility +
-      components.volumeShare * config.weights.volumeShare) *
-      (100 / weightTotal)
+  const maxPossibleConfidence = confidenceForMarketAnomalyCandidate(
+    candidate,
+    maxPossibleScore
   );
 
-  const surface = candidate.apiSurface.toLowerCase();
-  const typeConfidence =
-    candidate.eventType === "trade"
-      ? 0.9
-      : candidate.eventType === "book-snapshot"
-        ? 0.85
-        : candidate.eventType === "candlestick" || surface.includes("candle")
-          ? 0.55
-          : surface.includes("price-history")
-            ? 0.65
-            : 0.7;
-  const confidence = clampScorePercent(
-    typeConfidence -
-      (candidate.mappingStatus === "unmapped" ? 0.15 : 0) +
-      Math.min(0.1, score / 1000)
-  );
+  if (
+    maxPossibleScore < config.minScore ||
+    maxPossibleConfidence < config.minConfidence
+  ) {
+    return null;
+  }
+
+  const crossVenue = selectCrossVenueContext(db, candidate, config);
+  if (config.toggles.requireBet365 && !crossVenue.hasBet365) {
+    return null;
+  }
+
+  const components = {
+    ...componentsWithoutCrossVenue,
+    crossVenue: clampScorePercent(
+      crossVenue.gap == null
+        ? 0
+        : crossVenue.gap / Math.max(config.thresholds.priceJump, 0.001)
+    ),
+  };
+  const score = scoreMarketAnomalyComponents(components, config);
+  const confidence = confidenceForMarketAnomalyCandidate(candidate, score);
 
   if (score < config.minScore || confidence < config.minConfidence) {
     return null;
@@ -2439,6 +2611,10 @@ function buildAnomalyWhereClause(
     clauses.push("COALESCE(mi.family, sm.raw_family) = ?");
     params.push(filters.family);
   }
+  if (filters.gameId) {
+    clauses.push("g.id = ?");
+    params.push(filters.gameId);
+  }
   if (!config.toggles.includeUnmapped) {
     clauses.push("sm.mapping_status != 'unmapped'");
   }
@@ -2455,6 +2631,15 @@ function buildAnomalyWhereClause(
         LIMIT 1
       ), 'scheduled') != 'final'
     `);
+  }
+  if (!filters.date && !config.toggles.includeHistorical) {
+    const nowMs =
+      filters.now == null ? Date.now() : timestampValue(filters.now);
+    const maxAgeMinutes = Math.max(1, config.thresholds.maxQuoteAgeMinutes);
+    if (Number.isFinite(nowMs)) {
+      clauses.push("datetime(EVENT_TIME_COLUMN) >= datetime(?)");
+      params.push(new Date(nowMs - maxAgeMinutes * 60_000).toISOString());
+    }
   }
 
   return { clauses, params };
@@ -2529,21 +2714,29 @@ function selectQuoteAnomalyCandidates(
   const whereSql = where.clauses
     .join(" AND ")
     .replaceAll("EVENT_TIME_COLUMN", "q.captured_at");
+  const useLiveWindow = !filters.date && !config.toggles.includeHistorical;
+  const recentQuoteLimit = useLiveWindow ? 1000 : 500;
 
   const rows = db
     .prepare(
       `
         WITH recent_quotes AS (
           SELECT q.*
-          FROM quote_ticks q
+          FROM quote_ticks q INDEXED BY idx_quote_ticks_anomaly_captured_latest
+          ${
+            useLiveWindow
+              ? ""
+              : `
           JOIN source_markets sm ON sm.id = q.source_market_id
           JOIN games g ON g.id = sm.game_id
-          LEFT JOIN market_instruments mi ON mi.id = sm.instrument_id
-          WHERE COALESCE(q.implied_probability, CASE WHEN q.price_raw BETWEEN 0 AND 1 THEN q.price_raw END) IS NOT NULL
+          LEFT JOIN market_instruments mi ON mi.id = sm.instrument_id`
+          }
+          WHERE (q.implied_probability IS NOT NULL OR q.price_raw IS NOT NULL)
+            AND COALESCE(q.implied_probability, CASE WHEN q.price_raw BETWEEN 0 AND 1 THEN q.price_raw END) IS NOT NULL
             AND q.is_heartbeat = 0
-            AND ${whereSql}
-          ORDER BY datetime(q.captured_at) DESC, q.id DESC
-          LIMIT 500
+            ${useLiveWindow ? "" : `AND ${whereSql}`}
+          ORDER BY q.captured_at DESC, q.id DESC
+          LIMIT ${recentQuoteLimit}
         )
         SELECT
           q.id,
@@ -2570,13 +2763,13 @@ function selectQuoteAnomalyCandidates(
               AND COALESCE(prev.implied_probability, CASE WHEN prev.price_raw BETWEEN 0 AND 1 THEN prev.price_raw END) IS NOT NULL
               AND prev.is_heartbeat = 0
               AND (
-                datetime(prev.captured_at) < datetime(q.captured_at)
+                prev.captured_at < q.captured_at
                 OR (
-                  datetime(prev.captured_at) = datetime(q.captured_at)
+                  prev.captured_at = q.captured_at
                   AND prev.id < q.id
                 )
               )
-            ORDER BY datetime(prev.captured_at) DESC, prev.id DESC
+            ORDER BY prev.captured_at DESC, prev.id DESC
             LIMIT 1
           ) AS previousPrice,
           NULL AS tradePrice,
@@ -2602,18 +2795,19 @@ function selectQuoteAnomalyCandidates(
         JOIN games g ON g.id = sm.game_id
         LEFT JOIN market_instruments mi ON mi.id = sm.instrument_id
         WHERE ${whereSql}
-        ORDER BY datetime(q.captured_at) DESC, q.id DESC
+        ORDER BY q.captured_at DESC, q.id DESC
         LIMIT 2000
       `
     )
-    .all(...where.params, ...where.params) as Record<string, unknown>[];
+    .all(...(useLiveWindow ? [] : where.params), ...where.params) as Record<
+    string,
+    unknown
+  >[];
 
   return rows.map(marketAnomalyCandidateFromRow);
 }
 
-export function listMarketAnomalyAlerts(
-  filters: MarketAnomalyFilters & { skipQuoteAnomalies?: boolean } = {}
-) {
+export function listMarketAnomalyAlerts(filters: MarketAnomalyFilters = {}) {
   const storedConfig = getMarketAnomalyScoreConfig(filters.profileId);
   return executeDatabaseOperation(
     "research.marketAnomalies.list",
@@ -3088,6 +3282,13 @@ export function recordGameStateObservation(
     () => {
       const db = getDatabase();
       const latest = selectLatestGameState(db, input.gameId);
+      if (isScheduledRegression(latest, input)) {
+        return {
+          gameState: latest,
+          reason: "regressed" as const,
+          wrote: false,
+        };
+      }
       const unchanged =
         latest &&
         latest.status === input.status &&
@@ -3150,6 +3351,93 @@ export function recordGameStateObservation(
     {
       gameId: input.gameId,
       status: input.status,
+    }
+  );
+}
+
+export type NbaPlayByPlayActionInput = {
+  actionNumber: number;
+  actionType?: string | null;
+  clock?: string | null;
+  description?: string | null;
+  period?: number | null;
+  scoreAway?: string | null;
+  scoreHome?: string | null;
+  teamTricode?: string | null;
+  timeActual?: string | null;
+  rawMetadata?: Record<string, unknown> | null;
+};
+
+export function recordNbaPlayByPlayActions(input: {
+  actions: NbaPlayByPlayActionInput[];
+  capturedAt: string;
+  gameId: string;
+}) {
+  return executeDatabaseOperation(
+    "nbaPlayByPlayActions.upsert",
+    () => {
+      const db = getDatabase();
+      const statement = db.prepare(
+        `
+          INSERT INTO nba_play_by_play_actions (
+            game_id,
+            action_number,
+            action_type,
+            period,
+            clock,
+            description,
+            score_away,
+            score_home,
+            team_tricode,
+            time_actual,
+            captured_at,
+            raw_metadata_json
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(game_id, action_number) DO UPDATE SET
+            action_type = excluded.action_type,
+            period = excluded.period,
+            clock = excluded.clock,
+            description = excluded.description,
+            score_away = excluded.score_away,
+            score_home = excluded.score_home,
+            team_tricode = excluded.team_tricode,
+            time_actual = excluded.time_actual,
+            captured_at = excluded.captured_at,
+            raw_metadata_json = excluded.raw_metadata_json
+        `
+      );
+
+      const run = db.transaction(() => {
+        let written = 0;
+        for (const action of input.actions) {
+          if (!Number.isFinite(action.actionNumber)) continue;
+          const result = statement.run(
+            input.gameId,
+            action.actionNumber,
+            action.actionType ?? null,
+            action.period ?? null,
+            action.clock ?? null,
+            action.description ?? null,
+            action.scoreAway ?? null,
+            action.scoreHome ?? null,
+            action.teamTricode ?? null,
+            action.timeActual ?? null,
+            input.capturedAt,
+            stringifyJson(action.rawMetadata ?? action)
+          );
+          written += result.changes;
+        }
+        return written;
+      });
+
+      return {
+        actionsSeen: input.actions.length,
+        actionsWritten: run(),
+      };
+    },
+    {
+      gameId: input.gameId,
     }
   );
 }
@@ -3329,6 +3617,7 @@ export function appendQuoteTick(tick: Omit<QuoteTick, "id">) {
               is_heartbeat
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(source_market_id, captured_at) DO NOTHING
           `
         )
         .run(
@@ -3344,6 +3633,37 @@ export function appendQuoteTick(tick: Omit<QuoteTick, "id">) {
           tick.depthScore ?? null,
           tick.isHeartbeat ? 1 : 0
         );
+
+      if (result.changes === 0) {
+        const existing = rowToQuoteTick(
+          db
+            .prepare(
+              `
+                SELECT
+                  id,
+                  source_market_id AS sourceMarketId,
+                  captured_at AS capturedAt,
+                  price_raw AS priceRaw,
+                  odds_raw AS oddsRaw,
+                  line_raw AS lineRaw,
+                  implied_probability AS impliedProbability,
+                  best_bid AS bestBid,
+                  best_ask AS bestAsk,
+                  volume,
+                  depth_score AS depthScore,
+                  is_heartbeat AS isHeartbeat
+                FROM quote_ticks
+                WHERE source_market_id = ?
+                  AND captured_at = ?
+                LIMIT 1
+              `
+            )
+            .get(tick.sourceMarketId, tick.capturedAt) as
+            | Record<string, unknown>
+            | undefined
+        );
+        if (existing) return existing;
+      }
 
       return {
         ...tick,
@@ -3361,6 +3681,42 @@ export function recordQuoteObservation(input: QuoteObservationInput) {
     "quoteTicks.observe",
     () => {
       const db = getDatabase();
+      const existingAtCapturedAt = rowToQuoteTick(
+        db
+          .prepare(
+            `
+              SELECT
+                id,
+                source_market_id AS sourceMarketId,
+                captured_at AS capturedAt,
+                price_raw AS priceRaw,
+                odds_raw AS oddsRaw,
+                line_raw AS lineRaw,
+                implied_probability AS impliedProbability,
+                best_bid AS bestBid,
+                best_ask AS bestAsk,
+                volume,
+                depth_score AS depthScore,
+                is_heartbeat AS isHeartbeat
+              FROM quote_ticks
+              WHERE source_market_id = ?
+                AND captured_at = ?
+              LIMIT 1
+            `
+          )
+          .get(input.sourceMarketId, input.capturedAt) as
+          | Record<string, unknown>
+          | undefined
+      );
+
+      if (existingAtCapturedAt) {
+        return {
+          reason: "deduped" as const,
+          tick: existingAtCapturedAt,
+          wrote: false,
+        };
+      }
+
       const latest = rowToQuoteTick(
         db
           .prepare(
@@ -3453,6 +3809,31 @@ export function recordRawPayload(input: {
     "rawPayloads.append",
     () => {
       const db = getDatabase();
+      const existing = db
+        .prepare(
+          `
+            SELECT id
+            FROM raw_payloads
+            WHERE source = ?
+              AND entity_type = ?
+              AND entity_id = ?
+              AND content_hash = ?
+            ORDER BY datetime(captured_at) DESC, id DESC
+            LIMIT 1
+          `
+        )
+        .get(
+          input.source,
+          input.entityType,
+          input.entityId,
+          input.contentHash
+        ) as { id: number } | undefined;
+      if (existing) {
+        return {
+          ...input,
+          id: Number(existing.id),
+        } satisfies RawPayloadAttachment;
+      }
       const result = db
         .prepare(
           `
@@ -3802,6 +4183,100 @@ export function enqueueTimelineMaterializationRebuild(
   return enqueueAdminAction("timeline-materialization-rebuild", payload);
 }
 
+export function claimNextQueuedAdminAction() {
+  return executeDatabaseOperation("adminActions.claimNext", () => {
+    const db = getDatabase();
+
+    return db.transaction(() => {
+      const row = db
+        .prepare(
+          `
+            SELECT
+              id,
+              action_type AS actionType,
+              scope,
+              requested_at AS requestedAt,
+              requested_by AS requestedBy,
+              status,
+              payload_json AS payloadJson
+            FROM admin_actions
+            WHERE status = 'queued'
+            ORDER BY id ASC
+            LIMIT 1
+          `
+        )
+        .get() as
+        | {
+            actionType: string;
+            id: number;
+            payloadJson: string;
+            requestedAt: string;
+            requestedBy: string;
+            scope: string;
+            status: AdminActionStatus;
+          }
+        | undefined;
+
+      if (!row) {
+        return null;
+      }
+
+      const updated = db
+        .prepare(
+          `
+            UPDATE admin_actions
+            SET status = 'running'
+            WHERE id = ?
+              AND status = 'queued'
+          `
+        )
+        .run(row.id);
+
+      if (updated.changes === 0) {
+        return null;
+      }
+
+      return {
+        actionType: row.actionType,
+        id: row.id,
+        payloadJson: parseJson(row.payloadJson, {}),
+        requestedAt: row.requestedAt,
+        requestedBy: row.requestedBy,
+        scope: row.scope,
+        status: "running" as const,
+      } satisfies AdminActionRecord;
+    })();
+  });
+}
+
+export function markAdminActionCompleted(id: number) {
+  return executeDatabaseOperation("adminActions.complete", () => {
+    getDatabase()
+      .prepare(
+        `
+          UPDATE admin_actions
+          SET status = 'completed'
+          WHERE id = ?
+        `
+      )
+      .run(id);
+  });
+}
+
+export function markAdminActionErrored(id: number) {
+  return executeDatabaseOperation("adminActions.error", () => {
+    getDatabase()
+      .prepare(
+        `
+          UPDATE admin_actions
+          SET status = 'error'
+          WHERE id = ?
+        `
+      )
+      .run(id);
+  });
+}
+
 export function listResearchGames(filters: GamesFilters = {}) {
   return executeDatabaseOperation(
     "research.games.list",
@@ -4076,6 +4551,8 @@ export function getInstrumentTimeline(
         InstrumentTimelinePoint[]
       > = {
         bet365: [],
+        fanduel: [],
+        draftkings: [],
         kalshi: [],
         nba: [],
         polymarket: [],

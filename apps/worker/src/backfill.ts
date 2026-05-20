@@ -1,10 +1,12 @@
 import {
   syncBet365DirectLive,
+  syncBet365Historical,
   syncBet365InternalDump,
   syncKalshiNbaDirect,
   syncKalshiNbaHistorical,
   syncKalshiNbaTrades,
   syncPolymarketNbaHistorical,
+  syncPolymarketNbaTrades,
 } from "@signal-console/adapters";
 import {
   closeDatabase,
@@ -18,12 +20,14 @@ import { syncNbaSidecarWindow } from "./nba-sidecar";
 type BackfillTarget =
   | "all"
   | "bet365-direct"
+  | "bet365-historical"
   | "bet365-internal"
   | "kalshi"
   | "kalshi-historical"
   | "kalshi-trades"
   | "nba"
-  | "polymarket";
+  | "polymarket"
+  | "polymarket-trades";
 
 type BackfillOptions = {
   fidelityMinutes?: number;
@@ -52,7 +56,9 @@ function parseArgs(argv: string[]): BackfillOptions {
       token === "kalshi-historical" ||
       token === "kalshi-trades" ||
       token === "polymarket" ||
+      token === "polymarket-trades" ||
       token === "nba" ||
+      token === "bet365-historical" ||
       token === "bet365-internal" ||
       token === "bet365-direct" ||
       token === "all"
@@ -105,6 +111,8 @@ function printUsage() {
     "  pnpm backfill kalshi-historical [--maxEvents N] [--periodInterval 1|60]",
     "  pnpm backfill kalshi-trades --since 2026-05-11T20:00:00Z --until 2026-05-12T08:00:00Z [--gameId nba-0042500224] [--maxTickers N]",
     "  pnpm backfill polymarket [--since 2024-10-01] [--maxEvents N] [--fidelity 1]",
+    "  pnpm backfill polymarket-trades --since 2026-05-18T00:00:00Z --until 2026-05-18T05:30:00Z [--gameId nba-0042500207] [--maxTickers N]",
+    "  pnpm backfill bet365-historical [--since 2026-04-29] [--until 2026-05-20] [--maxEvents N]",
     "  pnpm backfill bet365-internal    # reads BET365_INTERNAL_DUMP_DIR/*.jsonl",
     "  pnpm backfill bet365-direct      # Playwright scrape, needs BET365_SESSION_STATE_PATH",
     "  pnpm backfill all",
@@ -125,6 +133,13 @@ async function runNba(
     lookaheadDays: options.lookaheadDays ?? 0,
     lookbackDays: options.lookbackDays ?? DEFAULT_LOOKBACK_DAYS,
   });
+  if (!summary.ok) {
+    throw new Error(
+      `NBA sidecar historical window had partial failures: ${summary.dateErrors
+        .map((entry) => `${entry.date}: ${entry.error}`)
+        .join(" | ")}`
+    );
+  }
   logger.info(summary, "NBA sidecar historical window completed.");
   return summary;
 }
@@ -187,9 +202,42 @@ async function runPolymarket(
   return summary;
 }
 
+async function runPolymarketTrades(
+  logger: ReturnType<typeof createAppLogger>,
+  options: BackfillOptions
+) {
+  if (!options.since || !options.until) {
+    throw new Error(
+      "polymarket-trades requires --since and --until (ISO8601 timestamps)"
+    );
+  }
+  const summary = await syncPolymarketNbaTrades({
+    since: options.since,
+    until: options.until,
+    gameId: options.gameId,
+    league: options.league,
+    maxMarkets: options.maxTickers,
+  });
+  logger.info(summary, "Polymarket NBA trades backfill completed.");
+  return summary;
+}
+
 async function runBet365Internal(logger: ReturnType<typeof createAppLogger>) {
   const summary = syncBet365InternalDump();
   logger.info(summary, "Bet365 internal dump ingest completed.");
+  return summary;
+}
+
+async function runBet365Historical(
+  logger: ReturnType<typeof createAppLogger>,
+  options: BackfillOptions
+) {
+  const summary = await syncBet365Historical({
+    dateFrom: options.since,
+    dateTo: options.until,
+    maxEvents: options.maxEvents,
+  });
+  logger.info(summary, "Bet365 historical Odds API backfill completed.");
   return summary;
 }
 
@@ -227,6 +275,12 @@ export async function runBackfill(argv: string[] = process.argv.slice(2)) {
       case "polymarket":
         await runPolymarket(logger, options);
         break;
+      case "polymarket-trades":
+        await runPolymarketTrades(logger, options);
+        break;
+      case "bet365-historical":
+        await runBet365Historical(logger, options);
+        break;
       case "bet365-internal":
         await runBet365Internal(logger);
         break;
@@ -237,6 +291,7 @@ export async function runBackfill(argv: string[] = process.argv.slice(2)) {
         await runNba(logger, options);
         await runKalshi(logger, options);
         await runPolymarket(logger, options);
+        await runBet365Historical(logger, options);
         await runBet365Internal(logger);
         break;
     }

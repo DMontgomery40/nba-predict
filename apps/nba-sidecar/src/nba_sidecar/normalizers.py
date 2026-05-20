@@ -20,6 +20,23 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _captured_at_from_meta(value: Any) -> str:
+    if not value:
+        return _now_iso()
+
+    text = str(value)
+    normalized = text.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return _now_iso()
+
+    if parsed.tzinfo is None:
+        return _now_iso()
+
+    return parsed.astimezone(UTC).isoformat()
+
+
 def _coerce_int(value: Any) -> int | None:
     if value in (None, ""):
         return None
@@ -74,7 +91,7 @@ def normalize_live_scoreboard_payload(
 ) -> ScoreboardResponse:
     scoreboard_payload = payload.get("scoreboard", payload)
     games = scoreboard_payload.get("games", [])
-    generated_at = _pick(payload.get("meta", {}), "time", default=_now_iso())
+    generated_at = _captured_at_from_meta(_pick(payload.get("meta", {}), "time"))
     normalized_games: list[SidecarGame] = []
 
     for game in games:
@@ -248,7 +265,7 @@ def normalize_schedule_league_payload(
 ) -> ScoreboardResponse:
     league_schedule = payload.get("leagueSchedule", {})
     game_dates = league_schedule.get("gameDates", [])
-    generated_at = _pick(payload.get("meta", {}), "time", default=_now_iso())
+    generated_at = _captured_at_from_meta(_pick(payload.get("meta", {}), "time"))
     games: list[dict[str, Any]] = []
 
     for schedule_date in game_dates:
@@ -275,7 +292,7 @@ def normalize_live_boxscore_payload(
     home_team = game_payload.get("homeTeam", {})
     away_team = game_payload.get("awayTeam", {})
     game_status = _coerce_int(_pick(game_payload, "gameStatus", "gameStatusText"))
-    captured_at = _pick(payload.get("meta", {}), "time", default=_now_iso())
+    captured_at = _captured_at_from_meta(_pick(payload.get("meta", {}), "time"))
     canonical_game = CanonicalGame(
         id=f"nba-{game_id}",
         awayParticipant=_participant_from_live(away_team, "away"),
@@ -322,7 +339,7 @@ def normalize_live_playbyplay_payload(
 ) -> PlayByPlayResponse:
     game_payload = payload.get("game", payload)
     actions = game_payload.get("actions", [])
-    generated_at = _pick(payload.get("meta", {}), "time", default=_now_iso())
+    generated_at = _captured_at_from_meta(_pick(payload.get("meta", {}), "time"))
     normalized_actions = [
         PlayByPlayAction(
             actionNumber=_coerce_int(action.get("actionNumber")),

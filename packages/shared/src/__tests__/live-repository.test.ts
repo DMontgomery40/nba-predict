@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   getInstrumentComparison,
+  getDatabase,
   getInstrumentRawSource,
+  getResearchGame,
   getResearchCoverage,
   getStorageCoverage,
   getInstrumentTimeline,
@@ -214,8 +216,420 @@ describe("live repository", () => {
     }
   });
 
+  it("ignores scheduled regressions after a game has started or finished", () => {
+    seedLiveRepositoryGame();
+    const db = getDatabase();
+    const initialCount = Number(
+      (
+        db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM game_states WHERE game_id = 'nba-bos-nyk-2026-04-21'"
+          )
+          .get() as { count: number }
+      ).count
+    );
+
+    const regressedInPlay = recordGameStateObservation({
+      awayScore: null,
+      capturedAt: "2026-04-22T12:00:00.000Z",
+      clock: null,
+      finalAt: null,
+      gameId: "nba-bos-nyk-2026-04-21",
+      homeScore: null,
+      isFinal: false,
+      period: 0,
+      startedAt: null,
+      status: "scheduled",
+    });
+
+    expect(regressedInPlay.wrote).toBe(false);
+    expect(regressedInPlay.reason).toBe("regressed");
+    expect(getResearchGame("nba-bos-nyk-2026-04-21")?.gameState?.status).toBe(
+      "in-play"
+    );
+
+    recordGameStateObservation({
+      awayScore: 101,
+      capturedAt: "2026-04-22T02:10:00.000Z",
+      clock: null,
+      finalAt: "2026-04-22T02:10:00.000Z",
+      gameId: "nba-bos-nyk-2026-04-21",
+      homeScore: 108,
+      isFinal: true,
+      period: 4,
+      startedAt: "2026-04-21T23:05:00.000Z",
+      status: "final",
+    });
+
+    const regressedFinal = recordGameStateObservation({
+      awayScore: null,
+      capturedAt: "2026-04-22T12:30:00.000Z",
+      clock: null,
+      finalAt: null,
+      gameId: "nba-bos-nyk-2026-04-21",
+      homeScore: null,
+      isFinal: false,
+      period: 0,
+      startedAt: null,
+      status: "scheduled",
+    });
+
+    const finalCount = Number(
+      (
+        db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM game_states WHERE game_id = 'nba-bos-nyk-2026-04-21'"
+          )
+          .get() as { count: number }
+      ).count
+    );
+
+    expect(regressedFinal.wrote).toBe(false);
+    expect(regressedFinal.reason).toBe("regressed");
+    expect(getResearchGame("nba-bos-nyk-2026-04-21")?.gameState?.status).toBe(
+      "final"
+    );
+    expect(finalCount).toBe(initialCount + 1);
+  });
+
+  it("prefers stronger game states over later stale scheduled rows already in storage", () => {
+    seedLiveRepositoryGame();
+    upsertGameOutcome({
+      capturedAt: "2026-04-22T02:10:00.000Z",
+      finalAwayScore: 101,
+      finalHomeScore: 108,
+      gameId: "nba-bos-nyk-2026-04-21",
+      winnerKey: "bos",
+    });
+    recordGameStateObservation({
+      awayScore: 101,
+      capturedAt: "2026-04-22T02:10:00.000Z",
+      clock: null,
+      finalAt: "2026-04-22T02:10:00.000Z",
+      gameId: "nba-bos-nyk-2026-04-21",
+      homeScore: 108,
+      isFinal: true,
+      period: 4,
+      startedAt: "2026-04-21T23:05:00.000Z",
+      status: "final",
+    });
+
+    getDatabase()
+      .prepare(
+        `
+          INSERT INTO game_states (
+            game_id,
+            captured_at,
+            status,
+            period,
+            clock,
+            home_score,
+            away_score,
+            is_final,
+            started_at,
+            final_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+      )
+      .run(
+        "nba-bos-nyk-2026-04-21",
+        "2026-04-22T12:30:00.000Z",
+        "scheduled",
+        0,
+        null,
+        null,
+        null,
+        0,
+        null,
+        null
+      );
+
+    const game = getResearchGame("nba-bos-nyk-2026-04-21");
+
+    expect(game?.gameState?.status).toBe("final");
+    expect(game?.gameState?.homeScore).toBe(108);
+    expect(game?.outcome?.winnerKey).toBe("bos");
+  });
+
+  it("filters stale past-scheduled ghost games out of tracked game listings", () => {
+    upsertGame({
+      awayParticipant: {
+        abbreviation: "GHO",
+        key: "ghost-away",
+        name: "Ghost Away",
+        shortName: "Ghost Away",
+        side: "away",
+      },
+      homeParticipant: {
+        abbreviation: "GST",
+        key: "ghost-home",
+        name: "Ghost Home",
+        shortName: "Ghost Home",
+        side: "home",
+      },
+      id: "nba-ghost-scheduled-game",
+      league: "NBA",
+      scheduledStart: "2026-04-20T00:00:00.000Z",
+      sport: "basketball",
+    });
+    recordGameStateObservation({
+      awayScore: null,
+      capturedAt: "2026-04-19T12:00:00.000Z",
+      clock: null,
+      finalAt: null,
+      gameId: "nba-ghost-scheduled-game",
+      homeScore: null,
+      isFinal: false,
+      period: 0,
+      startedAt: null,
+      status: "scheduled",
+    });
+
+    seedLiveRepositoryGame();
+
+    const gameIds = listResearchGames({
+      date: "2026-04-20",
+      league: "NBA",
+      referenceNow: "2026-04-22T12:00:00.000Z",
+      scope: "all",
+      sport: "basketball",
+    }).map((card) => card.game.id);
+
+    expect(gameIds).not.toContain("nba-ghost-scheduled-game");
+  });
+
+  it("keeps past scheduled games visible when they already have real market coverage", () => {
+    upsertGame({
+      awayParticipant: {
+        abbreviation: "DET",
+        key: "det",
+        name: "Detroit Pistons",
+        shortName: "Pistons",
+        side: "away",
+      },
+      homeParticipant: {
+        abbreviation: "ORL",
+        key: "orl",
+        name: "Orlando Magic",
+        shortName: "Magic",
+        side: "home",
+      },
+      id: "nba-covered-scheduled-game",
+      league: "NBA",
+      scheduledStart: "2026-04-20T00:00:00.000Z",
+      sport: "basketball",
+    });
+    recordGameStateObservation({
+      awayScore: null,
+      capturedAt: "2026-04-21T12:00:00.000Z",
+      clock: null,
+      finalAt: null,
+      gameId: "nba-covered-scheduled-game",
+      homeScore: null,
+      isFinal: false,
+      period: 0,
+      startedAt: null,
+      status: "scheduled",
+    });
+    upsertMarketInstrument({
+      displayLabel: "Magic moneyline",
+      family: "moneyline",
+      gameId: "nba-covered-scheduled-game",
+      id: "magic-moneyline-covered",
+      inPlay: false,
+      line: null,
+      participantKey: "orl",
+      selection: "orl",
+    });
+    upsertSourceMarket({
+      gameId: "nba-covered-scheduled-game",
+      id: "sm-covered-magic-moneyline",
+      instrumentId: "magic-moneyline-covered",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Magic moneyline",
+      rawMetadata: { source: "bet365" },
+      source: "bet365",
+      sourceMarketKey: "covered-magic-moneyline",
+      sourceSelectionKey: "orl",
+    });
+
+    const gameIds = listResearchGames({
+      date: "2026-04-20",
+      league: "NBA",
+      referenceNow: "2026-04-22T12:00:00.000Z",
+      scope: "all",
+      sport: "basketball",
+    }).map((card) => card.game.id);
+
+    expect(gameIds).toContain("nba-covered-scheduled-game");
+  });
+
+  it("filters past scheduled polymarket-only placeholders out of tracked game listings", () => {
+    upsertGame({
+      awayParticipant: {
+        abbreviation: "MIN",
+        key: "min",
+        name: "Minnesota Timberwolves",
+        shortName: "Timberwolves",
+        side: "away",
+      },
+      homeParticipant: {
+        abbreviation: "SAS",
+        key: "sas",
+        name: "San Antonio Spurs",
+        shortName: "Spurs",
+        side: "home",
+      },
+      id: "nba-polymarket-placeholder-game",
+      league: "NBA",
+      scheduledStart: "2026-05-17T00:00:00.000Z",
+      sport: "basketball",
+    });
+    recordGameStateObservation({
+      awayScore: null,
+      capturedAt: "2026-05-17T00:05:00.000Z",
+      clock: null,
+      finalAt: null,
+      gameId: "nba-polymarket-placeholder-game",
+      homeScore: null,
+      isFinal: false,
+      period: 0,
+      startedAt: null,
+      status: "scheduled",
+    });
+    upsertMarketInstrument({
+      displayLabel: "Timberwolves moneyline",
+      family: "moneyline",
+      gameId: "nba-polymarket-placeholder-game",
+      id: "timberwolves-moneyline-placeholder",
+      inPlay: false,
+      line: null,
+      participantKey: "min",
+      selection: "min",
+    });
+    upsertSourceMarket({
+      gameId: "nba-polymarket-placeholder-game",
+      id: "sm-polymarket-placeholder-game",
+      instrumentId: "timberwolves-moneyline-placeholder",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Timberwolves moneyline",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-placeholder-game",
+      sourceSelectionKey: "min",
+    });
+    recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-05-17T00:10:00.000Z",
+      depthScore: null,
+      impliedProbability: 0.61,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.61,
+      sourceMarketId: "sm-polymarket-placeholder-game",
+      volume: null,
+    });
+
+    const gameIds = listResearchGames({
+      date: "2026-05-17",
+      league: "NBA",
+      referenceNow: "2026-05-20T12:00:00.000Z",
+      scope: "all",
+      sport: "basketball",
+    }).map((card) => card.game.id);
+
+    expect(gameIds).not.toContain("nba-polymarket-placeholder-game");
+  });
+
+  it("filters past scheduled games that only have orphaned instruments but no real source coverage", () => {
+    upsertGame({
+      awayParticipant: {
+        abbreviation: "OKC",
+        key: "okc",
+        name: "Oklahoma City Thunder",
+        shortName: "Thunder",
+        side: "away",
+      },
+      homeParticipant: {
+        abbreviation: "PHX",
+        key: "phx",
+        name: "Phoenix Suns",
+        shortName: "Suns",
+        side: "home",
+      },
+      id: "nba-instrument-only-placeholder-game",
+      league: "NBA",
+      scheduledStart: "2026-04-29T00:00:00.000Z",
+      sport: "basketball",
+    });
+    recordGameStateObservation({
+      awayScore: null,
+      capturedAt: "2026-05-10T18:21:17.506042+00:00",
+      clock: null,
+      finalAt: null,
+      gameId: "nba-instrument-only-placeholder-game",
+      homeScore: null,
+      isFinal: false,
+      period: 0,
+      startedAt: null,
+      status: "scheduled",
+    });
+    upsertMarketInstrument({
+      displayLabel: "Thunder moneyline",
+      family: "moneyline",
+      gameId: "nba-instrument-only-placeholder-game",
+      id: "thunder-moneyline-placeholder",
+      inPlay: false,
+      line: null,
+      participantKey: "okc",
+      selection: "okc",
+    });
+
+    const gameIds = listResearchGames({
+      date: "2026-04-29",
+      league: "NBA",
+      referenceNow: "2026-05-20T12:00:00.000Z",
+      scope: "all",
+      sport: "basketball",
+    }).map((card) => card.game.id);
+
+    expect(gameIds).not.toContain("nba-instrument-only-placeholder-game");
+  });
+
   it("dedupes unchanged quote captures and writes explicit heartbeats", () => {
     seedLiveRepositoryGame();
+
+    const duplicateSameTimestamp = recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-04-21T23:40:00.000Z",
+      depthScore: 97,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.61,
+      lineRaw: null,
+      oddsRaw: "-156",
+      priceRaw: null,
+      sourceMarketId: "sm-bet365-bos-moneyline",
+      volume: 100,
+    });
+
+    const duplicateSameTimestampDifferentShape = recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-04-21T23:40:00.000Z",
+      depthScore: 92,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.72,
+      lineRaw: null,
+      oddsRaw: "-257",
+      priceRaw: null,
+      sourceMarketId: "sm-bet365-bos-moneyline",
+      volume: 180,
+    });
 
     const deduped = recordQuoteObservation({
       bestAsk: null,
@@ -259,6 +673,22 @@ describe("live repository", () => {
       volume: 100,
     });
 
+    expect(duplicateSameTimestamp).toMatchObject({
+      reason: "deduped",
+      tick: {
+        capturedAt: "2026-04-21T23:40:00.000Z",
+        impliedProbability: 0.61,
+      },
+      wrote: false,
+    });
+    expect(duplicateSameTimestampDifferentShape).toMatchObject({
+      reason: "deduped",
+      tick: {
+        capturedAt: "2026-04-21T23:40:00.000Z",
+        impliedProbability: 0.61,
+      },
+      wrote: false,
+    });
     expect(deduped).toMatchObject({
       reason: "deduped",
       wrote: false,
@@ -947,7 +1377,7 @@ describe("live repository", () => {
       )
     ).toMatchObject({
       availableSources: ["polymarket"],
-      missingSources: ["bet365", "kalshi"],
+      missingSources: ["bet365", "fanduel", "draftkings", "kalshi"],
       unmappedSources: ["polymarket"],
     });
   });
@@ -1103,7 +1533,7 @@ describe("live repository", () => {
     recordMarketMicrostructureEvent({
       apiSurface: "data-api/trades",
       eventTimestamp: "2026-04-21T23:40:38.000Z",
-      eventType: "trade",
+      eventType: "trade" as const,
       finalMarketVolume: 410.166918,
       gameId: "nba-bos-nyk-2026-04-21",
       instrumentId: "bos-moneyline",
@@ -1125,6 +1555,7 @@ describe("live repository", () => {
     const alerts = listMarketAnomalyAlerts({
       includeUnmapped: true,
       minScore: 40,
+      now: "2026-04-21T23:45:00.000Z",
       requireBet365: false,
     });
 
@@ -1144,6 +1575,100 @@ describe("live repository", () => {
       source: "polymarket",
     });
     expect(alerts[0]?.score).toBeGreaterThanOrEqual(60);
+  });
+
+  it("keeps same-second same-size trades separate when transaction hashes differ", () => {
+    seedLiveRepositoryGame();
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-bos-moneyline",
+      instrumentId: "bos-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Boston wins",
+      rawMetadata: { conditionId: "condition-bos", source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-bos-moneyline",
+      sourceSelectionKey: "bos",
+    });
+
+    const base = {
+      apiSurface: "data-api/trades",
+      eventTimestamp: "2026-04-21T23:40:38.000Z",
+      eventType: "trade" as const,
+      finalMarketVolume: 410.166918,
+      gameId: "nba-bos-nyk-2026-04-21",
+      instrumentId: "bos-moneyline",
+      notional: 10,
+      price: 0.99,
+      size: 10,
+      source: "polymarket" as const,
+      sourceMarketId: "sm-polymarket-bos-moneyline",
+      tradePrice: 0.99,
+      volumeShare: 10 / 410.166918,
+    };
+    recordMarketMicrostructureEvent({
+      ...base,
+      rawMetadata: { transactionHash: "0xtrade-a" },
+    });
+    recordMarketMicrostructureEvent({
+      ...base,
+      rawMetadata: { transactionHash: "0xtrade-b" },
+    });
+
+    expect(
+      getDatabase()
+        .prepare("SELECT COUNT(*) AS count FROM market_microstructure_events")
+        .get()
+    ).toEqual({ count: 2 });
+  });
+
+  it("ignores impossible volume-share ratios instead of letting bad denominators dominate alerts", () => {
+    seedLiveRepositoryGame();
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-bad-volume-share",
+      instrumentId: "bos-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Boston wins",
+      rawMetadata: { conditionId: "condition-bos", source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-bad-volume-share",
+      sourceSelectionKey: "bos",
+    });
+
+    recordMarketMicrostructureEvent({
+      apiSurface: "data-api/trades",
+      eventTimestamp: "2026-04-21T23:40:38.000Z",
+      eventType: "trade",
+      finalMarketVolume: 10,
+      gameId: "nba-bos-nyk-2026-04-21",
+      instrumentId: "bos-moneyline",
+      notional: 500,
+      size: 909.09,
+      source: "polymarket",
+      sourceMarketId: "sm-polymarket-bad-volume-share",
+      tradePrice: 0.55,
+      volumeShare: 90.9,
+    });
+
+    expect(
+      listMarketAnomalyAlerts({
+        includeUnmapped: true,
+        minScore: 10,
+        now: "2026-04-21T23:45:00.000Z",
+        requireBet365: false,
+      })
+    ).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceMarketId: "sm-polymarket-bad-volume-share",
+        }),
+      ])
+    );
   });
 
   it("keeps candle-only evidence lower confidence than trade-level anomaly rows", () => {
@@ -1166,6 +1691,7 @@ describe("live repository", () => {
       includeUnmapped: true,
       minConfidence: 0.5,
       minScore: 10,
+      now: "2026-04-21T23:45:00.000Z",
     });
 
     expect(alerts).toEqual(
@@ -1216,6 +1742,7 @@ describe("live repository", () => {
         includeUnmapped: true,
         minConfidence: 0.4,
         minScore: 40,
+        now: "2026-04-21T23:45:00.000Z",
       })
     ).toEqual(
       expect.arrayContaining([
@@ -1232,8 +1759,162 @@ describe("live repository", () => {
         includeUnmapped: false,
         minConfidence: 0.4,
         minScore: 40,
+        now: "2026-04-21T23:45:00.000Z",
       })
     ).toEqual([]);
+  });
+
+  it("keeps stale active-game anomaly prints out of the live queue", () => {
+    seedLiveRepositoryGame();
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-stale-bos-moneyline",
+      instrumentId: "bos-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Boston wins",
+      rawMetadata: { conditionId: "condition-bos", source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-stale-bos-moneyline",
+      sourceSelectionKey: "bos",
+    });
+
+    recordMarketMicrostructureEvent({
+      apiSurface: "data-api/trades",
+      eventTimestamp: "2026-04-21T23:40:38.000Z",
+      eventType: "trade",
+      finalMarketVolume: 410.166918,
+      gameId: "nba-bos-nyk-2026-04-21",
+      instrumentId: "bos-moneyline",
+      notional: 105.66,
+      previousPrice: 0.51,
+      price: 0.51,
+      size: 106.7913,
+      source: "polymarket",
+      sourceMarketId: "sm-polymarket-stale-bos-moneyline",
+      tradePrice: 0.99,
+      volumeShare: 106.7913 / 410.166918,
+    });
+
+    expect(
+      listMarketAnomalyAlerts({
+        includeUnmapped: true,
+        minConfidence: 0.4,
+        minScore: 40,
+        now: "2026-04-22T00:15:00.000Z",
+      })
+    ).toEqual([]);
+
+    expect(
+      listMarketAnomalyAlerts({
+        includeHistorical: true,
+        includeUnmapped: true,
+        minConfidence: 0.4,
+        minScore: 40,
+        now: "2026-04-22T00:15:00.000Z",
+      })
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayLabel: "Boston moneyline",
+          source: "polymarket",
+        }),
+      ])
+    );
+  });
+
+  it("preserves requireBet365 filtering while scoring live anomaly candidates", () => {
+    seedLiveRepositoryGame();
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-bos-moneyline-require-bet365",
+      instrumentId: "bos-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Boston wins",
+      rawMetadata: { conditionId: "condition-bos", source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-bos-moneyline-require-bet365",
+      sourceSelectionKey: "bos",
+    });
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-unmapped-require-bet365",
+      instrumentId: null,
+      mappingStatus: "unmapped",
+      rawFamily: "player-prop",
+      rawLabel: "Unmapped scorer prop",
+      rawMetadata: { conditionId: "condition-unmapped", source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-unmapped-require-bet365",
+      sourceSelectionKey: "over",
+    });
+
+    recordMarketMicrostructureEvent({
+      apiSurface: "data-api/trades",
+      eventTimestamp: "2026-04-21T23:41:38.000Z",
+      eventType: "trade",
+      finalMarketVolume: 410.166918,
+      gameId: "nba-bos-nyk-2026-04-21",
+      instrumentId: "bos-moneyline",
+      notional: 105.66,
+      previousPrice: 0.51,
+      price: 0.51,
+      size: 106.7913,
+      source: "polymarket",
+      sourceMarketId: "sm-polymarket-bos-moneyline-require-bet365",
+      tradePrice: 0.99,
+      volumeShare: 106.7913 / 410.166918,
+    });
+    recordMarketMicrostructureEvent({
+      apiSurface: "data-api/trades",
+      eventTimestamp: "2026-04-21T23:41:39.000Z",
+      eventType: "trade",
+      finalMarketVolume: 410.166918,
+      gameId: "nba-bos-nyk-2026-04-21",
+      instrumentId: null,
+      notional: 105.66,
+      previousPrice: 0.51,
+      price: 0.51,
+      size: 106.7913,
+      source: "polymarket",
+      sourceMarketId: "sm-polymarket-unmapped-require-bet365",
+      tradePrice: 0.99,
+      volumeShare: 106.7913 / 410.166918,
+    });
+
+    const withoutBet365Requirement = listMarketAnomalyAlerts({
+      includeUnmapped: true,
+      minConfidence: 0.4,
+      minScore: 40,
+      now: "2026-04-21T23:45:00.000Z",
+      requireBet365: false,
+    });
+    expect(withoutBet365Requirement).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ displayLabel: "Unmapped scorer prop" }),
+      ])
+    );
+
+    const requiringBet365 = listMarketAnomalyAlerts({
+      includeUnmapped: true,
+      minConfidence: 0.4,
+      minScore: 40,
+      now: "2026-04-21T23:45:00.000Z",
+      requireBet365: true,
+    });
+    expect(requiringBet365).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ displayLabel: "Boston moneyline" }),
+      ])
+    );
+    expect(requiringBet365).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ displayLabel: "Unmapped scorer prop" }),
+      ])
+    );
   });
 
   it("persists tunable market anomaly scoring knobs", () => {

@@ -2,6 +2,11 @@
 
 This repo is live-only. Do not add synthetic modes, curated scenarios, seeded historical packs, or presentation-only data paths back into the runtime.
 
+## Project-Local Memory
+
+- If project-local Codex memory is used for this repo, use `~/.codex/projects/-Users-davidmontgomery-nba-predict/`.
+- Do not read from or write to the AnalogLabor project-local memory path for work in this repo.
+
 ## Source Of Truth
 
 - Live research data must come from persisted `games`, `game_states`, `market_instruments`, `source_markets`, `quote_ticks`, `raw_payloads`, `adapter_runs`, `mapping_resolutions`, and `game_outcomes`.
@@ -40,9 +45,37 @@ This repo is live-only. Do not add synthetic modes, curated scenarios, seeded hi
 - Spread/total/prop line mismatch must remain distinct from like-for-like probability divergence.
 - Manual mapping flows should keep unmapped markets visible until they are explicitly resolved.
 
+## Trader-First Purpose
+
+- This product exists to help a trader suspend the right markets as fast as possible when a player stat may be misattributed, corrected, or otherwise unstable.
+- Do not frame the product as a betting-picks, gambling, or market-commentary surface. It is an operator tool for another team.
+- Live usefulness is primary. Historical replay exists to answer:
+  - what the trader would have seen at the time,
+  - how many seconds earlier a warning could have appeared,
+  - which related markets would also have looked dangerous.
+- Broad market or whole-board volatility is valid when it acts as the earliest tripwire, but it is not enough on its own. The operator-facing follow-up must fan out into the affected players, props, and related derivative markets.
+
+## Trader Output Contract
+
+- Operator-facing incident views should answer these questions first:
+  - what happened,
+  - when it happened in wall-clock time,
+  - where it was in the game clock if known,
+  - which player props or related markets should be reviewed or suspended first,
+  - what evidence made the system think that,
+  - what important uncertainty or missing feed data remains.
+- If a surface cannot tell the trader which players or markets deserve immediate attention, it is not done.
+
 ## Market Incident Analysis Rules
 
 These rules apply whenever analyzing NBA stat misallocation, stat correction, player-prop attribution, or prediction-market reaction incidents.
+
+### Lead With Trader Action
+
+- Start with the likely suspension or review target, not with generic volatility taxonomy.
+- Show actual local timestamp first. Show game period/clock next if known.
+- Use `T offset` as supporting research context after the trader-facing read, not as the opening line, unless the task is explicitly a backtest or incident report.
+- If the first signal is a broad tripwire, say so plainly and then immediately enumerate the implicated player/prop follow-up.
 
 ### Start With The Real Event
 

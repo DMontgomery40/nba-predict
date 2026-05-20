@@ -45,16 +45,16 @@ function seedUpcomingGame() {
   });
 
   recordGameStateObservation({
-    awayScore: null,
+    awayScore: 84,
     capturedAt: "2026-04-22T07:20:47.555Z",
-    clock: null,
+    clock: "08:41",
     finalAt: null,
     gameId: "nba-0042500173",
-    homeScore: null,
+    homeScore: 91,
     isFinal: false,
-    period: 0,
-    startedAt: null,
-    status: "scheduled",
+    period: 3,
+    startedAt: "2026-04-24T00:02:00.000Z",
+    status: "in-play",
   });
 }
 
@@ -271,5 +271,29 @@ describe("polymarket adapter", () => {
         }),
       ])
     );
+  });
+
+  it("matches live playoff events when Polymarket eventDate is local but startTime is next-day UTC", async () => {
+    seedUpcomingGame();
+
+    const result = await syncPolymarketNbaMarkets({
+      fetchImpl: (async () => ({
+        json: async () => [
+          {
+            ...polymarketEventsPayload[0],
+            eventDate: "2026-04-23",
+            startTime: "2026-04-24T00:00:00Z",
+          },
+        ],
+        ok: true,
+        status: 200,
+      })) as never,
+      now: () => new Date("2026-04-22T07:25:00.000Z"),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.gamesMatched).toBe(1);
+    expect(result.marketsSeen).toBe(4);
+    expect(result.sourceMarketsObserved).toBe(8);
   });
 });

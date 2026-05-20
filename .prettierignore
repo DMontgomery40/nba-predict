@@ -9,3 +9,5 @@ data/*.sqlite-wal
 data/backups/
 data/exports/
 .playwright-mcp
+output/
+outputs/

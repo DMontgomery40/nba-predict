@@ -116,8 +116,18 @@ export function scoreObservation(
       )
     )
   );
+  const microstructureContribution = clamp01(
+    Math.max(
+      microstructure.crossVenue,
+      microstructure.offPrice,
+      microstructure.volatility,
+      microstructure.volumeShare
+    )
+  );
 
-  const contribution = residualContribution;
+  const contribution = clamp01(
+    Math.max(residualContribution, microstructureContribution)
+  );
 
   const reasonParts: string[] = [];
   if (residualLogit > 0) {

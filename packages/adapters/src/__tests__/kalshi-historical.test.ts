@@ -4,12 +4,15 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import type { ResearchGameCard } from "@signal-console/domain";
 import {
   getDatabase,
   listAdapterRuns,
   recordGameStateObservation,
   resetDatabase,
   upsertGame,
+  upsertMarketInstrument,
+  upsertSourceMarket,
 } from "@signal-console/shared";
 
 import { syncKalshiNbaHistorical } from "../kalshi-historical";
@@ -262,5 +265,232 @@ describe("kalshi historical adapter", () => {
 
     expect(result.gamesMatched).toBe(0);
     expect(result.ticksWritten).toBe(0);
+  });
+
+  it("backfills persisted Kalshi player-prop series, not only KXNBAGAME moneyline markets", async () => {
+    seedPastGame();
+
+    upsertMarketInstrument({
+      displayLabel: "Devin Booker over 24.5 points",
+      family: "player-prop",
+      gameId: "nba-0042500200",
+      id: "booker-points-over",
+      inPlay: false,
+      line: 24.5,
+      participantKey: "devin-booker",
+      selection: "over",
+    });
+    upsertSourceMarket({
+      gameId: "nba-0042500200",
+      id: "kalshi-kxnbapts-26apr22phxokc-phxbooker245-25",
+      instrumentId: "booker-points-over",
+      mappingStatus: "auto",
+      rawFamily: "points",
+      rawLabel: "Devin Booker over 24.5 points",
+      rawMetadata: {
+        eventTicker: "KXNBAPTS-26APR22PHXOKC",
+        seriesTicker: "KXNBAPTS",
+      },
+      source: "kalshi",
+      sourceMarketKey: "KXNBAPTS-26APR22PHXOKC-PHXBOOKER245-25",
+      sourceSelectionKey: "over",
+    });
+
+    const fetchImpl = (async (input: string | URL) => {
+      const url = typeof input === "string" ? new URL(input) : input;
+      if (url.pathname.endsWith("/events")) {
+        return {
+          json: async () => kalshiEventsPayload,
+          ok: true,
+          status: 200,
+        } as unknown as Response;
+      }
+
+      const match = url.pathname.match(
+        /\/series\/([^/]+)\/markets\/([^/]+)\/candlesticks$/
+      );
+      if (
+        match?.[1] === "KXNBAPTS" &&
+        match[2] === "KXNBAPTS-26APR22PHXOKC-PHXBOOKER245-25"
+      ) {
+        return {
+          json: async () => ({
+            candlesticks: [
+              {
+                end_period_ts: 1776556800,
+                open_interest_fp: "10.00",
+                volume_fp: "4.00",
+                price: { close_dollars: "0.6600" },
+                yes_bid: { close_dollars: "0.6500" },
+                yes_ask: { close_dollars: "0.6700" },
+              },
+              {
+                end_period_ts: 1776560400,
+                open_interest_fp: "12.00",
+                volume_fp: "2.00",
+                price: { close_dollars: "0.8200" },
+                yes_bid: { close_dollars: "0.8100" },
+                yes_ask: { close_dollars: "0.8300" },
+              },
+            ],
+          }),
+          ok: true,
+          status: 200,
+        } as unknown as Response;
+      }
+
+      const marketMatch = url.pathname.match(
+        /\/markets\/([^/]+)\/candlesticks$/
+      );
+      if (marketMatch) {
+        const payload = kalshiCandlesticksByMarket[marketMatch[1]] ?? {
+          candlesticks: [],
+          ticker: marketMatch[1],
+        };
+        return {
+          json: async () => payload,
+          ok: true,
+          status: 200,
+        } as unknown as Response;
+      }
+
+      return {
+        json: async () => ({}),
+        ok: false,
+        status: 404,
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    const run = await syncKalshiNbaHistorical({
+      fetchImpl,
+      now: () => new Date("2026-04-23T12:00:00.000Z"),
+      periodIntervalMinutes: 60,
+    });
+
+    expect(run.gamesMatched).toBe(1);
+
+    const propRows = getDatabase()
+      .prepare(
+        `
+          SELECT q.captured_at AS capturedAt, q.implied_probability AS impliedProbability
+          FROM quote_ticks q
+          WHERE q.source_market_id = 'kalshi-kxnbapts-26apr22phxokc-phxbooker245-25'
+          ORDER BY q.captured_at ASC
+        `
+      )
+      .all() as Array<{ capturedAt: string; impliedProbability: number }>;
+
+    expect(propRows).toHaveLength(2);
+    expect(
+      propRows.map((row) => Number(row.impliedProbability.toFixed(2)))
+    ).toEqual([0.66, 0.82]);
+  });
+
+  it("backfills persisted Kalshi source markets for an explicitly requested game even before settlement", async () => {
+    seedPastGame();
+
+    upsertMarketInstrument({
+      displayLabel: "Devin Booker over 24.5 points",
+      family: "player-prop",
+      gameId: "nba-0042500200",
+      id: "booker-points-over-explicit",
+      inPlay: false,
+      line: 24.5,
+      participantKey: "devin-booker",
+      selection: "over",
+    });
+    upsertSourceMarket({
+      gameId: "nba-0042500200",
+      id: "kalshi-kxnbapts-explicit",
+      instrumentId: "booker-points-over-explicit",
+      mappingStatus: "auto",
+      rawFamily: "points",
+      rawLabel: "Devin Booker over 24.5 points",
+      rawMetadata: {
+        eventTicker: "KXNBAPTS-26APR22PHXOKC",
+        seriesTicker: "KXNBAPTS",
+      },
+      source: "kalshi",
+      sourceMarketKey: "KXNBAPTS-26APR22PHXOKC-PHXBOOKER245-25",
+      sourceSelectionKey: "over",
+    });
+
+    const fetchImpl = (async (input: string | URL) => {
+      const url = typeof input === "string" ? new URL(input) : input;
+      if (url.pathname.endsWith("/events")) {
+        return {
+          json: async () => ({ cursor: "", events: [] }),
+          ok: true,
+          status: 200,
+        } as unknown as Response;
+      }
+
+      const match = url.pathname.match(
+        /\/series\/([^/]+)\/markets\/([^/]+)\/candlesticks$/
+      );
+      if (
+        match?.[1] === "KXNBAPTS" &&
+        match[2] === "KXNBAPTS-26APR22PHXOKC-PHXBOOKER245-25"
+      ) {
+        return {
+          json: async () => ({
+            candlesticks: [
+              {
+                end_period_ts: 1776556800,
+                open_interest_fp: "10.00",
+                volume_fp: "4.00",
+                price: { close_dollars: "0.6600" },
+                yes_bid: { close_dollars: "0.6500" },
+                yes_ask: { close_dollars: "0.6700" },
+              },
+            ],
+          }),
+          ok: true,
+          status: 200,
+        } as unknown as Response;
+      }
+
+      return {
+        json: async () => ({}),
+        ok: false,
+        status: 404,
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    const games = [
+      {
+        game: {
+          awayParticipant: {
+            abbreviation: "PHX",
+            key: "phx",
+            name: "Phoenix Suns",
+            shortName: "Suns",
+            side: "away",
+          },
+          homeParticipant: {
+            abbreviation: "OKC",
+            key: "okc",
+            name: "Oklahoma City Thunder",
+            shortName: "Thunder",
+            side: "home",
+          },
+          id: "nba-0042500200",
+          league: "NBA",
+          scheduledStart: "2026-04-22T23:30:00.000Z",
+          sourceGameKeyNba: "0042500200",
+          sport: "basketball",
+        },
+      },
+    ] as unknown as ResearchGameCard[];
+
+    const run = await syncKalshiNbaHistorical({
+      fetchImpl,
+      games,
+      now: () => new Date("2026-04-23T12:00:00.000Z"),
+      periodIntervalMinutes: 60,
+    });
+
+    expect(run.gamesMatched).toBe(0);
+    expect(run.ticksWritten).toBe(1);
   });
 });

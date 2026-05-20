@@ -52,6 +52,43 @@ function seedPastGame() {
   });
 }
 
+function seedConferenceFinalsGame() {
+  upsertGame({
+    awayParticipant: {
+      abbreviation: "CLE",
+      key: "cle",
+      name: "Cleveland Cavaliers",
+      shortName: "Cavaliers",
+      side: "away",
+    },
+    homeParticipant: {
+      abbreviation: "NYK",
+      key: "nyk",
+      name: "New York Knicks",
+      shortName: "Knicks",
+      side: "home",
+    },
+    id: "nba-0042500301",
+    league: "NBA",
+    scheduledStart: "2026-05-20T00:00:00.000Z",
+    sourceGameKeyNba: "0042500301",
+    sport: "basketball",
+  });
+
+  recordGameStateObservation({
+    awayScore: 83,
+    capturedAt: "2026-05-20T02:00:00.000Z",
+    clock: null,
+    finalAt: "2026-05-20T03:00:00.000Z",
+    gameId: "nba-0042500301",
+    homeScore: 69,
+    isFinal: true,
+    period: 4,
+    startedAt: "2026-05-20T00:00:00.000Z",
+    status: "final",
+  });
+}
+
 const closedEventsPayload = [
   {
     eventDate: "2026-04-22",
@@ -124,6 +161,35 @@ function buildFetchImpl() {
       const token = url.searchParams.get("market") ?? "";
       return {
         json: async () => ({ history: pricesHistoryByToken[token] ?? [] }),
+        ok: true,
+        status: 200,
+      } as unknown as Response;
+    }
+    return {
+      json: async () => ({}),
+      ok: false,
+      status: 404,
+    } as unknown as Response;
+  }) as unknown as typeof fetch;
+}
+
+function buildFetchImplWithPayload(
+  eventsPayload: unknown,
+  pricesHistory: Record<string, Array<{ t: number; p: number }>>
+) {
+  return (async (input: string | URL) => {
+    const url = typeof input === "string" ? new URL(input) : input;
+    if (url.pathname.endsWith("/events")) {
+      return {
+        json: async () => eventsPayload,
+        ok: true,
+        status: 200,
+      } as unknown as Response;
+    }
+    if (url.pathname.endsWith("/prices-history")) {
+      const token = url.searchParams.get("market") ?? "";
+      return {
+        json: async () => ({ history: pricesHistory[token] ?? [] }),
         ok: true,
         status: 200,
       } as unknown as Response;
@@ -273,5 +339,70 @@ describe("polymarket historical adapter", () => {
         .get() as { total: number }
     ).total;
     expect(total).toBe(10);
+  });
+
+  it("matches closed events by UTC start date when eventDate is one day earlier", async () => {
+    seedConferenceFinalsGame();
+
+    const run = await syncPolymarketNbaHistorical({
+      fetchImpl: buildFetchImplWithPayload(
+        [
+          {
+            eventDate: "2026-05-19",
+            id: "cle-nyk-closed",
+            markets: [
+              {
+                clobTokenIds: '["tok-cle","tok-nyk"]',
+                id: "pm-cle-nyk-moneyline",
+                line: null,
+                outcomes: '["Cavaliers","Knicks"]',
+                question: "Cavaliers vs. Knicks",
+                slug: "nba-cle-nyk-2026-05-19",
+                sportsMarketType: "moneyline",
+                volume: "123456",
+              },
+            ],
+            slug: "nba-cle-nyk-2026-05-19",
+            startTime: "2026-05-20T00:00:00Z",
+            teams: [
+              { abbreviation: "CLE", id: 1, name: "Cavaliers" },
+              { abbreviation: "NYK", id: 2, name: "Knicks" },
+            ],
+            title: "Cavaliers vs. Knicks",
+          },
+        ],
+        {
+          "tok-cle": [
+            { t: 1779235200, p: 0.74 },
+            { t: 1779235260, p: 0.81 },
+          ],
+          "tok-nyk": [
+            { t: 1779235200, p: 0.26 },
+            { t: 1779235260, p: 0.19 },
+          ],
+        }
+      ),
+      fidelityMinutes: 1,
+      now: () => new Date("2026-05-20T12:00:00.000Z"),
+      since: "2026-05-20",
+    });
+
+    expect(run.gamesMatched).toBe(1);
+    expect(run.ticksWritten).toBe(4);
+
+    const total = (
+      getDatabase()
+        .prepare(
+          `
+            SELECT COUNT(*) AS total
+            FROM quote_ticks q
+            JOIN source_markets sm ON sm.id = q.source_market_id
+            WHERE sm.source = 'polymarket'
+              AND sm.game_id = 'nba-0042500301'
+          `
+        )
+        .get() as { total: number }
+    ).total;
+    expect(total).toBe(4);
   });
 });

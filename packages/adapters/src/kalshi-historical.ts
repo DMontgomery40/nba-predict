@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 
-import type { ResearchGameCard } from "@signal-console/domain";
+import type { MarketFamily, ResearchGameCard } from "@signal-console/domain";
 import {
   appendHistoricalTick,
+  getDatabase,
   listResearchGames,
   recordAdapterRun,
   recordRawPayload,
@@ -138,6 +139,26 @@ export type KalshiHistoricalSyncSummary = {
   rawPayloadsWritten: number;
   startedAt: string;
   ticksWritten: number;
+};
+
+type KalshiHistoricalTarget = {
+  closeTime: string | null;
+  displayLabel: string;
+  eventTicker: string | null;
+  family: MarketFamily | null;
+  gameId: string;
+  instrumentId: string | null;
+  line: number | null;
+  mappingStatus: string;
+  marketTicker: string;
+  openTime: string | null;
+  participantKey: string | null;
+  rawFamily: string | null;
+  rawLabel: string | null;
+  scheduledStart: string;
+  selection: string | null;
+  seriesTicker: string;
+  sourceMarketId: string;
 };
 
 function normalizeToken(value: string | null | undefined) {
@@ -289,6 +310,130 @@ function buildRawPayloadHash(payload: Record<string, unknown>) {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
+function parseJsonObject(value: string | null | undefined) {
+  if (!value) return {} as Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function chooseHistoricalWindow(target: KalshiHistoricalTarget) {
+  const scheduledMs = Date.parse(target.scheduledStart);
+  const openMs = Date.parse(target.openTime ?? "");
+  const closeMs = Date.parse(target.closeTime ?? "");
+  const fallbackStart = Number.isFinite(scheduledMs)
+    ? scheduledMs - 24 * 60 * 60_000
+    : Number.NaN;
+  const fallbackEnd = Number.isFinite(scheduledMs)
+    ? scheduledMs + 6 * 60 * 60_000
+    : Number.NaN;
+
+  const startMs = Number.isFinite(openMs)
+    ? openMs
+    : Number.isFinite(fallbackStart)
+      ? fallbackStart
+      : Number.NaN;
+  const endMs = Number.isFinite(closeMs)
+    ? closeMs
+    : Number.isFinite(fallbackEnd)
+      ? fallbackEnd
+      : Number.NaN;
+
+  if (
+    !Number.isFinite(startMs) ||
+    !Number.isFinite(endMs) ||
+    endMs <= startMs
+  ) {
+    return null;
+  }
+
+  return {
+    endTs: Math.floor(endMs / 1000),
+    startTs: Math.floor(startMs / 1000),
+  };
+}
+
+function selectExistingKalshiHistoricalTargets(games: ResearchGameCard[]) {
+  const gameIds = games.map((game) => game.game.id);
+  if (gameIds.length === 0) return [] as KalshiHistoricalTarget[];
+
+  const placeholders = Array.from(gameIds, () => "?").join(", ");
+  const db = getDatabase();
+  const rows = db
+    .prepare(
+      `SELECT
+         sm.id AS sourceMarketId,
+         sm.source_market_key AS marketTicker,
+         sm.instrument_id AS instrumentId,
+         sm.mapping_status AS mappingStatus,
+         sm.raw_family AS rawFamily,
+         sm.raw_label AS rawLabel,
+         sm.raw_metadata_json AS rawMetadataJson,
+         sm.game_id AS gameId,
+         mi.family AS family,
+         mi.line AS line,
+         mi.participant_key AS participantKey,
+         mi.selection AS selection,
+         mi.display_label AS displayLabel,
+         g.scheduled_start AS scheduledStart
+       FROM source_markets sm
+       JOIN games g ON g.id = sm.game_id
+       LEFT JOIN market_instruments mi ON mi.id = sm.instrument_id
+       WHERE sm.source = 'kalshi'
+         AND sm.game_id IN (${placeholders})`
+    )
+    .all(...gameIds) as Array<Record<string, unknown>>;
+
+  return rows
+    .map((row) => {
+      const metadata = parseJsonObject(
+        row.rawMetadataJson == null ? null : String(row.rawMetadataJson)
+      );
+      const seriesTicker =
+        typeof metadata.seriesTicker === "string"
+          ? metadata.seriesTicker
+          : null;
+      if (!seriesTicker) return null;
+
+      return {
+        closeTime:
+          typeof metadata.closeTime === "string" ? metadata.closeTime : null,
+        displayLabel:
+          row.displayLabel == null
+            ? String(row.rawLabel ?? row.marketTicker ?? "")
+            : String(row.displayLabel),
+        eventTicker:
+          typeof metadata.eventTicker === "string"
+            ? metadata.eventTicker
+            : null,
+        family:
+          row.family == null ? null : (String(row.family) as MarketFamily),
+        gameId: String(row.gameId),
+        instrumentId:
+          row.instrumentId == null ? null : String(row.instrumentId),
+        line: row.line == null ? null : Number(row.line),
+        mappingStatus: String(row.mappingStatus ?? "auto"),
+        marketTicker: String(row.marketTicker),
+        openTime:
+          typeof metadata.openTime === "string" ? metadata.openTime : null,
+        participantKey:
+          row.participantKey == null ? null : String(row.participantKey),
+        rawFamily: row.rawFamily == null ? null : String(row.rawFamily),
+        rawLabel: row.rawLabel == null ? null : String(row.rawLabel),
+        scheduledStart: String(row.scheduledStart),
+        selection: row.selection == null ? null : String(row.selection),
+        seriesTicker,
+        sourceMarketId: String(row.sourceMarketId),
+      } satisfies KalshiHistoricalTarget;
+    })
+    .filter((row): row is KalshiHistoricalTarget => row != null);
+}
+
 export async function fetchKalshiSettledNbaEvents(options?: {
   baseUrl?: string;
   fetchImpl?: FetchLike;
@@ -388,6 +533,100 @@ export async function fetchKalshiCandlesticks(options: {
   return candles;
 }
 
+async function backfillExistingKalshiHistoricalTarget(options: {
+  baseUrl?: string;
+  fetchImpl?: FetchLike;
+  periodIntervalMinutes: 1 | 60;
+  startedAt: string;
+  target: KalshiHistoricalTarget;
+}) {
+  const window = chooseHistoricalWindow(options.target);
+  if (!window) {
+    return {
+      candlesFetched: 0,
+      rawPayloadsWritten: 0,
+      ticksWritten: 0,
+    };
+  }
+
+  const candles = await fetchKalshiCandlesticks({
+    baseUrl: options.baseUrl,
+    endTs: window.endTs,
+    fetchImpl: options.fetchImpl,
+    marketTicker: options.target.marketTicker,
+    periodIntervalMinutes: options.periodIntervalMinutes,
+    seriesTicker: options.target.seriesTicker,
+    startTs: window.startTs,
+  });
+
+  let ticksWritten = 0;
+  for (const candle of candles) {
+    const capturedAt = new Date(candle.end_period_ts * 1000).toISOString();
+
+    const closePrice =
+      toNumberFromDollars(candle.price?.close_dollars) ??
+      (toNumberFromDollars(candle.yes_bid?.close_dollars) != null &&
+      toNumberFromDollars(candle.yes_ask?.close_dollars) != null
+        ? (Number(candle.yes_bid?.close_dollars ?? 0) +
+            Number(candle.yes_ask?.close_dollars ?? 0)) /
+          2
+        : null);
+
+    const bestBid = toNumberFromDollars(candle.yes_bid?.close_dollars);
+    const bestAsk = toNumberFromDollars(candle.yes_ask?.close_dollars);
+    const volume = toNumberFromDollars(candle.volume_fp);
+
+    if (closePrice == null && bestBid == null && bestAsk == null) {
+      continue;
+    }
+
+    const result = appendHistoricalTick({
+      bestAsk,
+      bestBid,
+      capturedAt,
+      depthScore: null,
+      impliedProbability: closePrice,
+      lineRaw: options.target.line,
+      oddsRaw: null,
+      priceRaw: closePrice,
+      sourceMarketId: options.target.sourceMarketId,
+      volume,
+    });
+
+    if (result.inserted) {
+      ticksWritten += 1;
+    }
+  }
+
+  const rawPayload = {
+    market: {
+      closeTime: options.target.closeTime,
+      eventTicker: options.target.eventTicker,
+      marketTicker: options.target.marketTicker,
+      openTime: options.target.openTime,
+      seriesTicker: options.target.seriesTicker,
+      sourceMarketId: options.target.sourceMarketId,
+    },
+    candles: candles.slice(0, 5),
+    candlesCount: candles.length,
+  } satisfies Record<string, unknown>;
+
+  recordRawPayload({
+    capturedAt: options.startedAt,
+    contentHash: buildRawPayloadHash(rawPayload),
+    entityId: options.target.sourceMarketId,
+    entityType: "source_market_historical",
+    payloadJson: rawPayload,
+    source: "kalshi",
+  });
+
+  return {
+    candlesFetched: candles.length,
+    rawPayloadsWritten: 1,
+    ticksWritten,
+  };
+}
+
 export async function syncKalshiNbaHistorical(options?: {
   baseUrl?: string;
   fetchImpl?: FetchLike;
@@ -419,6 +658,7 @@ export async function syncKalshiNbaHistorical(options?: {
 
     const matchedGameIds = new Set<string>();
     const marketErrors: Array<{ error: string; marketTicker: string }> = [];
+    const processedSourceMarketIds = new Set<string>();
     let marketsConsidered = 0;
     let candlesFetched = 0;
     let rawPayloadsWritten = 0;
@@ -515,6 +755,7 @@ export async function syncKalshiNbaHistorical(options?: {
           sourceMarketKey: market.ticker,
           sourceSelectionKey: participantKey,
         });
+        processedSourceMarketIds.add(sourceMarketId);
 
         for (const candle of candles) {
           const capturedAt = new Date(
@@ -583,6 +824,37 @@ export async function syncKalshiNbaHistorical(options?: {
           source: "kalshi",
         });
         rawPayloadsWritten += 1;
+      }
+    }
+
+    const selectedGameIds = options?.games
+      ? new Set(games.map((game) => game.game.id))
+      : matchedGameIds;
+    const selectedGames = games.filter((game) =>
+      selectedGameIds.has(game.game.id)
+    );
+    const existingTargets = selectExistingKalshiHistoricalTargets(
+      selectedGames
+    ).filter((target) => !processedSourceMarketIds.has(target.sourceMarketId));
+
+    for (const target of existingTargets) {
+      marketsConsidered += 1;
+      try {
+        const result = await backfillExistingKalshiHistoricalTarget({
+          baseUrl: options?.baseUrl,
+          fetchImpl: options?.fetchImpl,
+          periodIntervalMinutes,
+          startedAt,
+          target,
+        });
+        candlesFetched += result.candlesFetched;
+        rawPayloadsWritten += result.rawPayloadsWritten;
+        ticksWritten += result.ticksWritten;
+      } catch (error) {
+        marketErrors.push({
+          error: error instanceof Error ? error.message : String(error),
+          marketTicker: target.marketTicker,
+        });
       }
     }
 

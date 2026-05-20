@@ -1,61 +1,55 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
+import {
+  BOARD_ALERT_KIND_LABELS,
+  buildFallbackReviewTargetsFromPredictionMarketContext,
+  buildReviewSourceAlerts,
+  buildReviewTargets,
+  displayBoardAlertEntity,
+  listNearbyIncidentRows,
+  listRelatedPlayerIncidents,
+  pickNearestPbp,
+  preferredFallbackParticipantKey,
+  sortPredictionMarketContextByImpact,
+  buildTraderRead,
+  formatTimestampToSecond,
+  selectAnchorAlert,
+  type BoardAlertPbpRow,
+  type BoardAlertPredictionMarketRow,
+  type BoardAlertPredictionSourceSummary,
+} from "./boardAlertReview";
+import {
+  NbaFeedSection,
+  PredictionMarketEvidenceSection,
+  PredictionSourcesSection,
+  ReplayFooter,
+  ReviewTargetsSection,
+  SameBurstFollowUpSection,
+  TraderReadSection,
+} from "./BoardAlertsReplaySections";
 import { PageFrame } from "../../components/PageFrame";
 import { Panel } from "../../components/Primitives";
-import { getBoardAlertEventContext, getBoardAlertReplay } from "../../data/api";
-
-function formatTimestampToSecond(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (!Number.isFinite(date.getTime())) return iso ?? "—";
-  return date.toLocaleString("en-US", {
-    day: "numeric",
-    hour: "numeric",
-    hour12: true,
-    minute: "2-digit",
-    month: "short",
-    second: "2-digit",
-    timeZoneName: "short",
-    year: "numeric",
-  });
-}
-
-function formatOffset(seconds: number | null | undefined): string {
-  if (seconds == null || !Number.isFinite(seconds)) return "—";
-  const abs = Math.abs(seconds);
-  const sign = seconds >= 0 ? "+" : "-";
-  if (abs < 60) return `T${sign}${abs}s`;
-  const mins = Math.floor(abs / 60);
-  const secs = abs % 60;
-  if (abs < 3600) return `T${sign}${mins}m${String(secs).padStart(2, "0")}s`;
-  const hours = Math.floor(mins / 60);
-  const remMins = mins % 60;
-  return `T${sign}${hours}h${String(remMins).padStart(2, "0")}m${String(secs).padStart(2, "0")}s`;
-}
-
-function formatPrice(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return value.toFixed(3);
-}
-
-function formatNumber(value: number | null | undefined, digits = 2): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return value.toFixed(digits);
-}
-
-function formatPercent(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return `${(value * 100).toFixed(1)}%`;
-}
+import {
+  getBoardAlertEventContext,
+  getBoardAlertReplay,
+  getBoardAlerts,
+  getBoardIncidents,
+  type BoardIncidentDto,
+} from "../../data/api";
 
 export function BoardAlertsReplayPage() {
   const params = useParams<{ gameId: string }>();
   const [search] = useSearchParams();
   const gameId = params.gameId ?? "";
   const anchorAt = search.get("at") ?? new Date().toISOString();
+  const alertId = search.get("alertId");
+  const dateParam = search.get("date");
   const labelParam = search.get("label");
+  const backToDeskPath = dateParam
+    ? `/board-alerts?date=${encodeURIComponent(dateParam)}`
+    : "/board-alerts";
 
   const anchorMs = useMemo(() => {
     const ms = Date.parse(anchorAt);
@@ -69,9 +63,10 @@ export function BoardAlertsReplayPage() {
     () => new Date(anchorMs + 30 * 60_000).toISOString(),
     [anchorMs]
   );
+  const replayEnabled = gameId.length > 0 && !dateParam;
 
   const replayQuery = useQuery({
-    enabled: gameId.length > 0,
+    enabled: replayEnabled,
     queryFn: () =>
       getBoardAlertReplay({
         gameId,
@@ -86,63 +81,208 @@ export function BoardAlertsReplayPage() {
     enabled: gameId.length > 0,
     queryFn: () =>
       getBoardAlertEventContext({
+        alertId: dateParam ? (alertId ?? undefined) : undefined,
         gameId,
         at: anchorAt,
+        limit: dateParam ? 2000 : 400,
         windowSecondsBefore: 1800,
         windowSecondsAfter: 1800,
       }),
-    queryKey: ["board-alert-event-context", gameId, anchorAt],
+    queryKey: [
+      "board-alert-event-context",
+      gameId,
+      anchorAt,
+      alertId ?? "",
+      dateParam ?? "",
+    ],
   });
 
-  const replayDeck = replayQuery.data?.data?.alertDeck ?? [];
+  const anchorAlertQuery = useQuery({
+    enabled: gameId.length > 0 && !dateParam,
+    queryFn: () =>
+      getBoardAlerts({
+        contextWindowMinutes: 30,
+        limit: 20,
+        now: anchorAt,
+      }),
+    queryKey: ["board-alert-anchor", gameId, anchorAt],
+  });
+
+  const historicalIncidentsQuery = useQuery({
+    enabled: gameId.length > 0 && dateParam != null,
+    queryFn: () => getBoardIncidents({ date: dateParam!, gameId, limit: 50 }),
+    queryKey: ["board-alert-historical-incidents", gameId, dateParam ?? ""],
+  });
+
+  const historicalIncidents = useMemo<BoardIncidentDto[]>(
+    () =>
+      (historicalIncidentsQuery.data?.data ?? []).filter(
+        (row) => row.gameId === gameId
+      ),
+    [gameId, historicalIncidentsQuery.data]
+  );
+  const liveGameAlerts = useMemo(
+    () =>
+      (anchorAlertQuery.data?.data ?? []).filter(
+        (row) => row.gameId === gameId
+      ),
+    [anchorAlertQuery.data, gameId]
+  );
+  const requestedLiveExactAlert = useMemo(
+    () =>
+      !dateParam && alertId
+        ? (liveGameAlerts.find((row) => row.id === alertId) ?? null)
+        : null,
+    [alertId, dateParam, liveGameAlerts]
+  );
+  const historicalAnchorIncident = useMemo(
+    () =>
+      dateParam
+        ? (ctxQuery.data?.data?.resolvedIncident ??
+          selectAnchorAlert(historicalIncidents, gameId, anchorAt, alertId))
+        : null,
+    [alertId, anchorAt, ctxQuery.data, dateParam, gameId, historicalIncidents]
+  );
+  const liveAnchorAlert = useMemo(
+    () =>
+      !dateParam
+        ? selectAnchorAlert(liveGameAlerts, gameId, anchorAt, alertId)
+        : null,
+    [alertId, anchorAt, dateParam, gameId, liveGameAlerts]
+  );
+  const requestedLiveAlertMissing = Boolean(
+    !dateParam &&
+    alertId &&
+    liveGameAlerts.length > 0 &&
+    requestedLiveExactAlert == null &&
+    (historicalAnchorIncident ?? liveAnchorAlert)
+  );
 
   const ctx = ctxQuery.data?.data ?? null;
-  const trades = useMemo(() => ctx?.trades ?? [], [ctx]);
-  const pbp = useMemo(() => ctx?.playByPlay ?? [], [ctx]);
+  const resolvedHistoricalIncident = ctx?.resolvedIncident ?? null;
+  const predictionSources = useMemo<BoardAlertPredictionSourceSummary[]>(
+    () => ctx?.predictionMarketContext.bySource ?? [],
+    [ctx]
+  );
+  const predictionMarketContext = useMemo<BoardAlertPredictionMarketRow[]>(
+    () => ctx?.predictionMarketContext.rows ?? [],
+    [ctx]
+  );
+  const pbp = useMemo<BoardAlertPbpRow[]>(() => ctx?.playByPlay ?? [], [ctx]);
+  const incidentPbp = historicalAnchorIncident?.playByPlay ?? null;
+  const nearestPbp = useMemo(
+    () => pickNearestPbp(incidentPbp, pbp),
+    [incidentPbp, pbp]
+  );
+  const sortedPredictionMarketContext = useMemo(
+    () => sortPredictionMarketContextByImpact(predictionMarketContext),
+    [predictionMarketContext]
+  );
+  const anchorAlert = historicalAnchorIncident ?? liveAnchorAlert;
 
-  const sortedTrades = useMemo(() => {
-    if (trades.length === 0) return [];
-    return [...trades].sort((a, b) => {
-      const aShare = a.volumeShare ?? 0;
-      const bShare = b.volumeShare ?? 0;
-      if (bShare !== aShare) return bShare - aShare;
-      return a.offsetSeconds - b.offsetSeconds;
-    });
-  }, [trades]);
-
-  const anchor = trades.find((trade) => trade.offsetSeconds === 0);
   const gameLabel = ctx?.gameLabel ?? labelParam ?? gameId;
-  const heroSharePct =
-    anchor?.volumeShare != null ? (anchor.volumeShare * 100).toFixed(1) : null;
-  const heroLine =
-    anchor && heroSharePct != null
-      ? `$${(anchor.notional ?? 0).toFixed(0)} BUY on ${anchor.displayLabel ?? anchor.sourceMarketKey} at $${(anchor.tradePrice ?? anchor.price ?? 0).toFixed(2)} → ${heroSharePct}% of the market's final volume in one trade.`
-      : anchor
-        ? `$${(anchor.notional ?? 0).toFixed(0)} BUY on ${anchor.displayLabel ?? anchor.sourceMarketKey} at $${(anchor.tradePrice ?? anchor.price ?? 0).toFixed(2)} (volume share unavailable).`
-        : null;
-  const pbpMissing = ctx ? ctx.playByPlay.length === 0 : false;
+  const pbpMissing = ctx ? !(incidentPbp?.available ?? pbp.length > 0) : false;
+  const sameBurstSourceAlerts = dateParam
+    ? historicalIncidents
+    : liveGameAlerts;
+  const playerFocusedIncidents = useMemo(
+    () =>
+      listRelatedPlayerIncidents(anchorAlert, anchorAt, sameBurstSourceAlerts),
+    [anchorAlert, anchorAt, sameBurstSourceAlerts]
+  );
+  const reviewSourceAlerts = useMemo(() => {
+    return buildReviewSourceAlerts(anchorAlert, playerFocusedIncidents);
+  }, [anchorAlert, playerFocusedIncidents]);
+  const reviewTargets = useMemo(
+    () => buildReviewTargets(reviewSourceAlerts),
+    [reviewSourceAlerts]
+  );
+  const fallbackParticipantKey = useMemo(
+    () =>
+      preferredFallbackParticipantKey({
+        alert: anchorAlert,
+        alertId,
+      }),
+    [alertId, anchorAlert]
+  );
+  const effectiveReviewTargets = useMemo(
+    () =>
+      reviewTargets.length > 0
+        ? reviewTargets
+        : buildFallbackReviewTargetsFromPredictionMarketContext(
+            sortedPredictionMarketContext,
+            fallbackParticipantKey
+          ),
+    [fallbackParticipantKey, reviewTargets, sortedPredictionMarketContext]
+  );
+  const nearbyIncidentRows = useMemo(() => {
+    return listNearbyIncidentRows({
+      anchorAlert,
+      anchorAt,
+      historicalIncidents,
+      liveAlerts: liveGameAlerts,
+      replayDeck: replayQuery.data?.data?.alertDeck ?? [],
+    });
+  }, [
+    anchorAlert,
+    anchorAt,
+    historicalIncidents,
+    liveGameAlerts,
+    replayQuery.data,
+  ]);
+  const traderRead = useMemo(
+    () => buildTraderRead(anchorAlert, playerFocusedIncidents),
+    [anchorAlert, playerFocusedIncidents]
+  );
+  const summaryTitle = anchorAlert?.primaryEntityKey
+    ? `${displayBoardAlertEntity(anchorAlert.primaryEntityKey)} incident review`
+    : `${gameLabel} ${
+        anchorAlert
+          ? BOARD_ALERT_KIND_LABELS[anchorAlert.shockKind]
+          : "tripwire"
+      } review`;
+  const anchorLoading = dateParam
+    ? historicalIncidentsQuery.isLoading && resolvedHistoricalIncident == null
+    : anchorAlertQuery.isLoading;
+  const anchorError = dateParam
+    ? historicalIncidentsQuery.isError && resolvedHistoricalIncident == null
+    : anchorAlertQuery.isError;
+  const historicalIncidentStillResolving = Boolean(
+    dateParam &&
+    resolvedHistoricalIncident == null &&
+    anchorLoading &&
+    predictionMarketContext.length > 0
+  );
 
   return (
     <PageFrame>
       <Panel
         className="board-alerts-shell"
-        aria-label="Board alert inspect timeline"
+        aria-label="Trader incident inspect timeline"
       >
         <header className="board-alerts-header">
-          <div className="eyebrow">{gameLabel} · Inspect</div>
-          {heroLine ? (
-            <h1 className="board-alert-hero-line">{heroLine}</h1>
-          ) : (
-            <h1>{gameLabel}</h1>
-          )}
+          <div className="eyebrow">{gameLabel} · Trader incident review</div>
+          <h1>{summaryTitle}</h1>
           <p>
             At <strong>{formatTimestampToSecond(anchorAt)}</strong>.{" "}
-            {pbpMissing
-              ? "No play-by-play captured for this game — the stat cannot be confirmed or refuted from the NBA feed."
-              : "Play-by-play below for in-game stat audit."}
+            {nearestPbp
+              ? pbpMissing
+                ? "The nearest persisted NBA feed row is shown below, even though no NBA action row falls inside this exact ±30m window."
+                : "The nearest NBA feed row is included below so the trader can line up market activity with game context."
+              : pbpMissing
+                ? "Persisted NBA play-by-play is missing here, so game-clock confirmation is incomplete."
+                : "No persisted NBA action row falls inside this exact ±30m window, so the trader only has wall-clock context here."}
           </p>
+          {requestedLiveAlertMissing && anchorAlert ? (
+            <p className="board-alert-callout board-alert-callout-warning">
+              Requested live alert id was not present in the persisted live deck
+              at this anchor. Showing the closest persisted alert from{" "}
+              <strong>{formatTimestampToSecond(anchorAlert.firstPopAt)}</strong>{" "}
+              instead.
+            </p>
+          ) : null}
         </header>
-        {ctxQuery.isLoading || replayQuery.isLoading ? (
+        {ctxQuery.isLoading || (replayEnabled && replayQuery.isLoading) ? (
           <div className="board-alerts-empty">Loading replay…</div>
         ) : ctxQuery.isError || ctxQuery.data?.meta?.error ? (
           <div className="board-alerts-empty board-alerts-empty-error">
@@ -150,217 +290,64 @@ export function BoardAlertsReplayPage() {
           </div>
         ) : (
           <>
-            <section
-              aria-label="Online replay alert deck"
-              className="board-alert-card"
-            >
-              <header className="board-alert-card-header">
-                <div>
-                  <div className="board-alert-game">
-                    Online replay — what the trader would have seen live
+            {historicalIncidentStillResolving ? (
+              <section className="board-alert-card board-alert-card-primary">
+                <header className="board-alert-card-header">
+                  <div>
+                    <div className="board-alert-game">
+                      Persisted incident read still resolving
+                    </div>
+                    <div className="board-alert-kind">
+                      Canonical prediction-market context is already available
+                      below
+                    </div>
                   </div>
-                  <div className="board-alert-kind">
-                    {replayDeck.length} alert
-                    {replayDeck.length === 1 ? "" : "s"} that would have fired
-                    inside this ±30m window (no future leakage)
-                  </div>
-                </div>
-              </header>
-              {replayDeck.length === 0 ? (
+                </header>
                 <p className="board-alert-reason">
-                  No board shock would have fired inside this operational window
-                  from a no-future-leakage online replay of the persisted ticks.
+                  The historical incident payload for this exact alert is still
+                  resolving. The source-by-source context and fallback review
+                  targets below already reflect the persisted canonical
+                  quote/trade evidence in this window.
                 </p>
-              ) : (
-                <ol className="board-alerts-timeline">
-                  {replayDeck.map((alert) => (
-                    <li key={alert.id}>
-                      <span className="board-alerts-timeline-time">
-                        {formatTimestampToSecond(alert.firstPopAt)}
-                      </span>
-                      <span className="board-alerts-timeline-kind">
-                        {alert.shockKind.replace(/-/g, " ")}
-                      </span>
-                      <span className="board-alerts-timeline-reason">
-                        {alert.reason}
-                      </span>
-                      <span className="board-alerts-timeline-score">
-                        {alert.score}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-            <section
-              aria-label="Anchor trade"
-              className="board-alert-card board-alert-card-primary board-alert-card-hot"
-            >
-              <header className="board-alert-card-header">
-                <div>
-                  <div className="board-alert-game">Trade at T+0 (anchor)</div>
-                  <div className="board-alert-kind">
-                    {anchor
-                      ? (anchor.displayLabel ?? anchor.sourceMarketKey)
-                      : "no exact trade at this moment"}
-                  </div>
-                </div>
-                <div className="board-alert-time">
-                  <div className="metric-label">Anchor time</div>
-                  <div>{formatTimestampToSecond(anchorAt)}</div>
-                </div>
-              </header>
-              {anchor ? (
-                <div className="board-alert-hero-stat">
-                  <div className="board-alert-hero-share">
-                    <div className="board-alert-hero-share-value">
-                      {formatPercent(anchor.volumeShare)}
-                    </div>
-                    <div className="board-alert-hero-share-caption">
-                      of the market's{" "}
-                      {anchor.finalMarketVolume != null
-                        ? "final"
-                        : "live-to-date"}{" "}
-                      volume in one trade
-                    </div>
-                  </div>
-                  <div className="board-alert-hero-supporting">
-                    <div>
-                      <span className="metric-label">Trade</span>
-                      <span>
-                        ${formatPrice(anchor.tradePrice ?? anchor.price)} ×{" "}
-                        {formatNumber(anchor.size)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Notional</span>
-                      <span>${formatNumber(anchor.notional)}</span>
-                    </div>
-                    <div>
-                      <span className="metric-label">Source</span>
-                      <span>{anchor.source}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="board-alert-reason">
-                  No persisted trade lines up exactly with the anchor timestamp;
-                  see the timeline below for the nearest trades.
-                </p>
-              )}
-            </section>
-
-            <section aria-label="Trade timeline" className="board-alert-card">
-              <header className="board-alert-card-header">
-                <div>
-                  <div className="board-alert-game">Trades in window</div>
-                  <div className="board-alert-kind">
-                    {trades.length} polymarket/kalshi trades · sorted by volume
-                    share desc
-                  </div>
-                </div>
-              </header>
-              {sortedTrades.length === 0 ? (
-                <p className="board-alert-reason">
-                  No persisted trades in this window.
-                </p>
-              ) : (
-                <ol className="board-alert-trade-list">
-                  {sortedTrades.slice(0, 5).map((trade) => {
-                    const isAnchor = trade.offsetSeconds === 0;
-                    return (
-                      <li
-                        key={`${trade.source}-${trade.eventTimestamp}-${trade.sourceMarketKey}`}
-                        className={
-                          isAnchor
-                            ? "board-alert-trade-row board-alert-trade-row-anchor"
-                            : "board-alert-trade-row"
-                        }
-                      >
-                        <span className="board-alert-trade-share">
-                          {formatPercent(trade.volumeShare)}
-                        </span>
-                        <span className="board-alert-trade-label">
-                          {trade.displayLabel ?? trade.sourceMarketKey}
-                        </span>
-                        <span className="board-alert-trade-detail">
-                          ${formatPrice(trade.tradePrice ?? trade.price)} ×{" "}
-                          {formatNumber(trade.size)} = $
-                          {formatNumber(trade.notional)}
-                        </span>
-                        <span className="board-alert-trade-time">
-                          {formatOffset(trade.offsetSeconds)}
-                        </span>
-                      </li>
-                    );
-                  })}
-                  {sortedTrades.length > 5 ? (
-                    <li className="board-alert-trade-row-overflow">
-                      … {sortedTrades.length - 5} more trades in this window
-                    </li>
-                  ) : null}
-                </ol>
-              )}
-            </section>
-
-            <section
-              aria-label="Play-by-play in window"
-              className="board-alert-card"
-            >
-              <header className="board-alert-card-header">
-                <div>
-                  <div className="board-alert-game">Play-by-play in window</div>
-                  <div className="board-alert-kind">
-                    {pbp.length} actions in ±30m{" "}
-                    {pbp.length === 0
-                      ? "(no PBP captured for this game)"
-                      : "(NBA stat feed)"}
-                  </div>
-                </div>
-              </header>
-              {pbp.length === 0 ? (
-                <p className="board-alert-reason">
-                  No play-by-play rows are persisted for this game inside the
-                  window — the trader has no in-game anchor to confirm or refute
-                  the stat dispute.
-                </p>
-              ) : (
-                <ol className="board-alerts-timeline">
-                  {pbp.slice(0, 40).map((row) => (
-                    <li key={row.actionNumber}>
-                      <span className="board-alerts-timeline-time">
-                        {formatOffset(row.offsetSeconds)}
-                      </span>
-                      <span className="board-alerts-timeline-kind">
-                        {row.period
-                          ? `${row.clock ?? ""} ${row.period}Q`
-                          : (row.clock ?? "")}
-                      </span>
-                      <span className="board-alerts-timeline-reason">
-                        {row.description ?? "(no description)"}{" "}
-                        {row.teamTricode ? `· ${row.teamTricode}` : ""}
-                      </span>
-                      <span className="board-alerts-timeline-score">
-                        {row.offsetSeconds != null && row.offsetSeconds >= 0
-                          ? "after"
-                          : "before"}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-
-            <footer className="board-alert-card-footer">
-              <div className="board-alert-actions">
-                <Link
-                  className="board-alert-action board-alert-action-secondary"
-                  to="/board-alerts"
-                >
-                  Back to desk
-                </Link>
+              </section>
+            ) : anchorLoading ? (
+              <div className="board-alerts-empty">
+                Loading selected incident…
               </div>
-            </footer>
+            ) : anchorError ? (
+              <div className="board-alerts-empty board-alerts-empty-error">
+                Could not reconstruct the selected incident.
+              </div>
+            ) : anchorAlert ? (
+              <TraderReadSection
+                anchorAlert={anchorAlert}
+                anchorAt={anchorAt}
+                nearestPbp={nearestPbp}
+                pbpMissing={pbpMissing}
+                traderRead={traderRead}
+              />
+            ) : (
+              <div className="board-alerts-empty board-alerts-empty-error">
+                No incident reconstructs at this anchor timestamp.
+              </div>
+            )}
+
+            <ReviewTargetsSection reviewTargets={effectiveReviewTargets} />
+            <PredictionSourcesSection predictionSources={predictionSources} />
+            <PredictionMarketEvidenceSection
+              predictionSources={predictionSources}
+            />
+            <SameBurstFollowUpSection
+              anchorAt={anchorAt}
+              dateParam={dateParam}
+              nearbyIncidentRows={nearbyIncidentRows}
+            />
+            <NbaFeedSection
+              nearestPbp={nearestPbp}
+              pbp={pbp}
+              pbpMissing={pbpMissing}
+            />
+            <ReplayFooter backToDeskPath={backToDeskPath} />
           </>
         )}
       </Panel>
