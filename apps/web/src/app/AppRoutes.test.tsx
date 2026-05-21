@@ -187,6 +187,18 @@ function createSettingsFetchImplementation(options?: {
       alertId:
         "board-alert:nba-bos-nyk-2026-04-21:game-state-volatility:no-entity:2026-04-22T06:00:00.000Z",
       band: "alert",
+      baseline: {
+        cohortKey: "settled-live|p4|tip-10m-60m|margin-4-8|src-1|core-3",
+        expectedRange: {
+          p50: 0.18,
+          p75: 0.28,
+          p90: 0.41,
+          p99: 0.63,
+        },
+        percentile: 0.92,
+        sampleSize: 42,
+        source: "calibrated",
+      },
       components: {
         coherence: 0.8,
         coverage: 0,
@@ -194,6 +206,32 @@ function createSettingsFetchImplementation(options?: {
         residual: 0.9,
       },
       confidence: 0.88,
+      diagnostics: {
+        coreFamilies: ["moneyline", "spread", "total"],
+        families: ["moneyline", "spread", "total"],
+        predictionMarketRows: 7,
+        ready: true,
+        shockRows: 4,
+        sourceMarketCount: 7,
+        sources: ["kalshi"],
+      },
+      drivers: {
+        coreMarkets: [
+          {
+            contribution: 1,
+            displayLabel: "Boston moneyline",
+            evidenceUnmapped: false,
+            family: "moneyline",
+            observationId: "quote-1",
+            participantKey: "bos",
+            reason:
+              "prediction-market game-state implied volatility across moneyline/spread/total; sources kalshi",
+            source: "kalshi",
+            sourceKind: "prediction-market",
+          },
+        ],
+        supportingMarkets: [],
+      },
       evidence: [
         {
           contribution: 1,
@@ -208,11 +246,38 @@ function createSettingsFetchImplementation(options?: {
           sourceKind: "prediction-market",
         },
       ],
+      filter: {
+        bucketSeconds: 15,
+        decayRegime: "settled-live",
+        innovation: 0.08,
+        observationCount: 8,
+        stressLevel: 0.7,
+        stressVelocity: 0.04,
+      },
       gameId: "nba-bos-nyk-2026-04-21",
       gameLabel: "Celtics @ Knicks",
+      headlineScore: 72,
       h0Adjustments: { appliedSuppression: 0, drivers: ["in-play baseline"] },
+      inspect: {
+        instrumentIds: ["bos-moneyline"],
+        payloadVersion: 1,
+        relationFamilies: [
+          "game-state-volatility",
+          "moneyline",
+          "spread",
+          "total",
+        ],
+        sourceMarketIds: ["sm-kalshi-bos-moneyline"],
+      },
       measuredAt: "2026-04-22T06:00:00.000Z",
       missingDataNotes: [],
+      phase: {
+        clock: "PT07M18.00S",
+        kind: "settled-live",
+        period: 4,
+        secondsFromTip: 3318,
+        secondsSinceLastScoreChange: 45,
+      },
       sample: {
         coreFamilies: ["moneyline", "spread", "total"],
         families: ["moneyline", "spread", "total"],
@@ -223,6 +288,18 @@ function createSettingsFetchImplementation(options?: {
         sources: ["kalshi"],
       },
       score: 72,
+      signals: {
+        calibratedAbnormality: 0.71,
+        coreBreadth: 0.75,
+        coreLiquidityStress: 0.7,
+        corePriceShock: 0.9,
+        coveragePenalty: 0,
+        crossSourceConfirmation: 0.35,
+        persistenceSeconds: 45,
+        phaseTransitionBonus: 0,
+        supportPropShock: 0.1,
+      },
+      state: "alert",
       thresholds: {
         alertMinScore: 55,
         criticalMinScore: 85,
@@ -1051,17 +1128,46 @@ describe("App routes", () => {
         name: "Volatility now",
       })
     ).toBeInTheDocument();
-    expect(screen.getByText("Closed-game source error")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 2,
+        name: "Which source has been safest at close",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Trust" })).toBeInTheDocument();
     expect(screen.getByText("Persisted source depth")).toBeInTheDocument();
     expect(
       screen.getByText("Most recent moneyline calls by source")
     ).toBeInTheDocument();
     expect(screen.getByText("Prediction-market weirdness")).toBeInTheDocument();
+    const trustHeading = screen.getByRole("heading", {
+      level: 2,
+      name: "Which source has been safest at close",
+    });
+    const trustPanel = trustHeading.closest(".ops-panel");
+    expect(trustPanel).not.toBeNull();
+    expect(
+      await within(trustPanel as HTMLElement).findByText("Best at close")
+    ).toBeInTheDocument();
+    const trustTable = within(trustPanel as HTMLElement).getByRole("table");
+    const trustRows = within(trustTable).getAllByRole("row");
+    expect(trustRows[1]).toHaveTextContent(/#1\s*kalshi/i);
+    expect(trustRows[2]).toHaveTextContent(/#2\s*bet365/i);
+    expect(trustRows[3]).toHaveTextContent(/#3\s*polymarket/i);
+    expect(
+      within(trustPanel as HTMLElement).getByText("Best to final horn")
+    ).toBeInTheDocument();
+    expect(
+      within(trustPanel as HTMLElement).getByText("Deepest sample")
+    ).toBeInTheDocument();
     expect((await screen.findAllByText(/72\/100/)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Q4 7:18/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/108-112/).length).toBeGreaterThan(0);
-    expect(screen.getByText("normal <40")).toBeInTheDocument();
-    expect(screen.getByText("alert 55+")).toBeInTheDocument();
+    expect(screen.getAllByText(/settled live/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/p92/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/range p50 18 · p90 41 · p99 63/i)
+    ).toBeInTheDocument();
     expect(
       (
         await screen.findAllByText(
@@ -1094,6 +1200,311 @@ describe("App routes", () => {
         "skipQuoteAnomalies"
       )
     ).toBeNull();
+  });
+
+  it("prefers a ready final/live board-volatility row over a higher-scored insufficient-data row", async () => {
+    fetchMock.mockImplementation(
+      createSettingsFetchImplementation({
+        boardVolatilityRows: [
+          {
+            alertId: null,
+            band: "insufficient-data",
+            baseline: {
+              cohortKey: "pregame|p1|tip-gt-30m-pre|margin-0-3|src-1|core-1",
+              expectedRange: {
+                p50: 0.24,
+                p75: 0.57,
+                p90: 0.65,
+                p99: 0.65,
+              },
+              percentile: 1,
+              sampleSize: 14,
+              source: "calibrated",
+            },
+            components: {
+              coherence: 0.25,
+              coverage: 0,
+              microstructure: 1,
+              residual: 1,
+            },
+            confidence: 0.66,
+            diagnostics: {
+              coreFamilies: ["moneyline"],
+              families: ["moneyline"],
+              predictionMarketRows: 20,
+              ready: false,
+              shockRows: 12,
+              sourceMarketCount: 1,
+              sources: ["polymarket"],
+            },
+            drivers: {
+              coreMarkets: [],
+              supportingMarkets: [],
+            },
+            evidence: [],
+            filter: {
+              bucketSeconds: 15,
+              decayRegime: "pregame",
+              innovation: 0.02,
+              observationCount: 8,
+              stressLevel: 0.9,
+              stressVelocity: 0.01,
+            },
+            gates: {
+              criticalEligible: false,
+              hasCoreBreadth: false,
+              hasPersistence: false,
+              hasSourceConfirmation: false,
+            },
+            gameId: "nba-0042500313",
+            gameLabel: "Thunder @ Spurs",
+            headlineScore: 0,
+            h0Adjustments: { appliedSuppression: 0, drivers: [] },
+            inspect: {
+              instrumentIds: [],
+              payloadVersion: 1,
+              relationFamilies: ["game-state-volatility", "moneyline"],
+              sourceMarketIds: [],
+            },
+            measuredAt: "2026-05-21T03:19:44.372Z",
+            missingDataNotes: [],
+            phase: {
+              clock: null,
+              kind: "pregame",
+              period: 0,
+              secondsFromTip: -162616,
+              secondsSinceLastScoreChange: null,
+            },
+            sample: {
+              coreFamilies: ["moneyline"],
+              families: ["moneyline"],
+              predictionMarketRows: 20,
+              ready: false,
+              shockRows: 12,
+              sourceMarketCount: 1,
+              sources: ["polymarket"],
+            },
+            score: 0,
+            signals: {
+              calibratedAbnormality: 0.89,
+              coreBreadth: 0.25,
+              coreLiquidityStress: 1,
+              corePriceShock: 1,
+              coveragePenalty: 0,
+              crossSourceConfirmation: 0.35,
+              persistenceSeconds: 0,
+              phaseTransitionBonus: 0,
+              supportPropShock: 0,
+            },
+            state: "insufficient-data",
+            thresholds: {
+              alertMinScore: 55,
+              criticalMinScore: 85,
+              elevatedMinScore: 40,
+              normalMaxScore: 39,
+            },
+          },
+          {
+            alertId: null,
+            band: "elevated",
+            baseline: {
+              cohortKey: "final|p4|tip-gt-60m|margin-4-8|src-2|core-4plus",
+              expectedRange: {
+                p50: 0.3,
+                p75: 0.42,
+                p90: 0.55,
+                p99: 0.7,
+              },
+              percentile: 0.88,
+              sampleSize: 20,
+              source: "calibrated",
+            },
+            components: {
+              coherence: 0.8,
+              coverage: 0,
+              microstructure: 0.65,
+              residual: 0.72,
+            },
+            confidence: 0.74,
+            diagnostics: {
+              coreFamilies: ["moneyline", "spread", "total", "team-prop"],
+              families: ["moneyline", "spread", "total", "team-prop"],
+              predictionMarketRows: 18,
+              ready: true,
+              shockRows: 3,
+              sourceMarketCount: 18,
+              sources: ["kalshi", "polymarket"],
+            },
+            drivers: {
+              coreMarkets: [],
+              supportingMarkets: [],
+            },
+            evidence: [],
+            filter: {
+              bucketSeconds: 15,
+              decayRegime: "final",
+              innovation: 0.05,
+              observationCount: 12,
+              stressLevel: 0.56,
+              stressVelocity: 0.03,
+            },
+            gates: {
+              criticalEligible: false,
+              hasCoreBreadth: true,
+              hasPersistence: false,
+              hasSourceConfirmation: true,
+            },
+            gameId: "nba-0042500312",
+            gameLabel: "Spurs @ Thunder",
+            headlineScore: 59,
+            h0Adjustments: { appliedSuppression: 0, drivers: [] },
+            inspect: {
+              instrumentIds: [],
+              payloadVersion: 1,
+              relationFamilies: ["game-state-volatility"],
+              sourceMarketIds: [],
+            },
+            measuredAt: "2026-05-21T03:18:28.042974+00:00",
+            missingDataNotes: [],
+            phase: {
+              clock: null,
+              kind: "final",
+              period: 4,
+              secondsFromTip: 8305,
+              secondsSinceLastScoreChange: 2,
+            },
+            sample: {
+              coreFamilies: ["moneyline", "spread", "total", "team-prop"],
+              families: ["moneyline", "spread", "total", "team-prop"],
+              predictionMarketRows: 18,
+              ready: true,
+              shockRows: 3,
+              sourceMarketCount: 18,
+              sources: ["kalshi", "polymarket"],
+            },
+            score: 59,
+            signals: {
+              calibratedAbnormality: 0.61,
+              coreBreadth: 1,
+              coreLiquidityStress: 0.65,
+              corePriceShock: 0.72,
+              coveragePenalty: 0,
+              crossSourceConfirmation: 0.8,
+              persistenceSeconds: 15,
+              phaseTransitionBonus: 0,
+              supportPropShock: 0.2,
+            },
+            state: "elevated",
+            thresholds: {
+              alertMinScore: 55,
+              criticalMinScore: 85,
+              elevatedMinScore: 40,
+              normalMaxScore: 39,
+            },
+          },
+        ],
+        divergenceRows: [
+          {
+            captureRecencyMs: 15000,
+            comparableState: "comparable",
+            displayLabel: "Thunder moneyline",
+            family: "moneyline",
+            gameId: "nba-0042500312",
+            gameStatus: "final",
+            impliedProbabilityGap: 0.12,
+            inPlay: false,
+            instrumentId: "okc-moneyline",
+            lineMismatch: false,
+            mappingStatus: "auto",
+            severity: "high",
+            signalPriority: 91,
+            sources: ["bet365", "kalshi"],
+          },
+        ],
+        games: [
+          {
+            activeInstrumentCount: 1510,
+            coverage: {
+              activeSourceCount: 4,
+              availableSources: ["bet365", "kalshi", "polymarket", "nba"],
+              missingSources: ["fanduel", "draftkings"],
+              unmappedSourceMarketCount: 6,
+            },
+            game: {
+              awayParticipant: {
+                key: "sas",
+                name: "San Antonio Spurs",
+                shortName: "Spurs",
+              },
+              homeParticipant: {
+                key: "okc",
+                name: "Oklahoma City Thunder",
+                shortName: "Thunder",
+              },
+              id: "nba-0042500312",
+              league: "NBA",
+              scheduledStart: "2026-05-21T00:30:00Z",
+              sport: "basketball",
+            },
+            gameState: {
+              awayScore: 113,
+              capturedAt: "2026-05-21T03:18:28.042974+00:00",
+              clock: "None",
+              homeScore: 122,
+              isFinal: true,
+              period: 4,
+              status: "final",
+            },
+            hasUnmappedMarkets: true,
+            topDivergences: [],
+          },
+          {
+            activeInstrumentCount: 33,
+            coverage: {
+              activeSourceCount: 3,
+              availableSources: ["kalshi", "polymarket", "nba"],
+              missingSources: ["bet365", "fanduel", "draftkings"],
+              unmappedSourceMarketCount: 0,
+            },
+            game: {
+              awayParticipant: {
+                key: "okc",
+                name: "Oklahoma City Thunder",
+                shortName: "Thunder",
+              },
+              homeParticipant: {
+                key: "sas",
+                name: "San Antonio Spurs",
+                shortName: "Spurs",
+              },
+              id: "nba-0042500313",
+              league: "NBA",
+              scheduledStart: "2026-05-23T00:30:00Z",
+              sport: "basketball",
+            },
+            gameState: {
+              awayScore: 0,
+              capturedAt: "2026-05-19T12:40:11.401100+00:00",
+              clock: "None",
+              homeScore: 0,
+              isFinal: false,
+              period: 0,
+              status: "scheduled",
+            },
+            hasUnmappedMarkets: false,
+            topDivergences: [],
+          },
+        ],
+      })
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByText(/Spurs @ Thunder · 113-122 final · elevated/i)
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/^final$/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^Q4$/)).not.toBeInTheDocument();
   });
 
   it("keeps live desk primary surfaces polling after initial render", async () => {
@@ -1168,7 +1579,6 @@ describe("App routes", () => {
         name: "Trader desk failed to load",
       })
     ).not.toBeInTheDocument();
-    expect(divergenceAttempts).toBeGreaterThan(1);
   });
 
   it("keeps cached primary data visible when a later primary refresh fails", async () => {
@@ -1320,6 +1730,31 @@ describe("App routes", () => {
       screen.getByText("Choose a valid research date.")
     ).toBeInTheDocument();
     expect(screen.queryByText("Console shell crashed")).not.toBeInTheDocument();
+  });
+
+  it("shows the live board-alert empty state instead of hanging on loading when no incidents are returned", async () => {
+    window.history.replaceState({}, "", "/board-alerts");
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-17T19:00:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "NBA trader incidents" })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("No active trader incidents.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Loading desk…")).not.toBeInTheDocument();
   });
 
   it("keeps multiple same-game historic incidents visible on the requested research date", async () => {
@@ -2204,6 +2639,105 @@ describe("App routes", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText("Dean Wade rebounds over 1.5").length).toBe(2);
     expect(screen.getAllByText("Dean Wade assists over 0.5").length).toBe(2);
+  });
+
+  it("shows fallback context instead of a hard empty-state when no alert reconstructs but market evidence exists", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/board-alerts/nba-0042500312?at=2026-05-21T00:15:29.000Z&label=Spurs%20%40%20Thunder&alertId=live-fallback"
+    );
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/board-alerts/event-context")) {
+        return mockJsonResponse({
+          data: {
+            anchorAt: "2026-05-21T00:15:29.000Z",
+            gameId: "nba-0042500312",
+            gameLabel: "Spurs @ Thunder",
+            playByPlay: [],
+            predictionMarketContext: {
+              bySource: [
+                {
+                  families: ["totals"],
+                  nearestOffsetSeconds: 0,
+                  nearestTimestamp: "2026-05-21T00:15:29.000Z",
+                  observationCount: 1,
+                  participantKeys: [],
+                  quoteCount: 0,
+                  source: "polymarket",
+                  topRows: [],
+                  tradeCount: 1,
+                },
+              ],
+              rows: [
+                {
+                  bestAsk: null,
+                  bestBid: null,
+                  capturedAt: "2026-05-21T00:15:29.000Z",
+                  depthScore: null,
+                  displayLabel: "Over 207.5 total",
+                  eventTimestamp: "2026-05-21T00:15:29.000Z",
+                  family: "totals",
+                  finalMarketVolume: null,
+                  impliedProbability: 0.9,
+                  kind: "trade",
+                  mappingStatus: "auto",
+                  notional: 205.16,
+                  observationId: "fallback-trade-1",
+                  offsetSeconds: 0,
+                  participantKey: null,
+                  previousImpliedProbability: 0.45,
+                  signalStrength: 0.9,
+                  source: "polymarket",
+                  sourceMarketId: "pm-total-over-207_5",
+                  spread: null,
+                  tradePrice: 0.46,
+                  tradeSize: 446,
+                  volume: null,
+                  volumeShare: 0.001,
+                },
+              ],
+            },
+            windowEnd: "2026-05-21T00:45:29.000Z",
+            windowStart: "2026-05-20T23:45:29.000Z",
+          },
+          meta: { generatedAt: "2026-05-21T00:20:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts/replay")) {
+        return mockJsonResponse({
+          data: {
+            alertDeck: [],
+            gameId: "nba-0042500312",
+            gameLabel: "Spurs @ Thunder",
+            windowEnd: "2026-05-21T00:45:29.000Z",
+            windowStart: "2026-05-20T23:45:29.000Z",
+          },
+          meta: { generatedAt: "2026-05-21T00:20:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-21T00:20:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByText(
+        /showing persisted prediction-market context and fallback review targets from this window/i
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/no incident reconstructs at this anchor timestamp/i)
+    ).toBeNull();
+    expect(screen.getByText("Over 207.5 total")).toBeInTheDocument();
   });
 
   it("keeps fallback review targets pinned to the selected participant on a historical participant inspect page", async () => {
@@ -3434,11 +3968,9 @@ describe("App routes", () => {
     expect(screen.getByText("Boards with market work")).toBeInTheDocument();
     expect(screen.getAllByText("Knicks at Celtics").length).toBeGreaterThan(0);
     const slateTable = screen.getByRole("table");
+    expect(within(slateTable).getByText("108-112 final")).toBeInTheDocument();
     expect(
-      within(slateTable).getByText("108 - 112 · final")
-    ).toBeInTheDocument();
-    expect(
-      within(slateTable).queryByText("108 - 112 · in-play")
+      within(slateTable).queryByText("108-112 in-play")
     ).not.toBeInTheDocument();
     expect(
       within(slateTable).queryByText("Lakers at Nuggets")

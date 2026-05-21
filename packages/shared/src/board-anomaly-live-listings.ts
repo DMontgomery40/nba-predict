@@ -145,6 +145,26 @@ export function listGameStateVolatilityAcrossGames(
         )
         .filter((row): row is BoardGameStateVolatility => row != null)
         .sort((left, right) => {
+          const readyDelta =
+            Number(right.sample.ready) - Number(left.sample.ready);
+          if (readyDelta !== 0) return readyDelta;
+          const stateRank = (row: BoardGameStateVolatility) => {
+            switch (row.state) {
+              case "critical":
+                return 4;
+              case "alert":
+                return 3;
+              case "elevated":
+                return 2;
+              case "normal":
+                return 1;
+              case "insufficient-data":
+              default:
+                return 0;
+            }
+          };
+          const stateDelta = stateRank(right) - stateRank(left);
+          if (stateDelta !== 0) return stateDelta;
           if (right.score !== left.score) return right.score - left.score;
           return (
             right.sample.predictionMarketRows - left.sample.predictionMarketRows

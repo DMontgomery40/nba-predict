@@ -90,8 +90,19 @@ export function BoardAlertsPage() {
   }, [mode, liveQuery.data, incidentsQuery.data]);
 
   const isLoading =
-    mode === "live" ? liveQuery.isLoading : incidentsQuery.isLoading;
-  const isError = mode === "live" ? liveQuery.isError : incidentsQuery.isError;
+    mode === "live"
+      ? liveQuery.data == null &&
+        liveQuery.error == null &&
+        liveQuery.failureCount === 0 &&
+        liveQuery.fetchStatus === "fetching"
+      : incidentsQuery.data == null &&
+        incidentsQuery.error == null &&
+        incidentsQuery.failureCount === 0 &&
+        incidentsQuery.fetchStatus === "fetching";
+  const isError =
+    mode === "live"
+      ? liveQuery.data == null && liveQuery.error != null
+      : incidentsQuery.data == null && incidentsQuery.error != null;
 
   const livePrimaryRows = useMemo(
     () => pickPrimaryLiveIncidentRows(allRows).slice(0, 5),

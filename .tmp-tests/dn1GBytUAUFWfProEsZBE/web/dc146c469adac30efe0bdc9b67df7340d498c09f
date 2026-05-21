@@ -1,0 +1,128 @@
+Object.defineProperty(__vite_ssr_exports__, "Panel", { enumerable: true, configurable: true, get(){ try { return Panel } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "Badge", { enumerable: true, configurable: true, get(){ try { return Badge } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "SectionTitle", { enumerable: true, configurable: true, get(){ try { return SectionTitle } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "MetricTile", { enumerable: true, configurable: true, get(){ try { return MetricTile } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "ProbabilityPill", { enumerable: true, configurable: true, get(){ try { return ProbabilityPill } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/packages/ui/src/index.ts", {"importedNames":["cx"]});
+function Panel({
+  className,
+  children,
+  ...props
+}) {
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("section", { className: (0,__vite_ssr_import_1__.cx)("panel", className), ...props, children }, void 0, false, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+    lineNumber: 11,
+    columnNumber: 5
+  }, this);
+};
+function Badge({
+  tone,
+  children
+}) {
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { className: (0,__vite_ssr_import_1__.cx)("badge", tone ? `badge-${tone}` : void 0), children }, void 0, false, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+    lineNumber: 24,
+    columnNumber: 5
+  }, this);
+};
+function SectionTitle({
+  eyebrow,
+  title,
+  body
+}) {
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("header", { className: "section-title", children: [
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "eyebrow", children: eyebrow }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+      lineNumber: 41,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h2", { children: title }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+      lineNumber: 42,
+      columnNumber: 7
+    }, this),
+    body ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: body }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+      lineNumber: 43,
+      columnNumber: 15
+    }, this) : null
+  ] }, void 0, true, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+    lineNumber: 40,
+    columnNumber: 5
+  }, this);
+};
+function MetricTile({
+  label,
+  value,
+  tone = "neutral"
+}) {
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+    "div",
+    {
+      className: (0,__vite_ssr_import_1__.cx)(
+        "metric-tile",
+        tone !== "neutral" ? `metric-${tone}` : void 0
+      ),
+      children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "eyebrow", children: label }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+          lineNumber: 64,
+          columnNumber: 7
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "metric-value", children: value }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+          lineNumber: 65,
+          columnNumber: 7
+        }, this)
+      ]
+    },
+    void 0,
+    true,
+    {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+      lineNumber: 58,
+      columnNumber: 5
+    },
+    this
+  );
+};
+function ProbabilityPill({
+  label,
+  value,
+  highlight
+}) {
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+    "div",
+    {
+      className: (0,__vite_ssr_import_1__.cx)(
+        "probability-pill",
+        highlight && "probability-pill-highlight"
+      ),
+      children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: label }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+          lineNumber: 86,
+          columnNumber: 7
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: value == null ? "n/a" : `${(value * 100).toFixed(1)}%` }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+          lineNumber: 87,
+          columnNumber: 7
+        }, this)
+      ]
+    },
+    void 0,
+    true,
+    {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/Primitives.tsx",
+      lineNumber: 80,
+      columnNumber: 5
+    },
+    this
+  );
+}
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6Ijs7Ozs7QUFVSTtBQVZKO0FBSU8sU0FBUyxNQUFNO0FBQUEsRUFDcEI7QUFBQSxFQUNBO0FBQUEsRUFDQSxHQUFHO0FBQ0wsR0FBbUQ7QUFDakQsU0FDRSxpREFBQyxhQUFRLGNBQVcsMEJBQUcsU0FBUyxTQUFTLEdBQUksR0FBRyxPQUM3QyxZQURIO0FBQUE7QUFBQTtBQUFBO0FBQUEsU0FFQTtBQUVKO0FBRU8sU0FBUyxNQUFNO0FBQUEsRUFDcEI7QUFBQSxFQUNBO0FBQ0YsR0FFSTtBQUNGLFNBQ0UsaURBQUMsVUFBSyxjQUFXLDBCQUFHLFNBQVMsT0FBTyxTQUFTLElBQUksS0FBSyxNQUFTLEdBQzVELFlBREg7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQUVBO0FBRUo7QUFFTyxTQUFTLGFBQWE7QUFBQSxFQUMzQjtBQUFBLEVBQ0E7QUFBQSxFQUNBO0FBQ0YsR0FJRztBQUNELFNBQ0UsaURBQUMsWUFBTyxXQUFVLGlCQUNoQjtBQUFBLHFEQUFDLFNBQUksV0FBVSxXQUFXLHFCQUExQjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBQWtDO0FBQUEsSUFDbEMsaURBQUMsUUFBSSxtQkFBTDtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBQVc7QUFBQSxJQUNWLE9BQU8saURBQUMsT0FBRyxrQkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBQVMsSUFBTztBQUFBLE9BSDFCO0FBQUE7QUFBQTtBQUFBO0FBQUEsU0FJQTtBQUVKO0FBRU8sU0FBUyxXQUFXO0FBQUEsRUFDekI7QUFBQSxFQUNBO0FBQUEsRUFDQSxPQUFPO0FBQ1QsR0FJRztBQUNELFNBQ0U7QUFBQSxJQUFDO0FBQUE7QUFBQSxNQUNDLGNBQVc7QUFBQSxRQUNUO0FBQUEsUUFDQSxTQUFTLFlBQVksVUFBVSxJQUFJLEtBQUs7QUFBQSxNQUMxQztBQUFBLE1BRUE7QUFBQSx5REFBQyxTQUFJLFdBQVUsV0FBVyxtQkFBMUI7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQUFnQztBQUFBLFFBQ2hDLGlEQUFDLFNBQUksV0FBVSxnQkFBZ0IsbUJBQS9CO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBcUM7QUFBQTtBQUFBO0FBQUEsSUFQdkM7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLEVBUUE7QUFFSjtBQUVPLFNBQVMsZ0JBQWdCO0FBQUEsRUFDOUI7QUFBQSxFQUNBO0FBQUEsRUFDQTtBQUNGLEdBSUc7QUFDRCxTQUNFO0FBQUEsSUFBQztBQUFBO0FBQUEsTUFDQyxjQUFXO0FBQUEsUUFDVDtBQUFBLFFBQ0EsYUFBYTtBQUFBLE1BQ2Y7QUFBQSxNQUVBO0FBQUEseURBQUMsVUFBTSxtQkFBUDtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQWE7QUFBQSxRQUNiLGlEQUFDLFlBQVEsbUJBQVMsT0FBTyxRQUFRLElBQUksUUFBUSxLQUFLLFFBQVEsQ0FBQyxDQUFDLE9BQTVEO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBZ0U7QUFBQTtBQUFBO0FBQUEsSUFQbEU7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLEVBUUE7QUFFSiIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiUHJpbWl0aXZlcy50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgY3ggfSBmcm9tIFwiQHNpZ25hbC1jb25zb2xlL3VpXCI7XG5cbmltcG9ydCB0eXBlIHsgSFRNTEF0dHJpYnV0ZXMsIFByb3BzV2l0aENoaWxkcmVuIH0gZnJvbSBcInJlYWN0XCI7XG5cbmV4cG9ydCBmdW5jdGlvbiBQYW5lbCh7XG4gIGNsYXNzTmFtZSxcbiAgY2hpbGRyZW4sXG4gIC4uLnByb3BzXG59OiBQcm9wc1dpdGhDaGlsZHJlbjxIVE1MQXR0cmlidXRlczxIVE1MRWxlbWVudD4+KSB7XG4gIHJldHVybiAoXG4gICAgPHNlY3Rpb24gY2xhc3NOYW1lPXtjeChcInBhbmVsXCIsIGNsYXNzTmFtZSl9IHsuLi5wcm9wc30+XG4gICAgICB7Y2hpbGRyZW59XG4gICAgPC9zZWN0aW9uPlxuICApO1xufVxuXG5leHBvcnQgZnVuY3Rpb24gQmFkZ2Uoe1xuICB0b25lLFxuICBjaGlsZHJlbixcbn06IFByb3BzV2l0aENoaWxkcmVuPHtcbiAgdG9uZT86IFwibmV1dHJhbFwiIHwgXCJwb3NpdGl2ZVwiIHwgXCJ3YXJuaW5nXCIgfCBcImNyaXRpY2FsXCI7XG59Pikge1xuICByZXR1cm4gKFxuICAgIDxzcGFuIGNsYXNzTmFtZT17Y3goXCJiYWRnZVwiLCB0b25lID8gYGJhZGdlLSR7dG9uZX1gIDogdW5kZWZpbmVkKX0+XG4gICAgICB7Y2hpbGRyZW59XG4gICAgPC9zcGFuPlxuICApO1xufVxuXG5leHBvcnQgZnVuY3Rpb24gU2VjdGlvblRpdGxlKHtcbiAgZXllYnJvdyxcbiAgdGl0bGUsXG4gIGJvZHksXG59OiB7XG4gIGV5ZWJyb3c6IHN0cmluZztcbiAgdGl0bGU6IHN0cmluZztcbiAgYm9keT86IHN0cmluZztcbn0pIHtcbiAgcmV0dXJuIChcbiAgICA8aGVhZGVyIGNsYXNzTmFtZT1cInNlY3Rpb24tdGl0bGVcIj5cbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZXllYnJvd1wiPntleWVicm93fTwvZGl2PlxuICAgICAgPGgyPnt0aXRsZX08L2gyPlxuICAgICAge2JvZHkgPyA8cD57Ym9keX08L3A+IDogbnVsbH1cbiAgICA8L2hlYWRlcj5cbiAgKTtcbn1cblxuZXhwb3J0IGZ1bmN0aW9uIE1ldHJpY1RpbGUoe1xuICBsYWJlbCxcbiAgdmFsdWUsXG4gIHRvbmUgPSBcIm5ldXRyYWxcIixcbn06IHtcbiAgbGFiZWw6IHN0cmluZztcbiAgdmFsdWU6IHN0cmluZztcbiAgdG9uZT86IFwibmV1dHJhbFwiIHwgXCJwb3NpdGl2ZVwiIHwgXCJ3YXJuaW5nXCI7XG59KSB7XG4gIHJldHVybiAoXG4gICAgPGRpdlxuICAgICAgY2xhc3NOYW1lPXtjeChcbiAgICAgICAgXCJtZXRyaWMtdGlsZVwiLFxuICAgICAgICB0b25lICE9PSBcIm5ldXRyYWxcIiA/IGBtZXRyaWMtJHt0b25lfWAgOiB1bmRlZmluZWRcbiAgICAgICl9XG4gICAgPlxuICAgICAgPGRpdiBjbGFzc05hbWU9XCJleWVicm93XCI+e2xhYmVsfTwvZGl2PlxuICAgICAgPGRpdiBjbGFzc05hbWU9XCJtZXRyaWMtdmFsdWVcIj57dmFsdWV9PC9kaXY+XG4gICAgPC9kaXY+XG4gICk7XG59XG5cbmV4cG9ydCBmdW5jdGlvbiBQcm9iYWJpbGl0eVBpbGwoe1xuICBsYWJlbCxcbiAgdmFsdWUsXG4gIGhpZ2hsaWdodCxcbn06IHtcbiAgbGFiZWw6IHN0cmluZztcbiAgdmFsdWU/OiBudW1iZXIgfCBudWxsO1xuICBoaWdobGlnaHQ/OiBib29sZWFuO1xufSkge1xuICByZXR1cm4gKFxuICAgIDxkaXZcbiAgICAgIGNsYXNzTmFtZT17Y3goXG4gICAgICAgIFwicHJvYmFiaWxpdHktcGlsbFwiLFxuICAgICAgICBoaWdobGlnaHQgJiYgXCJwcm9iYWJpbGl0eS1waWxsLWhpZ2hsaWdodFwiXG4gICAgICApfVxuICAgID5cbiAgICAgIDxzcGFuPntsYWJlbH08L3NwYW4+XG4gICAgICA8c3Ryb25nPnt2YWx1ZSA9PSBudWxsID8gXCJuL2FcIiA6IGAkeyh2YWx1ZSAqIDEwMCkudG9GaXhlZCgxKX0lYH08L3N0cm9uZz5cbiAgICA8L2Rpdj5cbiAgKTtcbn1cbiJdLCJmaWxlIjoiL3NyYy9jb21wb25lbnRzL1ByaW1pdGl2ZXMudHN4In0=

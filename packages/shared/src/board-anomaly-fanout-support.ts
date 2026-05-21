@@ -1,3 +1,5 @@
+import { normalizeBoardText } from "./board-anomaly-support";
+
 function formatNumber(value: number | null | undefined, digits = 2): string {
   if (value == null || !Number.isFinite(value)) return "—";
   return value.toFixed(digits);
@@ -14,16 +16,67 @@ function participantKeyFromDisplayLabel(
   displayLabel: string | null | undefined
 ): string | null {
   if (!displayLabel) return null;
-  return (
-    displayLabel
-      .toLowerCase()
-      .match(/^([a-z]+\s[a-z'.-]+(?:\s[ji]r\.?)?)\b/)?.[1] ?? null
-  );
+  const tokens = normalizeBoardText(displayLabel)
+    .replace(/[^\p{L}0-9. ]+/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => token.replace(/\.+$/g, ""));
+  if (tokens.length < 2) return null;
+
+  const stopTokens = new Set([
+    "over",
+    "under",
+    "yes",
+    "no",
+    "points",
+    "point",
+    "pts",
+    "rebounds",
+    "rebound",
+    "assists",
+    "assist",
+    "steals",
+    "steal",
+    "blocks",
+    "block",
+    "threes",
+    "three",
+    "pra",
+    "pr",
+    "pa",
+    "ra",
+    "double",
+    "triple",
+    "leader",
+    "first",
+    "made",
+    "field",
+    "goals",
+    "team",
+    "total",
+    "home",
+    "away",
+    "win",
+    "wins",
+    "by",
+  ]);
+
+  const nameParts: string[] = [];
+  for (const token of tokens) {
+    if (/^\d+(\.\d+)?$/.test(token)) break;
+    if (stopTokens.has(token)) {
+      if (nameParts.length >= 2) break;
+      return null;
+    }
+    nameParts.push(token);
+  }
+
+  return nameParts.length >= 2 ? nameParts.join(" ") : null;
 }
 
 function statFamilyFromLabel(label: string | null | undefined): string {
   if (!label) return "other";
-  const lower = label.toLowerCase();
+  const lower = normalizeBoardText(label);
   if (lower.includes("assist") && lower.includes("rebound")) return "ra";
   if (
     lower.includes("points") &&

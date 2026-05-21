@@ -2,7 +2,7 @@ import { DatabaseFailureError } from "./errors";
 
 import type Database from "better-sqlite3";
 
-export const currentSchemaVersion = 13;
+export const currentSchemaVersion = 14;
 
 function nowIso() {
   return new Date().toISOString();
@@ -354,6 +354,10 @@ export function applyMigrations(db: Database.Database, dbPath: string) {
   if (getAppliedVersion(db) < 13) {
     applyMarketMicrostructureTradeIdentityIndex(db);
   }
+
+  if (getAppliedVersion(db) < 14) {
+    applyBoardVolatilityBaselineStorage(db);
+  }
 }
 
 function applyCanonicalInstrumentConsolidation(db: Database.Database) {
@@ -688,5 +692,44 @@ function applyMarketMicrostructureTradeIdentityIndex(db: Database.Database) {
     }
 
     insertMigration(db, 13, "market-microstructure-trade-identity-index");
+  })();
+}
+
+function applyBoardVolatilityBaselineStorage(db: Database.Database) {
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS board_volatility_baselines (
+        baseline_version TEXT NOT NULL,
+        phase_kind TEXT NOT NULL,
+        period_bucket TEXT NOT NULL,
+        seconds_from_tip_bucket TEXT NOT NULL,
+        margin_bucket TEXT NOT NULL,
+        source_bucket TEXT NOT NULL,
+        core_family_bucket TEXT NOT NULL,
+        cohort_key TEXT NOT NULL,
+        sample_size INTEGER NOT NULL,
+        p50 REAL NOT NULL,
+        p75 REAL NOT NULL,
+        p90 REAL NOT NULL,
+        p99 REAL NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (
+          baseline_version,
+          phase_kind,
+          period_bucket,
+          seconds_from_tip_bucket,
+          margin_bucket,
+          source_bucket,
+          core_family_bucket
+        )
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_board_volatility_baselines_version
+        ON board_volatility_baselines(baseline_version, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_board_volatility_baselines_phase
+        ON board_volatility_baselines(phase_kind, source_bucket, core_family_bucket, sample_size DESC);
+    `);
+
+    insertMigration(db, 14, "board-volatility-baseline-storage");
   })();
 }

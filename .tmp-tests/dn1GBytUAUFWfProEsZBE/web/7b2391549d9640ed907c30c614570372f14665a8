@@ -1,0 +1,12 @@
+Object.defineProperty(__vite_ssr_exports__, "useAppStore", { enumerable: true, configurable: true, get(){ try { return useAppStore } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/zustand@5.0.12_@types+react@19.2.14_react@19.2.5/node_modules/zustand/esm/index.mjs", {"importedNames":["create"]});
+const useAppStore = (0,__vite_ssr_import_0__.create)((set) => ({
+  commandInput: "",
+  commandOpen: false,
+  closeCommand: () => set({ commandInput: "", commandOpen: false }),
+  openCommand: () => set({ commandOpen: true }),
+  setCommandInput: (commandInput) => set({ commandInput })
+}));
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IjtBQUFBO0FBVU8sTUFBTSxpQkFBYyw4QkFBaUIsQ0FBQyxTQUFTO0FBQUEsRUFDcEQsY0FBYztBQUFBLEVBQ2QsYUFBYTtBQUFBLEVBQ2IsY0FBYyxNQUFNLElBQUksRUFBRSxjQUFjLElBQUksYUFBYSxNQUFNLENBQUM7QUFBQSxFQUNoRSxhQUFhLE1BQU0sSUFBSSxFQUFFLGFBQWEsS0FBSyxDQUFDO0FBQUEsRUFDNUMsaUJBQWlCLENBQUMsaUJBQWlCLElBQUksRUFBRSxhQUFhLENBQUM7QUFDekQsRUFBRSIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsic3RvcmUudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgY3JlYXRlIH0gZnJvbSBcInp1c3RhbmRcIjtcblxudHlwZSBBcHBTdG9yZSA9IHtcbiAgY29tbWFuZElucHV0OiBzdHJpbmc7XG4gIGNvbW1hbmRPcGVuOiBib29sZWFuO1xuICBjbG9zZUNvbW1hbmQ6ICgpID0+IHZvaWQ7XG4gIG9wZW5Db21tYW5kOiAoKSA9PiB2b2lkO1xuICBzZXRDb21tYW5kSW5wdXQ6ICh2YWx1ZTogc3RyaW5nKSA9PiB2b2lkO1xufTtcblxuZXhwb3J0IGNvbnN0IHVzZUFwcFN0b3JlID0gY3JlYXRlPEFwcFN0b3JlPigoc2V0KSA9PiAoe1xuICBjb21tYW5kSW5wdXQ6IFwiXCIsXG4gIGNvbW1hbmRPcGVuOiBmYWxzZSxcbiAgY2xvc2VDb21tYW5kOiAoKSA9PiBzZXQoeyBjb21tYW5kSW5wdXQ6IFwiXCIsIGNvbW1hbmRPcGVuOiBmYWxzZSB9KSxcbiAgb3BlbkNvbW1hbmQ6ICgpID0+IHNldCh7IGNvbW1hbmRPcGVuOiB0cnVlIH0pLFxuICBzZXRDb21tYW5kSW5wdXQ6IChjb21tYW5kSW5wdXQpID0+IHNldCh7IGNvbW1hbmRJbnB1dCB9KSxcbn0pKTtcbiJdLCJmaWxlIjoiL3NyYy9hcHAvc3RvcmUudHMifQ==

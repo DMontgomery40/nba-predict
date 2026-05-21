@@ -42,6 +42,14 @@ const ALERT_KIND_PRIORITY: Record<BoardAnomalyShockKind, number> = {
   "coverage-gap": 20,
 };
 
+function trustedLiveStateWindow(scored: BoardObservationScored[]) {
+  if (scored.length < 20) return false;
+  const inPlayCount = scored.filter(
+    (item) => item.observation.gameState.status === "in-play"
+  ).length;
+  return inPlayCount / scored.length >= 0.8;
+}
+
 export function compareBoardAnomalyAlerts(
   a: BoardAnomalyAlert,
   b: BoardAnomalyAlert
@@ -50,6 +58,15 @@ export function compareBoardAnomalyAlerts(
     ALERT_KIND_PRIORITY[b.shockKind] - ALERT_KIND_PRIORITY[a.shockKind];
   if (priorityDelta !== 0) return priorityDelta;
   return b.score - a.score;
+}
+
+function isWholeBoardTripwire(alert: BoardAnomalyAlert) {
+  return (
+    alert.shockKind === "game-state-volatility" ||
+    alert.shockKind === "near-tip-availability" ||
+    alert.shockKind === "pregame-availability" ||
+    alert.primaryEntityKey == null
+  );
 }
 
 function suppressForWholeGameTripwire(
@@ -82,6 +99,16 @@ function clusterToAlert(
   if (cluster.participants.length < 2) return null;
 
   const classification = classifyShock(cluster, config);
+  const firstPopParticipants =
+    classification.primaryEntityKey == null
+      ? cluster.participants
+      : cluster.participants.filter((participant) => {
+          const key =
+            participant.observation.participantKey ??
+            participant.observation.labels.participantHints[0] ??
+            null;
+          return key === classification.primaryEntityKey;
+        });
   const baseContribution = averageContribution(cluster.participants);
   const nParticipants = cluster.participants.length;
   const nPairs = Math.max(1, (nParticipants * (nParticipants - 1)) / 2);
@@ -116,7 +143,12 @@ function clusterToAlert(
     return null;
   }
 
-  const firstPopAt = firstPopAtFromScored(cluster.participants, detectedAtIso);
+  const firstPopAt = firstPopAtFromScored(
+    firstPopParticipants.length > 0
+      ? firstPopParticipants
+      : cluster.participants,
+    detectedAtIso
+  );
   const evidence = evidenceFromScored(cluster.participants);
   const missingDataNotes = missingDataNotesFromScored(cluster.participants);
 
@@ -207,13 +239,16 @@ export function detectBoardAnomalies(
 
   const clusters = buildCoherenceClusters(shockSet, config);
   const alerts: BoardAnomalyAlert[] = [];
+  const trustedStateGate = trustedLiveStateWindow(shockSet);
   const gameStateVolatilityAlert = buildGameStateVolatilityAlert({
     scored: shockSet,
     config,
     gameId: input.gameId,
     gameLabel: input.gameLabel,
     detectedAtIso: input.now,
+    gameStates: input.gameStates,
     nowMs,
+    scheduledStart: input.scheduledStart,
     shockWindowMs,
   });
   if (gameStateVolatilityAlert) {
@@ -228,6 +263,9 @@ export function detectBoardAnomalies(
       input.now
     );
     if (alert) {
+      if (!isWholeBoardTripwire(alert) && !trustedStateGate) {
+        continue;
+      }
       if (
         gameStateVolatilityAlert &&
         alert.shockKind === "market-structure" &&
@@ -294,7 +332,9 @@ export function measureBoardGameStateVolatility(
     detectedAtIso: input.now,
     gameId: input.gameId,
     gameLabel: input.gameLabel,
+    gameStates: input.gameStates,
     nowMs,
+    scheduledStart: input.scheduledStart,
     scored,
     shockWindowMs,
   });

@@ -1,0 +1,11 @@
+iteration,trustedMisses,badInputEntityFires,noisyCalls,medianBoardLead,medianEntityLead,trustedBoardMisses,rank
+Iter02,0,0,5,420,210,0,1
+Iter03,0,0,5,420,210,0,2
+Iter04,0,0,5,420,210,0,3
+Iter05,0,0,5,420,210,0,4
+Iter01,0,4,5,420,210,0,5
+Iter06,6,0,0,420,,0,6
+Iter07,6,0,0,420,,0,7
+Iter08,6,0,0,420,,0,8
+Iter09,6,0,0,420,,0,9
+Iter10,6,0,0,420,,0,10

@@ -1,0 +1,788 @@
+Object.defineProperty(__vite_ssr_exports__, "DivergenceExplorerPage", { enumerable: true, configurable: true, get(){ try { return DivergenceExplorerPage } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/@tanstack+react-query@5.99.2_react@19.2.5/node_modules/@tanstack/react-query/build/modern/index.js", {"importedNames":["useQuery"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react-router-dom@7.14.2_react-dom@19.2.5_react@19.2.5__react@19.2.5/node_modules/react-router-dom/dist/index.js", {"importedNames":["Link","useSearchParams"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/data/api.ts", {"importedNames":["getDivergence"]});
+
+
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/src/lib/market-format.ts", {"importedNames":["formatGapPoints"]});
+const __vite_ssr_import_5__ = await __vite_ssr_import__("/src/lib/time-format.ts", {"importedNames":["formatOperatorDateTime"]});
+const severityOptions = ["", "critical", "high", "medium", "low"];
+const freshnessOptions = [
+  { label: "All", value: "" },
+  { label: "Under 1m", value: "fresh" },
+  { label: "1-5m", value: "aging" },
+  { label: "Over 5m", value: "stale" },
+  { label: "No quote", value: "offline" }
+];
+const familyOptions = [
+  { label: "All", value: "" },
+  { label: "Moneyline", value: "moneyline" },
+  { label: "Spread", value: "spread" },
+  { label: "Total", value: "total" },
+  { label: "Player props", value: "player-prop" },
+  { label: "Team props", value: "team-prop" },
+  { label: "Other", value: "other" }
+];
+const mappedStateOptions = [
+  { label: "All", value: "" },
+  { label: "Matched", value: "comparable" },
+  { label: "Line mismatch", value: "line-mismatch" },
+  { label: "Selection mismatch", value: "selection-mismatch" },
+  { label: "Unmapped", value: "unmapped" }
+];
+const sortOptions = [
+  { label: "Divergence", value: "divergence" },
+  { label: "Board priority", value: "signalPriority" },
+  { label: "Quote age", value: "freshness" },
+  { label: "Last quote time", value: "captureRecency" },
+  { label: "Line Mismatch", value: "lineMismatch" }
+];
+function buildNextSearchParams(searchParams, updates) {
+  const next = new URLSearchParams(searchParams);
+  for (const [key, value] of Object.entries(updates)) {
+    if (value) {
+      next.set(key, value);
+    } else {
+      next.delete(key);
+    }
+  };
+  return next;
+}
+function buildSearchParams(values) {
+  const next = new URLSearchParams();
+  for (const [key, value] of Object.entries(values)) {
+    if (value) {
+      next.set(key, value);
+    }
+  };
+  return next;
+}
+function severityClass(severity) {
+  switch (severity) {
+    case "critical":
+      return "sev-critical";
+    case "high":
+      return "sev-high";
+    case "medium":
+      return "sev-medium";
+    default:
+      return "sev-low";
+  }
+}
+function sourceLabel(source) {
+  switch (source) {
+    case "bet365":
+      return "Bet365";
+    case "kalshi":
+      return "Kalshi";
+    case "polymarket":
+      return "Polymarket";
+    default:
+      return source;
+  }
+}
+function formatDuration(value) {
+  if (value == null || value <= 0) {
+    return "none";
+  };
+  if (value < 6e4) {
+    return `${Math.round(value / 1e3)}s`;
+  };
+  if (value < 60 * 6e4) {
+    return `${Math.round(value / 6e4)}m`;
+  };
+  return `${(value / (60 * 6e4)).toFixed(1)}h`;
+}
+function marketTimingLabel(row) {
+  if (row.gameStatus === "final") {
+    return "finished game";
+  };
+  if (row.gameStatus === "in-play") {
+    return "game in progress";
+  };
+  if (row.gameStatus === "scheduled") {
+    return "scheduled game";
+  };
+  return matchLabel(row.comparableState);
+}
+function matchLabel(state) {
+  switch (state) {
+    case "comparable":
+      return "matched";
+    case "line-mismatch":
+      return "line mismatch";
+    case "selection-mismatch":
+      return "selection mismatch";
+    case "unmapped":
+      return "unmapped";
+    default:
+      return state;
+  }
+}
+function rowPeakGap(row) {
+  return row.comparisonSummary?.maxGap ?? row.impliedProbabilityGap ?? null;
+}
+function rowLatestGap(row) {
+  return row.comparisonSummary?.latestGap ?? row.impliedProbabilityGap ?? null;
+}
+function DivergenceExplorerPage() {
+  const [searchParams, setSearchParams] = (0,__vite_ssr_import_2__.useSearchParams)();
+  const filters = {
+    date: searchParams.get("date") ?? void 0,
+    family: searchParams.get("family") ?? void 0,
+    freshness: searchParams.get("freshness") ?? void 0,
+    mappedState: searchParams.get("mappedState") ?? void 0,
+    severity: searchParams.get("severity") ?? void 0,
+    sort: searchParams.get("sort") ?? "divergence"
+  };
+  const divergence = (0,__vite_ssr_import_1__.useQuery)({
+    queryKey: ["divergence", filters],
+    queryFn: () => (0,__vite_ssr_import_3__.getDivergence)(filters)
+  });
+  function updateFilters(updates) {
+    setSearchParams(buildNextSearchParams(searchParams, updates));
+  }
+  function showAllPlayerProps() {
+    setSearchParams(
+      buildSearchParams({
+        date: filters.date ?? "",
+        family: "player-prop",
+        sort: "divergence"
+      })
+    );
+  }
+  function resetFilters() {
+    setSearchParams(
+      buildSearchParams({
+        date: filters.date ?? "",
+        sort: "divergence"
+      })
+    );
+  }
+  const rows = divergence.data?.data ?? [];
+  const rowSummary = !divergence.data ? divergence.isError ? "Comparisons unavailable" : "Loading comparisons" : `${rows.length} comparison${rows.length === 1 ? "" : "s"}`;
+  const activeFilters = [
+    filters.family,
+    filters.severity,
+    filters.freshness,
+    filters.mappedState
+  ].filter(Boolean).length;
+  const canResetFilters = activeFilters > 0 || filters.sort !== "divergence";
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "divergence-surface", children: [
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "slate-header divergence-header", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "eyebrow", children: "Divergence" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 221,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h1", { children: "Instrument-first disagreement" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 222,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "divergence-summary", children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: rowSummary }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 224,
+            columnNumber: 13
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+            activeFilters,
+            " active filter",
+            activeFilters === 1 ? "" : "s"
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 225,
+            columnNumber: 13
+          }, this),
+          divergence.data?.meta.generatedAt ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { className: "mono", children: [
+            "loaded",
+            " ",
+            (0,__vite_ssr_import_5__.formatOperatorDateTime)(divergence.data.meta.generatedAt)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 229,
+            columnNumber: 15
+          }, this) : null
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 223,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 220,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "divergence-actions", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "button",
+          {
+            className: "ghost-button",
+            type: "button",
+            onClick: showAllPlayerProps,
+            children: "Player prop comparisons"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 237,
+            columnNumber: 11
+          },
+          this
+        ),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "button",
+          {
+            className: "ghost-button",
+            disabled: !canResetFilters,
+            type: "button",
+            onClick: resetFilters,
+            children: "Reset"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 244,
+            columnNumber: 11
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 236,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+      lineNumber: 219,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "filter-strip", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { className: "filter-inline", htmlFor: "divergence-date", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "slate date" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 257,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "input",
+          {
+            id: "divergence-date",
+            type: "date",
+            value: filters.date ?? "",
+            onChange: (event) => updateFilters({ date: event.target.value })
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 258,
+            columnNumber: 11
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 256,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { className: "filter-inline", htmlFor: "divergence-family", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "family" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 266,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "select",
+          {
+            id: "divergence-family",
+            value: filters.family ?? "",
+            onChange: (event) => updateFilters({ family: event.target.value }),
+            children: familyOptions.map((o) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: o.value, children: o.label }, o.value || "all", false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+              lineNumber: 273,
+              columnNumber: 15
+            }, this))
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 267,
+            columnNumber: 11
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 265,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { className: "filter-inline", htmlFor: "divergence-severity", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "severity" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 280,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "select",
+          {
+            id: "divergence-severity",
+            value: filters.severity ?? "",
+            onChange: (event) => updateFilters({ severity: event.target.value }),
+            children: severityOptions.map((o) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: o, children: o || "all" }, o || "all", false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+              lineNumber: 289,
+              columnNumber: 15
+            }, this))
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 281,
+            columnNumber: 11
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 279,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { className: "filter-inline", htmlFor: "divergence-freshness", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "quote age" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 296,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "select",
+          {
+            id: "divergence-freshness",
+            value: filters.freshness ?? "",
+            onChange: (event) => updateFilters({ freshness: event.target.value }),
+            children: freshnessOptions.map((o) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: o.value, children: o.label }, o.value || "all", false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+              lineNumber: 305,
+              columnNumber: 15
+            }, this))
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 297,
+            columnNumber: 11
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 295,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { className: "filter-inline", htmlFor: "divergence-mapped-state", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "market match" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 312,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "select",
+          {
+            id: "divergence-mapped-state",
+            value: filters.mappedState ?? "",
+            onChange: (event) => updateFilters({ mappedState: event.target.value }),
+            children: mappedStateOptions.map((o) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: o.value, children: o.label }, o.value || "all", false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+              lineNumber: 321,
+              columnNumber: 15
+            }, this))
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 313,
+            columnNumber: 11
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 311,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { className: "filter-inline", htmlFor: "divergence-sort", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "sort" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 328,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "select",
+          {
+            id: "divergence-sort",
+            value: filters.sort ?? "divergence",
+            onChange: (event) => updateFilters({ sort: event.target.value }),
+            children: sortOptions.map((o) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: o.value, children: o.label }, o.value, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+              lineNumber: 335,
+              columnNumber: 15
+            }, this))
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 329,
+            columnNumber: 11
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 327,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+      lineNumber: 255,
+      columnNumber: 7
+    }, this),
+    divergence.isLoading ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "loading-panel", children: "Loading persisted comparisons…" }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+      lineNumber: 344,
+      columnNumber: 9
+    }, this) : divergence.isError ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "empty-row divergence-error", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: "Failed to load divergence." }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 347,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: divergence.error?.message }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 348,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+        "button",
+        {
+          className: "ghost-button",
+          type: "button",
+          onClick: () => void divergence.refetch(),
+          children: "Retry"
+        },
+        void 0,
+        false,
+        {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 349,
+          columnNumber: 11
+        },
+        this
+      )
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+      lineNumber: 346,
+      columnNumber: 9
+    }, this) : rows.length === 0 ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "empty-row divergence-empty", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: "No persisted comparisons match this filter set." }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 359,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Player props are shown when Bet365 has a same-time Kalshi or Polymarket comparison; stricter severity, quote-age, or match filters can hide them." }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 360,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "divergence-actions", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "button",
+          {
+            className: "ghost-button",
+            type: "button",
+            onClick: showAllPlayerProps,
+            children: "Show player prop comparisons"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 366,
+            columnNumber: 13
+          },
+          this
+        ),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "button",
+          {
+            className: "ghost-button",
+            type: "button",
+            onClick: resetFilters,
+            children: "Reset filters"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 373,
+            columnNumber: 13
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 365,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+      lineNumber: 358,
+      columnNumber: 9
+    }, this) : /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "divergence-table-shell", children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("table", { className: "divergence-table", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("thead", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { scope: "col", children: "Instrument" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 387,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { scope: "col", children: "Sources" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 388,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { className: "num", scope: "col", children: "Peak" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 389,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { className: "num", scope: "col", children: "Latest" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 392,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { className: "num", scope: "col", children: "Above Alert" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 395,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { scope: "col", children: "Match" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 398,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { scope: "col", children: "Severity" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 399,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { className: "num", scope: "col", children: "Priority" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 400,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { scope: "col", children: "Open" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 403,
+          columnNumber: 17
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 386,
+        columnNumber: 15
+      }, this) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 385,
+        columnNumber: 13
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tbody", { children: rows.map((row) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { className: "divergence-instrument-cell", children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_2__.Link),
+            {
+              className: "matchup-link",
+              to: `/games/${row.gameId}/markets/${row.instrumentId}`,
+              children: row.displayLabel
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+              lineNumber: 410,
+              columnNumber: 21
+            },
+            this
+          ),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { className: "divergence-row-meta mono", children: [
+            marketTimingLabel(row),
+            " · ",
+            row.family,
+            " ·",
+            " ",
+            (0,__vite_ssr_import_5__.formatOperatorDateTime)(row.scheduledStart)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 416,
+            columnNumber: 21
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 409,
+          columnNumber: 19
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "source-pills", children: (row.sources ?? []).map((source) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { className: "source-pill", children: sourceLabel(source) }, source, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 424,
+          columnNumber: 25
+        }, this)) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 422,
+          columnNumber: 21
+        }, this) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 421,
+          columnNumber: 19
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { className: "num mono", children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: (0,__vite_ssr_import_4__.formatGapPoints)(rowPeakGap(row)) }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 431,
+            columnNumber: 21
+          }, this),
+          row.comparisonSummary?.maxGapAt ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("em", { children: (0,__vite_ssr_import_5__.formatOperatorDateTime)(row.comparisonSummary.maxGapAt) }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 433,
+            columnNumber: 23
+          }, this) : null
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 430,
+          columnNumber: 19
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { className: "num mono", children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: (0,__vite_ssr_import_4__.formatGapPoints)(rowLatestGap(row)) }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 439,
+            columnNumber: 21
+          }, this),
+          row.comparisonSummary?.latestComparisonAt ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("em", { children: (0,__vite_ssr_import_5__.formatOperatorDateTime)(
+            row.comparisonSummary.latestComparisonAt
+          ) }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 441,
+            columnNumber: 23
+          }, this) : null
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 438,
+          columnNumber: 19
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { className: "num mono", children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: formatDuration(
+            row.comparisonSummary?.aboveThresholdDurationMs
+          ) }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 449,
+            columnNumber: 21
+          }, this),
+          row.comparisonSummary ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("em", { children: [
+            ">= ",
+            (0,__vite_ssr_import_4__.formatGapPoints)(row.comparisonSummary.threshold)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 455,
+            columnNumber: 23
+          }, this) : null
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 448,
+          columnNumber: 19
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "span",
+          {
+            className: `map-pill ${row.lineMismatch ? "map-pill-critical" : ""}`,
+            children: matchLabel(row.comparableState)
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 461,
+            columnNumber: 21
+          },
+          this
+        ) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 460,
+          columnNumber: 19
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { className: `sev-chip ${severityClass(row.severity)}`, children: row.severity }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 468,
+          columnNumber: 21
+        }, this) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 467,
+          columnNumber: 19
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { className: "num mono muted", children: row.signalPriority }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 472,
+          columnNumber: 19
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          (0,__vite_ssr_import_2__.Link),
+          {
+            className: "row-open",
+            to: `/games/${row.gameId}/markets/${row.instrumentId}`,
+            children: "Open"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+            lineNumber: 474,
+            columnNumber: 21
+          },
+          this
+        ) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+          lineNumber: 473,
+          columnNumber: 19
+        }, this)
+      ] }, `${row.gameId}:${row.instrumentId}`, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 408,
+        columnNumber: 17
+      }, this)) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+        lineNumber: 406,
+        columnNumber: 13
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+      lineNumber: 384,
+      columnNumber: 11
+    }, this) }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+      lineNumber: 383,
+      columnNumber: 9
+    }, this)
+  ] }, void 0, true, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/divergence/DivergenceExplorerPage.tsx",
+    lineNumber: 218,
+    columnNumber: 5
+  }, this);
+}
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,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QUEsU0FuR0Y7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQW9HQSxLQXJHRjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBc0dBO0FBQUEsT0EzUUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQTZRQTtBQUVKIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJEaXZlcmdlbmNlRXhwbG9yZXJQYWdlLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyB1c2VRdWVyeSB9IGZyb20gXCJAdGFuc3RhY2svcmVhY3QtcXVlcnlcIjtcbmltcG9ydCB7IExpbmssIHVzZVNlYXJjaFBhcmFtcyB9IGZyb20gXCJyZWFjdC1yb3V0ZXItZG9tXCI7XG5cbmltcG9ydCB7XG4gIGdldERpdmVyZ2VuY2UsXG4gIHR5cGUgRGl2ZXJnZW5jZVBheWxvYWQsXG4gIHR5cGUgRGl2ZXJnZW5jZVF1ZXJ5LFxufSBmcm9tIFwiLi4vLi4vZGF0YS9hcGlcIjtcbmltcG9ydCB7IGZvcm1hdEdhcFBvaW50cyB9IGZyb20gXCIuLi8uLi9saWIvbWFya2V0LWZvcm1hdFwiO1xuaW1wb3J0IHsgZm9ybWF0T3BlcmF0b3JEYXRlVGltZSB9IGZyb20gXCIuLi8uLi9saWIvdGltZS1mb3JtYXRcIjtcblxuY29uc3Qgc2V2ZXJpdHlPcHRpb25zID0gW1wiXCIsIFwiY3JpdGljYWxcIiwgXCJoaWdoXCIsIFwibWVkaXVtXCIsIFwibG93XCJdIGFzIGNvbnN0O1xuY29uc3QgZnJlc2huZXNzT3B0aW9ucyA9IFtcbiAgeyBsYWJlbDogXCJBbGxcIiwgdmFsdWU6IFwiXCIgfSxcbiAgeyBsYWJlbDogXCJVbmRlciAxbVwiLCB2YWx1ZTogXCJmcmVzaFwiIH0sXG4gIHsgbGFiZWw6IFwiMS01bVwiLCB2YWx1ZTogXCJhZ2luZ1wiIH0sXG4gIHsgbGFiZWw6IFwiT3ZlciA1bVwiLCB2YWx1ZTogXCJzdGFsZVwiIH0sXG4gIHsgbGFiZWw6IFwiTm8gcXVvdGVcIiwgdmFsdWU6IFwib2ZmbGluZVwiIH0sXG5dIGFzIGNvbnN0O1xuY29uc3QgZmFtaWx5T3B0aW9ucyA9IFtcbiAgeyBsYWJlbDogXCJBbGxcIiwgdmFsdWU6IFwiXCIgfSxcbiAgeyBsYWJlbDogXCJNb25leWxpbmVcIiwgdmFsdWU6IFwibW9uZXlsaW5lXCIgfSxcbiAgeyBsYWJlbDogXCJTcHJlYWRcIiwgdmFsdWU6IFwic3ByZWFkXCIgfSxcbiAgeyBsYWJlbDogXCJUb3RhbFwiLCB2YWx1ZTogXCJ0b3RhbFwiIH0sXG4gIHsgbGFiZWw6IFwiUGxheWVyIHByb3BzXCIsIHZhbHVlOiBcInBsYXllci1wcm9wXCIgfSxcbiAgeyBsYWJlbDogXCJUZWFtIHByb3BzXCIsIHZhbHVlOiBcInRlYW0tcHJvcFwiIH0sXG4gIHsgbGFiZWw6IFwiT3RoZXJcIiwgdmFsdWU6IFwib3RoZXJcIiB9LFxuXSBhcyBjb25zdDtcbmNvbnN0IG1hcHBlZFN0YXRlT3B0aW9ucyA9IFtcbiAgeyBsYWJlbDogXCJBbGxcIiwgdmFsdWU6IFwiXCIgfSxcbiAgeyBsYWJlbDogXCJNYXRjaGVkXCIsIHZhbHVlOiBcImNvbXBhcmFibGVcIiB9LFxuICB7IGxhYmVsOiBcIkxpbmUgbWlzbWF0Y2hcIiwgdmFsdWU6IFwibGluZS1taXNtYXRjaFwiIH0sXG4gIHsgbGFiZWw6IFwiU2VsZWN0aW9uIG1pc21hdGNoXCIsIHZhbHVlOiBcInNlbGVjdGlvbi1taXNtYXRjaFwiIH0sXG4gIHsgbGFiZWw6IFwiVW5tYXBwZWRcIiwgdmFsdWU6IFwidW5tYXBwZWRcIiB9LFxuXSBhcyBjb25zdDtcbmNvbnN0IHNvcnRPcHRpb25zID0gW1xuICB7IGxhYmVsOiBcIkRpdmVyZ2VuY2VcIiwgdmFsdWU6IFwiZGl2ZXJnZW5jZVwiIH0sXG4gIHsgbGFiZWw6IFwiQm9hcmQgcHJpb3JpdHlcIiwgdmFsdWU6IFwic2lnbmFsUHJpb3JpdHlcIiB9LFxuICB7IGxhYmVsOiBcIlF1b3RlIGFnZVwiLCB2YWx1ZTogXCJmcmVzaG5lc3NcIiB9LFxuICB7IGxhYmVsOiBcIkxhc3QgcXVvdGUgdGltZVwiLCB2YWx1ZTogXCJjYXB0dXJlUmVjZW5jeVwiIH0sXG4gIHsgbGFiZWw6IFwiTGluZSBNaXNtYXRjaFwiLCB2YWx1ZTogXCJsaW5lTWlzbWF0Y2hcIiB9LFxuXSBhcyBjb25zdDtcblxuZnVuY3Rpb24gYnVpbGROZXh0U2VhcmNoUGFyYW1zKFxuICBzZWFyY2hQYXJhbXM6IFVSTFNlYXJjaFBhcmFtcyxcbiAgdXBkYXRlczogUmVjb3JkPHN0cmluZywgc3RyaW5nPlxuKSB7XG4gIGNvbnN0IG5leHQgPSBuZXcgVVJMU2VhcmNoUGFyYW1zKHNlYXJjaFBhcmFtcyk7XG5cbiAgZm9yIChjb25zdCBba2V5LCB2YWx1ZV0gb2YgT2JqZWN0LmVudHJpZXModXBkYXRlcykpIHtcbiAgICBpZiAodmFsdWUpIHtcbiAgICAgIG5leHQuc2V0KGtleSwgdmFsdWUpO1xuICAgIH0gZWxzZSB7XG4gICAgICBuZXh0LmRlbGV0ZShrZXkpO1xuICAgIH1cbiAgfVxuXG4gIHJldHVybiBuZXh0O1xufVxuXG5mdW5jdGlvbiBidWlsZFNlYXJjaFBhcmFtcyh2YWx1ZXM6IFJlY29yZDxzdHJpbmcsIHN0cmluZz4pIHtcbiAgY29uc3QgbmV4dCA9IG5ldyBVUkxTZWFyY2hQYXJhbXMoKTtcblxuICBmb3IgKGNvbnN0IFtrZXksIHZhbHVlXSBvZiBPYmplY3QuZW50cmllcyh2YWx1ZXMpKSB7XG4gICAgaWYgKHZhbHVlKSB7XG4gICAgICBuZXh0LnNldChrZXksIHZhbHVlKTtcbiAgICB9XG4gIH1cblxuICByZXR1cm4gbmV4dDtcbn1cblxuZnVuY3Rpb24gc2V2ZXJpdHlDbGFzcyhzZXZlcml0eTogc3RyaW5nKSB7XG4gIHN3aXRjaCAoc2V2ZXJpdHkpIHtcbiAgICBjYXNlIFwiY3JpdGljYWxcIjpcbiAgICAgIHJldHVybiBcInNldi1jcml0aWNhbFwiO1xuICAgIGNhc2UgXCJoaWdoXCI6XG4gICAgICByZXR1cm4gXCJzZXYtaGlnaFwiO1xuICAgIGNhc2UgXCJtZWRpdW1cIjpcbiAgICAgIHJldHVybiBcInNldi1tZWRpdW1cIjtcbiAgICBkZWZhdWx0OlxuICAgICAgcmV0dXJuIFwic2V2LWxvd1wiO1xuICB9XG59XG5cbmZ1bmN0aW9uIHNvdXJjZUxhYmVsKHNvdXJjZTogc3RyaW5nKSB7XG4gIHN3aXRjaCAoc291cmNlKSB7XG4gICAgY2FzZSBcImJldDM2NVwiOlxuICAgICAgcmV0dXJuIFwiQmV0MzY1XCI7XG4gICAgY2FzZSBcImthbHNoaVwiOlxuICAgICAgcmV0dXJuIFwiS2Fsc2hpXCI7XG4gICAgY2FzZSBcInBvbHltYXJrZXRcIjpcbiAgICAgIHJldHVybiBcIlBvbHltYXJrZXRcIjtcbiAgICBkZWZhdWx0OlxuICAgICAgcmV0dXJuIHNvdXJjZTtcbiAgfVxufVxuXG5mdW5jdGlvbiBmb3JtYXREdXJhdGlvbih2YWx1ZT86IG51bWJlciB8IG51bGwpIHtcbiAgaWYgKHZhbHVlID09IG51bGwgfHwgdmFsdWUgPD0gMCkge1xuICAgIHJldHVybiBcIm5vbmVcIjtcbiAgfVxuICBpZiAodmFsdWUgPCA2MF8wMDApIHtcbiAgICByZXR1cm4gYCR7TWF0aC5yb3VuZCh2YWx1ZSAvIDEwMDApfXNgO1xuICB9XG4gIGlmICh2YWx1ZSA8IDYwICogNjBfMDAwKSB7XG4gICAgcmV0dXJuIGAke01hdGgucm91bmQodmFsdWUgLyA2MF8wMDApfW1gO1xuICB9XG4gIHJldHVybiBgJHsodmFsdWUgLyAoNjAgKiA2MF8wMDApKS50b0ZpeGVkKDEpfWhgO1xufVxuXG5mdW5jdGlvbiBtYXJrZXRUaW1pbmdMYWJlbChyb3c6IHtcbiAgY29tcGFyYWJsZVN0YXRlOiBzdHJpbmc7XG4gIGdhbWVTdGF0dXM/OiBzdHJpbmc7XG4gIGluUGxheTogYm9vbGVhbjtcbn0pIHtcbiAgaWYgKHJvdy5nYW1lU3RhdHVzID09PSBcImZpbmFsXCIpIHtcbiAgICByZXR1cm4gXCJmaW5pc2hlZCBnYW1lXCI7XG4gIH1cbiAgaWYgKHJvdy5nYW1lU3RhdHVzID09PSBcImluLXBsYXlcIikge1xuICAgIHJldHVybiBcImdhbWUgaW4gcHJvZ3Jlc3NcIjtcbiAgfVxuICBpZiAocm93LmdhbWVTdGF0dXMgPT09IFwic2NoZWR1bGVkXCIpIHtcbiAgICByZXR1cm4gXCJzY2hlZHVsZWQgZ2FtZVwiO1xuICB9XG4gIHJldHVybiBtYXRjaExhYmVsKHJvdy5jb21wYXJhYmxlU3RhdGUpO1xufVxuXG5mdW5jdGlvbiBtYXRjaExhYmVsKHN0YXRlOiBzdHJpbmcpIHtcbiAgc3dpdGNoIChzdGF0ZSkge1xuICAgIGNhc2UgXCJjb21wYXJhYmxlXCI6XG4gICAgICByZXR1cm4gXCJtYXRjaGVkXCI7XG4gICAgY2FzZSBcImxpbmUtbWlzbWF0Y2hcIjpcbiAgICAgIHJldHVybiBcImxpbmUgbWlzbWF0Y2hcIjtcbiAgICBjYXNlIFwic2VsZWN0aW9uLW1pc21hdGNoXCI6XG4gICAgICByZXR1cm4gXCJzZWxlY3Rpb24gbWlzbWF0Y2hcIjtcbiAgICBjYXNlIFwidW5tYXBwZWRcIjpcbiAgICAgIHJldHVybiBcInVubWFwcGVkXCI7XG4gICAgZGVmYXVsdDpcbiAgICAgIHJldHVybiBzdGF0ZTtcbiAgfVxufVxuXG5mdW5jdGlvbiByb3dQZWFrR2FwKHJvdzogRGl2ZXJnZW5jZVBheWxvYWRbXCJkYXRhXCJdW251bWJlcl0pIHtcbiAgcmV0dXJuIHJvdy5jb21wYXJpc29uU3VtbWFyeT8ubWF4R2FwID8/IHJvdy5pbXBsaWVkUHJvYmFiaWxpdHlHYXAgPz8gbnVsbDtcbn1cblxuZnVuY3Rpb24gcm93TGF0ZXN0R2FwKHJvdzogRGl2ZXJnZW5jZVBheWxvYWRbXCJkYXRhXCJdW251bWJlcl0pIHtcbiAgcmV0dXJuIHJvdy5jb21wYXJpc29uU3VtbWFyeT8ubGF0ZXN0R2FwID8/IHJvdy5pbXBsaWVkUHJvYmFiaWxpdHlHYXAgPz8gbnVsbDtcbn1cblxuZXhwb3J0IGZ1bmN0aW9uIERpdmVyZ2VuY2VFeHBsb3JlclBhZ2UoKSB7XG4gIGNvbnN0IFtzZWFyY2hQYXJhbXMsIHNldFNlYXJjaFBhcmFtc10gPSB1c2VTZWFyY2hQYXJhbXMoKTtcblxuICBjb25zdCBmaWx0ZXJzOiBEaXZlcmdlbmNlUXVlcnkgPSB7XG4gICAgZGF0ZTogc2VhcmNoUGFyYW1zLmdldChcImRhdGVcIikgPz8gdW5kZWZpbmVkLFxuICAgIGZhbWlseTpcbiAgICAgIChzZWFyY2hQYXJhbXMuZ2V0KFwiZmFtaWx5XCIpIGFzIERpdmVyZ2VuY2VRdWVyeVtcImZhbWlseVwiXSB8IG51bGwpID8/XG4gICAgICB1bmRlZmluZWQsXG4gICAgZnJlc2huZXNzOlxuICAgICAgKHNlYXJjaFBhcmFtcy5nZXQoXCJmcmVzaG5lc3NcIikgYXMgRGl2ZXJnZW5jZVF1ZXJ5W1wiZnJlc2huZXNzXCJdIHwgbnVsbCkgPz9cbiAgICAgIHVuZGVmaW5lZCxcbiAgICBtYXBwZWRTdGF0ZTpcbiAgICAgIChzZWFyY2hQYXJhbXMuZ2V0KFwibWFwcGVkU3RhdGVcIikgYXNcbiAgICAgICAgfCBEaXZlcmdlbmNlUXVlcnlbXCJtYXBwZWRTdGF0ZVwiXVxuICAgICAgICB8IG51bGwpID8/IHVuZGVmaW5lZCxcbiAgICBzZXZlcml0eTpcbiAgICAgIChzZWFyY2hQYXJhbXMuZ2V0KFwic2V2ZXJpdHlcIikgYXMgRGl2ZXJnZW5jZVF1ZXJ5W1wic2V2ZXJpdHlcIl0gfCBudWxsKSA/P1xuICAgICAgdW5kZWZpbmVkLFxuICAgIHNvcnQ6XG4gICAgICAoc2VhcmNoUGFyYW1zLmdldChcInNvcnRcIikgYXMgRGl2ZXJnZW5jZVF1ZXJ5W1wic29ydFwiXSB8IG51bGwpID8/XG4gICAgICBcImRpdmVyZ2VuY2VcIixcbiAgfTtcblxuICBjb25zdCBkaXZlcmdlbmNlID0gdXNlUXVlcnkoe1xuICAgIHF1ZXJ5S2V5OiBbXCJkaXZlcmdlbmNlXCIsIGZpbHRlcnNdLFxuICAgIHF1ZXJ5Rm46ICgpID0+IGdldERpdmVyZ2VuY2UoZmlsdGVycyksXG4gIH0pO1xuXG4gIGZ1bmN0aW9uIHVwZGF0ZUZpbHRlcnModXBkYXRlczogUmVjb3JkPHN0cmluZywgc3RyaW5nPikge1xuICAgIHNldFNlYXJjaFBhcmFtcyhidWlsZE5leHRTZWFyY2hQYXJhbXMoc2VhcmNoUGFyYW1zLCB1cGRhdGVzKSk7XG4gIH1cblxuICBmdW5jdGlvbiBzaG93QWxsUGxheWVyUHJvcHMoKSB7XG4gICAgc2V0U2VhcmNoUGFyYW1zKFxuICAgICAgYnVpbGRTZWFyY2hQYXJhbXMoe1xuICAgICAgICBkYXRlOiBmaWx0ZXJzLmRhdGUgPz8gXCJcIixcbiAgICAgICAgZmFtaWx5OiBcInBsYXllci1wcm9wXCIsXG4gICAgICAgIHNvcnQ6IFwiZGl2ZXJnZW5jZVwiLFxuICAgICAgfSlcbiAgICApO1xuICB9XG5cbiAgZnVuY3Rpb24gcmVzZXRGaWx0ZXJzKCkge1xuICAgIHNldFNlYXJjaFBhcmFtcyhcbiAgICAgIGJ1aWxkU2VhcmNoUGFyYW1zKHtcbiAgICAgICAgZGF0ZTogZmlsdGVycy5kYXRlID8/IFwiXCIsXG4gICAgICAgIHNvcnQ6IFwiZGl2ZXJnZW5jZVwiLFxuICAgICAgfSlcbiAgICApO1xuICB9XG5cbiAgY29uc3Qgcm93cyA9IGRpdmVyZ2VuY2UuZGF0YT8uZGF0YSA/PyBbXTtcbiAgY29uc3Qgcm93U3VtbWFyeSA9ICFkaXZlcmdlbmNlLmRhdGFcbiAgICA/IGRpdmVyZ2VuY2UuaXNFcnJvclxuICAgICAgPyBcIkNvbXBhcmlzb25zIHVuYXZhaWxhYmxlXCJcbiAgICAgIDogXCJMb2FkaW5nIGNvbXBhcmlzb25zXCJcbiAgICA6IGAke3Jvd3MubGVuZ3RofSBjb21wYXJpc29uJHtyb3dzLmxlbmd0aCA9PT0gMSA/IFwiXCIgOiBcInNcIn1gO1xuICBjb25zdCBhY3RpdmVGaWx0ZXJzID0gW1xuICAgIGZpbHRlcnMuZmFtaWx5LFxuICAgIGZpbHRlcnMuc2V2ZXJpdHksXG4gICAgZmlsdGVycy5mcmVzaG5lc3MsXG4gICAgZmlsdGVycy5tYXBwZWRTdGF0ZSxcbiAgXS5maWx0ZXIoQm9vbGVhbikubGVuZ3RoO1xuICBjb25zdCBjYW5SZXNldEZpbHRlcnMgPSBhY3RpdmVGaWx0ZXJzID4gMCB8fCBmaWx0ZXJzLnNvcnQgIT09IFwiZGl2ZXJnZW5jZVwiO1xuXG4gIHJldHVybiAoXG4gICAgPGRpdiBjbGFzc05hbWU9XCJkaXZlcmdlbmNlLXN1cmZhY2VcIj5cbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwic2xhdGUtaGVhZGVyIGRpdmVyZ2VuY2UtaGVhZGVyXCI+XG4gICAgICAgIDxkaXY+XG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJleWVicm93XCI+RGl2ZXJnZW5jZTwvZGl2PlxuICAgICAgICAgIDxoMT5JbnN0cnVtZW50LWZpcnN0IGRpc2FncmVlbWVudDwvaDE+XG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJkaXZlcmdlbmNlLXN1bW1hcnlcIj5cbiAgICAgICAgICAgIDxzcGFuPntyb3dTdW1tYXJ5fTwvc3Bhbj5cbiAgICAgICAgICAgIDxzcGFuPlxuICAgICAgICAgICAgICB7YWN0aXZlRmlsdGVyc30gYWN0aXZlIGZpbHRlcnthY3RpdmVGaWx0ZXJzID09PSAxID8gXCJcIiA6IFwic1wifVxuICAgICAgICAgICAgPC9zcGFuPlxuICAgICAgICAgICAge2RpdmVyZ2VuY2UuZGF0YT8ubWV0YS5nZW5lcmF0ZWRBdCA/IChcbiAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwibW9ub1wiPlxuICAgICAgICAgICAgICAgIGxvYWRlZHtcIiBcIn1cbiAgICAgICAgICAgICAgICB7Zm9ybWF0T3BlcmF0b3JEYXRlVGltZShkaXZlcmdlbmNlLmRhdGEubWV0YS5nZW5lcmF0ZWRBdCl9XG4gICAgICAgICAgICAgIDwvc3Bhbj5cbiAgICAgICAgICAgICkgOiBudWxsfVxuICAgICAgICAgIDwvZGl2PlxuICAgICAgICA8L2Rpdj5cbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJkaXZlcmdlbmNlLWFjdGlvbnNcIj5cbiAgICAgICAgICA8YnV0dG9uXG4gICAgICAgICAgICBjbGFzc05hbWU9XCJnaG9zdC1idXR0b25cIlxuICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXG4gICAgICAgICAgICBvbkNsaWNrPXtzaG93QWxsUGxheWVyUHJvcHN9XG4gICAgICAgICAgPlxuICAgICAgICAgICAgUGxheWVyIHByb3AgY29tcGFyaXNvbnNcbiAgICAgICAgICA8L2J1dHRvbj5cbiAgICAgICAgICA8YnV0dG9uXG4gICAgICAgICAgICBjbGFzc05hbWU9XCJnaG9zdC1idXR0b25cIlxuICAgICAgICAgICAgZGlzYWJsZWQ9eyFjYW5SZXNldEZpbHRlcnN9XG4gICAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcbiAgICAgICAgICAgIG9uQ2xpY2s9e3Jlc2V0RmlsdGVyc31cbiAgICAgICAgICA+XG4gICAgICAgICAgICBSZXNldFxuICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICA8L2Rpdj5cbiAgICAgIDwvZGl2PlxuXG4gICAgICA8ZGl2IGNsYXNzTmFtZT1cImZpbHRlci1zdHJpcFwiPlxuICAgICAgICA8bGFiZWwgY2xhc3NOYW1lPVwiZmlsdGVyLWlubGluZVwiIGh0bWxGb3I9XCJkaXZlcmdlbmNlLWRhdGVcIj5cbiAgICAgICAgICA8c3Bhbj5zbGF0ZSBkYXRlPC9zcGFuPlxuICAgICAgICAgIDxpbnB1dFxuICAgICAgICAgICAgaWQ9XCJkaXZlcmdlbmNlLWRhdGVcIlxuICAgICAgICAgICAgdHlwZT1cImRhdGVcIlxuICAgICAgICAgICAgdmFsdWU9e2ZpbHRlcnMuZGF0ZSA/PyBcIlwifVxuICAgICAgICAgICAgb25DaGFuZ2U9eyhldmVudCkgPT4gdXBkYXRlRmlsdGVycyh7IGRhdGU6IGV2ZW50LnRhcmdldC52YWx1ZSB9KX1cbiAgICAgICAgICAvPlxuICAgICAgICA8L2xhYmVsPlxuICAgICAgICA8bGFiZWwgY2xhc3NOYW1lPVwiZmlsdGVyLWlubGluZVwiIGh0bWxGb3I9XCJkaXZlcmdlbmNlLWZhbWlseVwiPlxuICAgICAgICAgIDxzcGFuPmZhbWlseTwvc3Bhbj5cbiAgICAgICAgICA8c2VsZWN0XG4gICAgICAgICAgICBpZD1cImRpdmVyZ2VuY2UtZmFtaWx5XCJcbiAgICAgICAgICAgIHZhbHVlPXtmaWx0ZXJzLmZhbWlseSA/PyBcIlwifVxuICAgICAgICAgICAgb25DaGFuZ2U9eyhldmVudCkgPT4gdXBkYXRlRmlsdGVycyh7IGZhbWlseTogZXZlbnQudGFyZ2V0LnZhbHVlIH0pfVxuICAgICAgICAgID5cbiAgICAgICAgICAgIHtmYW1pbHlPcHRpb25zLm1hcCgobykgPT4gKFxuICAgICAgICAgICAgICA8b3B0aW9uIGtleT17by52YWx1ZSB8fCBcImFsbFwifSB2YWx1ZT17by52YWx1ZX0+XG4gICAgICAgICAgICAgICAge28ubGFiZWx9XG4gICAgICAgICAgICAgIDwvb3B0aW9uPlxuICAgICAgICAgICAgKSl9XG4gICAgICAgICAgPC9zZWxlY3Q+XG4gICAgICAgIDwvbGFiZWw+XG4gICAgICAgIDxsYWJlbCBjbGFzc05hbWU9XCJmaWx0ZXItaW5saW5lXCIgaHRtbEZvcj1cImRpdmVyZ2VuY2Utc2V2ZXJpdHlcIj5cbiAgICAgICAgICA8c3Bhbj5zZXZlcml0eTwvc3Bhbj5cbiAgICAgICAgICA8c2VsZWN0XG4gICAgICAgICAgICBpZD1cImRpdmVyZ2VuY2Utc2V2ZXJpdHlcIlxuICAgICAgICAgICAgdmFsdWU9e2ZpbHRlcnMuc2V2ZXJpdHkgPz8gXCJcIn1cbiAgICAgICAgICAgIG9uQ2hhbmdlPXsoZXZlbnQpID0+XG4gICAgICAgICAgICAgIHVwZGF0ZUZpbHRlcnMoeyBzZXZlcml0eTogZXZlbnQudGFyZ2V0LnZhbHVlIH0pXG4gICAgICAgICAgICB9XG4gICAgICAgICAgPlxuICAgICAgICAgICAge3NldmVyaXR5T3B0aW9ucy5tYXAoKG8pID0+IChcbiAgICAgICAgICAgICAgPG9wdGlvbiBrZXk9e28gfHwgXCJhbGxcIn0gdmFsdWU9e299PlxuICAgICAgICAgICAgICAgIHtvIHx8IFwiYWxsXCJ9XG4gICAgICAgICAgICAgIDwvb3B0aW9uPlxuICAgICAgICAgICAgKSl9XG4gICAgICAgICAgPC9zZWxlY3Q+XG4gICAgICAgIDwvbGFiZWw+XG4gICAgICAgIDxsYWJlbCBjbGFzc05hbWU9XCJmaWx0ZXItaW5saW5lXCIgaHRtbEZvcj1cImRpdmVyZ2VuY2UtZnJlc2huZXNzXCI+XG4gICAgICAgICAgPHNwYW4+cXVvdGUgYWdlPC9zcGFuPlxuICAgICAgICAgIDxzZWxlY3RcbiAgICAgICAgICAgIGlkPVwiZGl2ZXJnZW5jZS1mcmVzaG5lc3NcIlxuICAgICAgICAgICAgdmFsdWU9e2ZpbHRlcnMuZnJlc2huZXNzID8/IFwiXCJ9XG4gICAgICAgICAgICBvbkNoYW5nZT17KGV2ZW50KSA9PlxuICAgICAgICAgICAgICB1cGRhdGVGaWx0ZXJzKHsgZnJlc2huZXNzOiBldmVudC50YXJnZXQudmFsdWUgfSlcbiAgICAgICAgICAgIH1cbiAgICAgICAgICA+XG4gICAgICAgICAgICB7ZnJlc2huZXNzT3B0aW9ucy5tYXAoKG8pID0+IChcbiAgICAgICAgICAgICAgPG9wdGlvbiBrZXk9e28udmFsdWUgfHwgXCJhbGxcIn0gdmFsdWU9e28udmFsdWV9PlxuICAgICAgICAgICAgICAgIHtvLmxhYmVsfVxuICAgICAgICAgICAgICA8L29wdGlvbj5cbiAgICAgICAgICAgICkpfVxuICAgICAgICAgIDwvc2VsZWN0PlxuICAgICAgICA8L2xhYmVsPlxuICAgICAgICA8bGFiZWwgY2xhc3NOYW1lPVwiZmlsdGVyLWlubGluZVwiIGh0bWxGb3I9XCJkaXZlcmdlbmNlLW1hcHBlZC1zdGF0ZVwiPlxuICAgICAgICAgIDxzcGFuPm1hcmtldCBtYXRjaDwvc3Bhbj5cbiAgICAgICAgICA8c2VsZWN0XG4gICAgICAgICAgICBpZD1cImRpdmVyZ2VuY2UtbWFwcGVkLXN0YXRlXCJcbiAgICAgICAgICAgIHZhbHVlPXtmaWx0ZXJzLm1hcHBlZFN0YXRlID8/IFwiXCJ9XG4gICAgICAgICAgICBvbkNoYW5nZT17KGV2ZW50KSA9PlxuICAgICAgICAgICAgICB1cGRhdGVGaWx0ZXJzKHsgbWFwcGVkU3RhdGU6IGV2ZW50LnRhcmdldC52YWx1ZSB9KVxuICAgICAgICAgICAgfVxuICAgICAgICAgID5cbiAgICAgICAgICAgIHttYXBwZWRTdGF0ZU9wdGlvbnMubWFwKChvKSA9PiAoXG4gICAgICAgICAgICAgIDxvcHRpb24ga2V5PXtvLnZhbHVlIHx8IFwiYWxsXCJ9IHZhbHVlPXtvLnZhbHVlfT5cbiAgICAgICAgICAgICAgICB7by5sYWJlbH1cbiAgICAgICAgICAgICAgPC9vcHRpb24+XG4gICAgICAgICAgICApKX1cbiAgICAgICAgICA8L3NlbGVjdD5cbiAgICAgICAgPC9sYWJlbD5cbiAgICAgICAgPGxhYmVsIGNsYXNzTmFtZT1cImZpbHRlci1pbmxpbmVcIiBodG1sRm9yPVwiZGl2ZXJnZW5jZS1zb3J0XCI+XG4gICAgICAgICAgPHNwYW4+c29ydDwvc3Bhbj5cbiAgICAgICAgICA8c2VsZWN0XG4gICAgICAgICAgICBpZD1cImRpdmVyZ2VuY2Utc29ydFwiXG4gICAgICAgICAgICB2YWx1ZT17ZmlsdGVycy5zb3J0ID8/IFwiZGl2ZXJnZW5jZVwifVxuICAgICAgICAgICAgb25DaGFuZ2U9eyhldmVudCkgPT4gdXBkYXRlRmlsdGVycyh7IHNvcnQ6IGV2ZW50LnRhcmdldC52YWx1ZSB9KX1cbiAgICAgICAgICA+XG4gICAgICAgICAgICB7c29ydE9wdGlvbnMubWFwKChvKSA9PiAoXG4gICAgICAgICAgICAgIDxvcHRpb24ga2V5PXtvLnZhbHVlfSB2YWx1ZT17by52YWx1ZX0+XG4gICAgICAgICAgICAgICAge28ubGFiZWx9XG4gICAgICAgICAgICAgIDwvb3B0aW9uPlxuICAgICAgICAgICAgKSl9XG4gICAgICAgICAgPC9zZWxlY3Q+XG4gICAgICAgIDwvbGFiZWw+XG4gICAgICA8L2Rpdj5cblxuICAgICAge2RpdmVyZ2VuY2UuaXNMb2FkaW5nID8gKFxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImxvYWRpbmctcGFuZWxcIj5Mb2FkaW5nIHBlcnNpc3RlZCBjb21wYXJpc29uc+KApjwvZGl2PlxuICAgICAgKSA6IGRpdmVyZ2VuY2UuaXNFcnJvciA/IChcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJlbXB0eS1yb3cgZGl2ZXJnZW5jZS1lcnJvclwiPlxuICAgICAgICAgIDxzdHJvbmc+RmFpbGVkIHRvIGxvYWQgZGl2ZXJnZW5jZS48L3N0cm9uZz5cbiAgICAgICAgICA8c3Bhbj57KGRpdmVyZ2VuY2UuZXJyb3IgYXMgRXJyb3IpPy5tZXNzYWdlfTwvc3Bhbj5cbiAgICAgICAgICA8YnV0dG9uXG4gICAgICAgICAgICBjbGFzc05hbWU9XCJnaG9zdC1idXR0b25cIlxuICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXG4gICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiB2b2lkIGRpdmVyZ2VuY2UucmVmZXRjaCgpfVxuICAgICAgICAgID5cbiAgICAgICAgICAgIFJldHJ5XG4gICAgICAgICAgPC9idXR0b24+XG4gICAgICAgIDwvZGl2PlxuICAgICAgKSA6IHJvd3MubGVuZ3RoID09PSAwID8gKFxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImVtcHR5LXJvdyBkaXZlcmdlbmNlLWVtcHR5XCI+XG4gICAgICAgICAgPHN0cm9uZz5ObyBwZXJzaXN0ZWQgY29tcGFyaXNvbnMgbWF0Y2ggdGhpcyBmaWx0ZXIgc2V0Ljwvc3Ryb25nPlxuICAgICAgICAgIDxzcGFuPlxuICAgICAgICAgICAgUGxheWVyIHByb3BzIGFyZSBzaG93biB3aGVuIEJldDM2NSBoYXMgYSBzYW1lLXRpbWUgS2Fsc2hpIG9yXG4gICAgICAgICAgICBQb2x5bWFya2V0IGNvbXBhcmlzb247IHN0cmljdGVyIHNldmVyaXR5LCBxdW90ZS1hZ2UsIG9yIG1hdGNoXG4gICAgICAgICAgICBmaWx0ZXJzIGNhbiBoaWRlIHRoZW0uXG4gICAgICAgICAgPC9zcGFuPlxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZGl2ZXJnZW5jZS1hY3Rpb25zXCI+XG4gICAgICAgICAgICA8YnV0dG9uXG4gICAgICAgICAgICAgIGNsYXNzTmFtZT1cImdob3N0LWJ1dHRvblwiXG4gICAgICAgICAgICAgIHR5cGU9XCJidXR0b25cIlxuICAgICAgICAgICAgICBvbkNsaWNrPXtzaG93QWxsUGxheWVyUHJvcHN9XG4gICAgICAgICAgICA+XG4gICAgICAgICAgICAgIFNob3cgcGxheWVyIHByb3AgY29tcGFyaXNvbnNcbiAgICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICAgICAgPGJ1dHRvblxuICAgICAgICAgICAgICBjbGFzc05hbWU9XCJnaG9zdC1idXR0b25cIlxuICAgICAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcbiAgICAgICAgICAgICAgb25DbGljaz17cmVzZXRGaWx0ZXJzfVxuICAgICAgICAgICAgPlxuICAgICAgICAgICAgICBSZXNldCBmaWx0ZXJzXG4gICAgICAgICAgICA8L2J1dHRvbj5cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgPC9kaXY+XG4gICAgICApIDogKFxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImRpdmVyZ2VuY2UtdGFibGUtc2hlbGxcIj5cbiAgICAgICAgICA8dGFibGUgY2xhc3NOYW1lPVwiZGl2ZXJnZW5jZS10YWJsZVwiPlxuICAgICAgICAgICAgPHRoZWFkPlxuICAgICAgICAgICAgICA8dHI+XG4gICAgICAgICAgICAgICAgPHRoIHNjb3BlPVwiY29sXCI+SW5zdHJ1bWVudDwvdGg+XG4gICAgICAgICAgICAgICAgPHRoIHNjb3BlPVwiY29sXCI+U291cmNlczwvdGg+XG4gICAgICAgICAgICAgICAgPHRoIGNsYXNzTmFtZT1cIm51bVwiIHNjb3BlPVwiY29sXCI+XG4gICAgICAgICAgICAgICAgICBQZWFrXG4gICAgICAgICAgICAgICAgPC90aD5cbiAgICAgICAgICAgICAgICA8dGggY2xhc3NOYW1lPVwibnVtXCIgc2NvcGU9XCJjb2xcIj5cbiAgICAgICAgICAgICAgICAgIExhdGVzdFxuICAgICAgICAgICAgICAgIDwvdGg+XG4gICAgICAgICAgICAgICAgPHRoIGNsYXNzTmFtZT1cIm51bVwiIHNjb3BlPVwiY29sXCI+XG4gICAgICAgICAgICAgICAgICBBYm92ZSBBbGVydFxuICAgICAgICAgICAgICAgIDwvdGg+XG4gICAgICAgICAgICAgICAgPHRoIHNjb3BlPVwiY29sXCI+TWF0Y2g8L3RoPlxuICAgICAgICAgICAgICAgIDx0aCBzY29wZT1cImNvbFwiPlNldmVyaXR5PC90aD5cbiAgICAgICAgICAgICAgICA8dGggY2xhc3NOYW1lPVwibnVtXCIgc2NvcGU9XCJjb2xcIj5cbiAgICAgICAgICAgICAgICAgIFByaW9yaXR5XG4gICAgICAgICAgICAgICAgPC90aD5cbiAgICAgICAgICAgICAgICA8dGggc2NvcGU9XCJjb2xcIj5PcGVuPC90aD5cbiAgICAgICAgICAgICAgPC90cj5cbiAgICAgICAgICAgIDwvdGhlYWQ+XG4gICAgICAgICAgICA8dGJvZHk+XG4gICAgICAgICAgICAgIHtyb3dzLm1hcCgocm93KSA9PiAoXG4gICAgICAgICAgICAgICAgPHRyIGtleT17YCR7cm93LmdhbWVJZH06JHtyb3cuaW5zdHJ1bWVudElkfWB9PlxuICAgICAgICAgICAgICAgICAgPHRkIGNsYXNzTmFtZT1cImRpdmVyZ2VuY2UtaW5zdHJ1bWVudC1jZWxsXCI+XG4gICAgICAgICAgICAgICAgICAgIDxMaW5rXG4gICAgICAgICAgICAgICAgICAgICAgY2xhc3NOYW1lPVwibWF0Y2h1cC1saW5rXCJcbiAgICAgICAgICAgICAgICAgICAgICB0bz17YC9nYW1lcy8ke3Jvdy5nYW1lSWR9L21hcmtldHMvJHtyb3cuaW5zdHJ1bWVudElkfWB9XG4gICAgICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgICAgICB7cm93LmRpc3BsYXlMYWJlbH1cbiAgICAgICAgICAgICAgICAgICAgPC9MaW5rPlxuICAgICAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJkaXZlcmdlbmNlLXJvdy1tZXRhIG1vbm9cIj5cbiAgICAgICAgICAgICAgICAgICAgICB7bWFya2V0VGltaW5nTGFiZWwocm93KX0gwrcge3Jvdy5mYW1pbHl9IMK3e1wiIFwifVxuICAgICAgICAgICAgICAgICAgICAgIHtmb3JtYXRPcGVyYXRvckRhdGVUaW1lKHJvdy5zY2hlZHVsZWRTdGFydCl9XG4gICAgICAgICAgICAgICAgICAgIDwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgIDwvdGQ+XG4gICAgICAgICAgICAgICAgICA8dGQ+XG4gICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic291cmNlLXBpbGxzXCI+XG4gICAgICAgICAgICAgICAgICAgICAgeyhyb3cuc291cmNlcyA/PyBbXSkubWFwKChzb3VyY2UpID0+IChcbiAgICAgICAgICAgICAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInNvdXJjZS1waWxsXCIga2V5PXtzb3VyY2V9PlxuICAgICAgICAgICAgICAgICAgICAgICAgICB7c291cmNlTGFiZWwoc291cmNlKX1cbiAgICAgICAgICAgICAgICAgICAgICAgIDwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgICApKX1cbiAgICAgICAgICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICAgICAgICA8L3RkPlxuICAgICAgICAgICAgICAgICAgPHRkIGNsYXNzTmFtZT1cIm51bSBtb25vXCI+XG4gICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+e2Zvcm1hdEdhcFBvaW50cyhyb3dQZWFrR2FwKHJvdykpfTwvc3Ryb25nPlxuICAgICAgICAgICAgICAgICAgICB7cm93LmNvbXBhcmlzb25TdW1tYXJ5Py5tYXhHYXBBdCA/IChcbiAgICAgICAgICAgICAgICAgICAgICA8ZW0+XG4gICAgICAgICAgICAgICAgICAgICAgICB7Zm9ybWF0T3BlcmF0b3JEYXRlVGltZShyb3cuY29tcGFyaXNvblN1bW1hcnkubWF4R2FwQXQpfVxuICAgICAgICAgICAgICAgICAgICAgIDwvZW0+XG4gICAgICAgICAgICAgICAgICAgICkgOiBudWxsfVxuICAgICAgICAgICAgICAgICAgPC90ZD5cbiAgICAgICAgICAgICAgICAgIDx0ZCBjbGFzc05hbWU9XCJudW0gbW9ub1wiPlxuICAgICAgICAgICAgICAgICAgICA8c3Ryb25nPntmb3JtYXRHYXBQb2ludHMocm93TGF0ZXN0R2FwKHJvdykpfTwvc3Ryb25nPlxuICAgICAgICAgICAgICAgICAgICB7cm93LmNvbXBhcmlzb25TdW1tYXJ5Py5sYXRlc3RDb21wYXJpc29uQXQgPyAoXG4gICAgICAgICAgICAgICAgICAgICAgPGVtPlxuICAgICAgICAgICAgICAgICAgICAgICAge2Zvcm1hdE9wZXJhdG9yRGF0ZVRpbWUoXG4gICAgICAgICAgICAgICAgICAgICAgICAgIHJvdy5jb21wYXJpc29uU3VtbWFyeS5sYXRlc3RDb21wYXJpc29uQXRcbiAgICAgICAgICAgICAgICAgICAgICAgICl9XG4gICAgICAgICAgICAgICAgICAgICAgPC9lbT5cbiAgICAgICAgICAgICAgICAgICAgKSA6IG51bGx9XG4gICAgICAgICAgICAgICAgICA8L3RkPlxuICAgICAgICAgICAgICAgICAgPHRkIGNsYXNzTmFtZT1cIm51bSBtb25vXCI+XG4gICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+XG4gICAgICAgICAgICAgICAgICAgICAge2Zvcm1hdER1cmF0aW9uKFxuICAgICAgICAgICAgICAgICAgICAgICAgcm93LmNvbXBhcmlzb25TdW1tYXJ5Py5hYm92ZVRocmVzaG9sZER1cmF0aW9uTXNcbiAgICAgICAgICAgICAgICAgICAgICApfVxuICAgICAgICAgICAgICAgICAgICA8L3N0cm9uZz5cbiAgICAgICAgICAgICAgICAgICAge3Jvdy5jb21wYXJpc29uU3VtbWFyeSA/IChcbiAgICAgICAgICAgICAgICAgICAgICA8ZW0+XG4gICAgICAgICAgICAgICAgICAgICAgICAmZ3Q7PSB7Zm9ybWF0R2FwUG9pbnRzKHJvdy5jb21wYXJpc29uU3VtbWFyeS50aHJlc2hvbGQpfVxuICAgICAgICAgICAgICAgICAgICAgIDwvZW0+XG4gICAgICAgICAgICAgICAgICAgICkgOiBudWxsfVxuICAgICAgICAgICAgICAgICAgPC90ZD5cbiAgICAgICAgICAgICAgICAgIDx0ZD5cbiAgICAgICAgICAgICAgICAgICAgPHNwYW5cbiAgICAgICAgICAgICAgICAgICAgICBjbGFzc05hbWU9e2BtYXAtcGlsbCAke3Jvdy5saW5lTWlzbWF0Y2ggPyBcIm1hcC1waWxsLWNyaXRpY2FsXCIgOiBcIlwifWB9XG4gICAgICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgICAgICB7bWF0Y2hMYWJlbChyb3cuY29tcGFyYWJsZVN0YXRlKX1cbiAgICAgICAgICAgICAgICAgICAgPC9zcGFuPlxuICAgICAgICAgICAgICAgICAgPC90ZD5cbiAgICAgICAgICAgICAgICAgIDx0ZD5cbiAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPXtgc2V2LWNoaXAgJHtzZXZlcml0eUNsYXNzKHJvdy5zZXZlcml0eSl9YH0+XG4gICAgICAgICAgICAgICAgICAgICAge3Jvdy5zZXZlcml0eX1cbiAgICAgICAgICAgICAgICAgICAgPC9zcGFuPlxuICAgICAgICAgICAgICAgICAgPC90ZD5cbiAgICAgICAgICAgICAgICAgIDx0ZCBjbGFzc05hbWU9XCJudW0gbW9ubyBtdXRlZFwiPntyb3cuc2lnbmFsUHJpb3JpdHl9PC90ZD5cbiAgICAgICAgICAgICAgICAgIDx0ZD5cbiAgICAgICAgICAgICAgICAgICAgPExpbmtcbiAgICAgICAgICAgICAgICAgICAgICBjbGFzc05hbWU9XCJyb3ctb3BlblwiXG4gICAgICAgICAgICAgICAgICAgICAgdG89e2AvZ2FtZXMvJHtyb3cuZ2FtZUlkfS9tYXJrZXRzLyR7cm93Lmluc3RydW1lbnRJZH1gfVxuICAgICAgICAgICAgICAgICAgICA+XG4gICAgICAgICAgICAgICAgICAgICAgT3BlblxuICAgICAgICAgICAgICAgICAgICA8L0xpbms+XG4gICAgICAgICAgICAgICAgICA8L3RkPlxuICAgICAgICAgICAgICAgIDwvdHI+XG4gICAgICAgICAgICAgICkpfVxuICAgICAgICAgICAgPC90Ym9keT5cbiAgICAgICAgICA8L3RhYmxlPlxuICAgICAgICA8L2Rpdj5cbiAgICAgICl9XG4gICAgPC9kaXY+XG4gICk7XG59XG4iXSwiZmlsZSI6Ii9zcmMvZmVhdHVyZXMvZGl2ZXJnZW5jZS9EaXZlcmdlbmNlRXhwbG9yZXJQYWdlLnRzeCJ9

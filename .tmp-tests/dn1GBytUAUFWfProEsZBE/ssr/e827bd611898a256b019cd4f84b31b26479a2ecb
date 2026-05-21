@@ -1,0 +1,27 @@
+Object.defineProperty(__vite_ssr_exports__, "PageFrame", { enumerable: true, configurable: true, get(){ try { return PageFrame } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("react/jsx-dev-runtime", {"importedNames":["jsxDEV"]});
+function PageFrame({
+  children,
+  aside
+}) {
+  const hasAside = aside !== void 0 && aside !== null;
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: `page-frame ${hasAside ? "" : "page-frame-single"}`, children: [
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "page-main", children }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/PageFrame.tsx",
+      lineNumber: 11,
+      columnNumber: 7
+    }, this),
+    hasAside ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("aside", { className: "page-aside", children: aside }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/PageFrame.tsx",
+      lineNumber: 12,
+      columnNumber: 19
+    }, this) : null
+  ] }, void 0, true, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/PageFrame.tsx",
+    lineNumber: 10,
+    columnNumber: 5
+  }, this);
+}
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IjtBQVVNO0FBUkMsU0FBUyxVQUFVO0FBQUEsRUFDeEI7QUFBQSxFQUNBO0FBQ0YsR0FBNkM7QUFDM0MsUUFBTSxXQUFXLFVBQVUsVUFBYSxVQUFVO0FBRWxELFNBQ0UsaURBQUMsU0FBSSxXQUFXLGNBQWMsV0FBVyxLQUFLLG1CQUFtQixJQUMvRDtBQUFBLHFEQUFDLFNBQUksV0FBVSxhQUFhLFlBQTVCO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FBcUM7QUFBQSxJQUNwQyxXQUFXLGlEQUFDLFdBQU0sV0FBVSxjQUFjLG1CQUEvQjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBQXFDLElBQVc7QUFBQSxPQUY5RDtBQUFBO0FBQUE7QUFBQTtBQUFBLFNBR0E7QUFFSiIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiUGFnZUZyYW1lLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgdHlwZSB7IFByb3BzV2l0aENoaWxkcmVuLCBSZWFjdE5vZGUgfSBmcm9tIFwicmVhY3RcIjtcblxuZXhwb3J0IGZ1bmN0aW9uIFBhZ2VGcmFtZSh7XG4gIGNoaWxkcmVuLFxuICBhc2lkZSxcbn06IFByb3BzV2l0aENoaWxkcmVuPHsgYXNpZGU/OiBSZWFjdE5vZGUgfT4pIHtcbiAgY29uc3QgaGFzQXNpZGUgPSBhc2lkZSAhPT0gdW5kZWZpbmVkICYmIGFzaWRlICE9PSBudWxsO1xuXG4gIHJldHVybiAoXG4gICAgPGRpdiBjbGFzc05hbWU9e2BwYWdlLWZyYW1lICR7aGFzQXNpZGUgPyBcIlwiIDogXCJwYWdlLWZyYW1lLXNpbmdsZVwifWB9PlxuICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYWdlLW1haW5cIj57Y2hpbGRyZW59PC9kaXY+XG4gICAgICB7aGFzQXNpZGUgPyA8YXNpZGUgY2xhc3NOYW1lPVwicGFnZS1hc2lkZVwiPnthc2lkZX08L2FzaWRlPiA6IG51bGx9XG4gICAgPC9kaXY+XG4gICk7XG59XG4iXSwiZmlsZSI6Ii9zcmMvY29tcG9uZW50cy9QYWdlRnJhbWUudHN4In0=

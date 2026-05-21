@@ -1,0 +1,270 @@
+{
+ "incidents": [
+  "reaves_hayes",
+  "hartenstein_wallace",
+  "allen_strus",
+  "allen_merrill",
+  "merrill_team",
+  "cunningham_block"
+ ],
+ "detectors": [
+  {
+   "detector": "board-eq",
+   "K": 3.0,
+   "fp_fires_per_inplay_min": 0.1291,
+   "frac_incidents_caught": 0.667,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": 139.8,
+    "hartenstein_wallace": 23.2,
+    "allen_strus": 57.6,
+    "allen_merrill": 105.7,
+    "merrill_team": null,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "board-eq",
+   "K": 4.0,
+   "fp_fires_per_inplay_min": 0.0981,
+   "frac_incidents_caught": 0.5,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": null,
+    "hartenstein_wallace": 23.2,
+    "allen_strus": 117.6,
+    "allen_merrill": 105.7,
+    "merrill_team": null,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "board-eq",
+   "K": 5.0,
+   "fp_fires_per_inplay_min": 0.0763,
+   "frac_incidents_caught": 0.5,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": null,
+    "hartenstein_wallace": 23.2,
+    "allen_strus": 117.6,
+    "allen_merrill": 225.7,
+    "merrill_team": null,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "board-eq",
+   "K": 6.0,
+   "fp_fires_per_inplay_min": 0.061,
+   "frac_incidents_caught": 0.5,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": null,
+    "hartenstein_wallace": 23.2,
+    "allen_strus": 117.6,
+    "allen_merrill": 225.7,
+    "merrill_team": null,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "board-eq",
+   "K": 8.0,
+   "fp_fires_per_inplay_min": 0.0428,
+   "frac_incidents_caught": 0.333,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": null,
+    "hartenstein_wallace": 23.2,
+    "allen_strus": null,
+    "allen_merrill": 225.7,
+    "merrill_team": null,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "board-vw",
+   "K": 3.0,
+   "fp_fires_per_inplay_min": 0.1232,
+   "frac_incidents_caught": 0.833,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": 139.8,
+    "hartenstein_wallace": 23.2,
+    "allen_strus": 57.6,
+    "allen_merrill": 105.7,
+    "merrill_team": 66.6,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "board-vw",
+   "K": 4.0,
+   "fp_fires_per_inplay_min": 0.0912,
+   "frac_incidents_caught": 0.667,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": null,
+    "hartenstein_wallace": 23.2,
+    "allen_strus": 57.6,
+    "allen_merrill": 105.7,
+    "merrill_team": 66.6,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "board-vw",
+   "K": 5.0,
+   "fp_fires_per_inplay_min": 0.0695,
+   "frac_incidents_caught": 0.667,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": null,
+    "hartenstein_wallace": 23.2,
+    "allen_strus": 117.6,
+    "allen_merrill": 105.7,
+    "merrill_team": 66.6,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "board-vw",
+   "K": 6.0,
+   "fp_fires_per_inplay_min": 0.056,
+   "frac_incidents_caught": 0.5,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": null,
+    "hartenstein_wallace": 23.2,
+    "allen_strus": 117.6,
+    "allen_merrill": 225.7,
+    "merrill_team": null,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "board-vw",
+   "K": 8.0,
+   "fp_fires_per_inplay_min": 0.038,
+   "frac_incidents_caught": 0.5,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": null,
+    "hartenstein_wallace": 83.2,
+    "allen_strus": 117.6,
+    "allen_merrill": 225.7,
+    "merrill_team": null,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "exact-prop",
+   "K": null,
+   "fp_fires_per_inplay_min": null,
+   "frac_incidents_caught": 0.5,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": null,
+    "hartenstein_wallace": 26.2,
+    "allen_strus": 1.6,
+    "allen_merrill": 48.7,
+    "merrill_team": null,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "paired-player",
+   "K": null,
+   "fp_fires_per_inplay_min": null,
+   "frac_incidents_caught": 0.0,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": null,
+    "hartenstein_wallace": null,
+    "allen_strus": null,
+    "allen_merrill": null,
+    "merrill_team": null,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": null
+  },
+  {
+   "detector": "offprice-print",
+   "K": null,
+   "fp_fires_per_inplay_min": 0.0761,
+   "frac_incidents_caught": 0.167,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": 37.8,
+    "hartenstein_wallace": null,
+    "allen_strus": null,
+    "allen_merrill": null,
+    "merrill_team": null,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": {
+    "n_instruments": 316,
+    "n_caught_up": 229,
+    "n_tape_only": 87,
+    "catchup_lag_s": {
+     "median": 224.0,
+     "p25": 65.0,
+     "p75": 1085.0
+    },
+    "frac_tape_earlier": 0.997,
+    "note": "per-Polymarket-instrument over 18 trade-tape games; lag = seconds until sampled price-history reflects a decisive off-price tape move; tape_only = sampled series never reflected it in the in-play window"
+   }
+  },
+  {
+   "detector": "ensemble-OR(board-vw@3,offprice)",
+   "K": 3.0,
+   "fp_fires_per_inplay_min": 0.1993,
+   "frac_incidents_caught": 0.833,
+   "n_incidents": 6,
+   "per_incident_lead_s": {
+    "reaves_hayes": 37.8,
+    "hartenstein_wallace": 23.2,
+    "allen_strus": 57.6,
+    "allen_merrill": 105.7,
+    "merrill_team": 66.6,
+    "cunningham_block": null
+   },
+   "lead_vs_pricehist": {
+    "n_instruments": 316,
+    "n_caught_up": 229,
+    "n_tape_only": 87,
+    "catchup_lag_s": {
+     "median": 224.0,
+     "p25": 65.0,
+     "p75": 1085.0
+    },
+    "frac_tape_earlier": 0.997,
+    "note": "per-Polymarket-instrument over 18 trade-tape games; lag = seconds until sampled price-history reflects a decisive off-price tape move; tape_only = sampled series never reflected it in the in-play window"
+   }
+  }
+ ],
+ "lead_vs_pricehist": {
+  "n_instruments": 316,
+  "n_caught_up": 229,
+  "n_tape_only": 87,
+  "catchup_lag_s": {
+   "median": 224.0,
+   "p25": 65.0,
+   "p75": 1085.0
+  },
+  "frac_tape_earlier": 0.997,
+  "note": "per-Polymarket-instrument over 18 trade-tape games; lag = seconds until sampled price-history reflects a decisive off-price tape move; tape_only = sampled series never reflected it in the in-play window"
+ }
+}

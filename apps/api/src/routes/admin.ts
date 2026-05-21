@@ -15,6 +15,7 @@ import {
   postBackfillGamesPayload,
   postBackfillMarketsPayload,
   postCaptureRestartPayload,
+  postBoardVolatilityBaselineRebuildPayload,
   postMappingsResolvePayload,
   postTimelineMaterializationRebuildPayload,
 } from "../services/research-service";
@@ -76,6 +77,18 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       logger: request.log.child({ route: "admin-mappings-resolve" }),
     });
   });
+
+  app.post(
+    "/api/v1/admin/board-volatility-baselines/rebuild",
+    async (request, reply) => {
+      reply.code(202);
+      return postBoardVolatilityBaselineRebuildPayload({
+        logger: request.log.child({
+          route: "admin-board-volatility-baselines-rebuild",
+        }),
+      });
+    }
+  );
 
   app.post(
     "/api/v1/admin/timeline-materializations/rebuild",

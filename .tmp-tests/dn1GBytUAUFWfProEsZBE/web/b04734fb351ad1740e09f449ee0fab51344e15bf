@@ -1,0 +1,48 @@
+Object.defineProperty(__vite_ssr_exports__, "chartAxisColor", { enumerable: true, configurable: true, get(){ try { return chartAxisColor } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "chartGridColor", { enumerable: true, configurable: true, get(){ try { return chartGridColor } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "chartTextColor", { enumerable: true, configurable: true, get(){ try { return chartTextColor } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "chartTooltipBackground", { enumerable: true, configurable: true, get(){ try { return chartTooltipBackground } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "chartTooltipBorder", { enumerable: true, configurable: true, get(){ try { return chartTooltipBorder } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "chartLegendStyle", { enumerable: true, configurable: true, get(){ try { return chartLegendStyle } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "chartTooltipStyle", { enumerable: true, configurable: true, get(){ try { return chartTooltipStyle } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "marketChartPalette", { enumerable: true, configurable: true, get(){ try { return marketChartPalette } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "sourceSeriesColors", { enumerable: true, configurable: true, get(){ try { return sourceSeriesColors } catch {} }});
+const chartAxisColor = "#a9b8c7";
+const chartGridColor = "rgba(255, 255, 255, 0.1)";
+const chartTextColor = "#f3f7fb";
+const chartTooltipBackground = "rgba(10, 14, 19, 0.96)";
+const chartTooltipBorder = "1px solid rgba(255, 255, 255, 0.12)";
+const chartLegendStyle = {
+  color: chartTextColor
+};
+const chartTooltipStyle = {
+  contentStyle: {
+    backgroundColor: chartTooltipBackground,
+    border: chartTooltipBorder,
+    borderRadius: "0.9rem",
+    boxShadow: "0 18px 50px rgba(0, 0, 0, 0.35)",
+    color: chartTextColor
+  },
+  itemStyle: {
+    color: chartTextColor
+  },
+  labelStyle: {
+    color: chartAxisColor
+  }
+};
+const marketChartPalette = [
+  "#69d7a5",
+  "#7ac7ff",
+  "#f4c96f",
+  "#ff8e78",
+  "#9ad977",
+  "#ffd58d"
+];
+const sourceSeriesColors = {
+  bet365: "#69d7a5",
+  kalshi: "#7ac7ff",
+  polymarket: "#f4c96f"
+};
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7O0FBQU8sTUFBTSxpQkFBaUI7QUFDdkIsTUFBTSxpQkFBaUI7QUFDdkIsTUFBTSxpQkFBaUI7QUFDdkIsTUFBTSx5QkFBeUI7QUFDL0IsTUFBTSxxQkFBcUI7QUFFM0IsTUFBTSxtQkFBbUI7QUFBQSxFQUM5QixPQUFPO0FBQ1Q7QUFFTyxNQUFNLG9CQUFvQjtBQUFBLEVBQy9CLGNBQWM7QUFBQSxJQUNaLGlCQUFpQjtBQUFBLElBQ2pCLFFBQVE7QUFBQSxJQUNSLGNBQWM7QUFBQSxJQUNkLFdBQVc7QUFBQSxJQUNYLE9BQU87QUFBQSxFQUNUO0FBQUEsRUFDQSxXQUFXO0FBQUEsSUFDVCxPQUFPO0FBQUEsRUFDVDtBQUFBLEVBQ0EsWUFBWTtBQUFBLElBQ1YsT0FBTztBQUFBLEVBQ1Q7QUFDRjtBQUVPLE1BQU0scUJBQXFCO0FBQUEsRUFDaEM7QUFBQSxFQUNBO0FBQUEsRUFDQTtBQUFBLEVBQ0E7QUFBQSxFQUNBO0FBQUEsRUFDQTtBQUNGO0FBRU8sTUFBTSxxQkFBNkM7QUFBQSxFQUN4RCxRQUFRO0FBQUEsRUFDUixRQUFRO0FBQUEsRUFDUixZQUFZO0FBQ2QiLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbImNoYXJ0LXRoZW1lLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImV4cG9ydCBjb25zdCBjaGFydEF4aXNDb2xvciA9IFwiI2E5YjhjN1wiO1xuZXhwb3J0IGNvbnN0IGNoYXJ0R3JpZENvbG9yID0gXCJyZ2JhKDI1NSwgMjU1LCAyNTUsIDAuMSlcIjtcbmV4cG9ydCBjb25zdCBjaGFydFRleHRDb2xvciA9IFwiI2YzZjdmYlwiO1xuZXhwb3J0IGNvbnN0IGNoYXJ0VG9vbHRpcEJhY2tncm91bmQgPSBcInJnYmEoMTAsIDE0LCAxOSwgMC45NilcIjtcbmV4cG9ydCBjb25zdCBjaGFydFRvb2x0aXBCb3JkZXIgPSBcIjFweCBzb2xpZCByZ2JhKDI1NSwgMjU1LCAyNTUsIDAuMTIpXCI7XG5cbmV4cG9ydCBjb25zdCBjaGFydExlZ2VuZFN0eWxlID0ge1xuICBjb2xvcjogY2hhcnRUZXh0Q29sb3IsXG59O1xuXG5leHBvcnQgY29uc3QgY2hhcnRUb29sdGlwU3R5bGUgPSB7XG4gIGNvbnRlbnRTdHlsZToge1xuICAgIGJhY2tncm91bmRDb2xvcjogY2hhcnRUb29sdGlwQmFja2dyb3VuZCxcbiAgICBib3JkZXI6IGNoYXJ0VG9vbHRpcEJvcmRlcixcbiAgICBib3JkZXJSYWRpdXM6IFwiMC45cmVtXCIsXG4gICAgYm94U2hhZG93OiBcIjAgMThweCA1MHB4IHJnYmEoMCwgMCwgMCwgMC4zNSlcIixcbiAgICBjb2xvcjogY2hhcnRUZXh0Q29sb3IsXG4gIH0sXG4gIGl0ZW1TdHlsZToge1xuICAgIGNvbG9yOiBjaGFydFRleHRDb2xvcixcbiAgfSxcbiAgbGFiZWxTdHlsZToge1xuICAgIGNvbG9yOiBjaGFydEF4aXNDb2xvcixcbiAgfSxcbn07XG5cbmV4cG9ydCBjb25zdCBtYXJrZXRDaGFydFBhbGV0dGUgPSBbXG4gIFwiIzY5ZDdhNVwiLFxuICBcIiM3YWM3ZmZcIixcbiAgXCIjZjRjOTZmXCIsXG4gIFwiI2ZmOGU3OFwiLFxuICBcIiM5YWQ5NzdcIixcbiAgXCIjZmZkNThkXCIsXG5dO1xuXG5leHBvcnQgY29uc3Qgc291cmNlU2VyaWVzQ29sb3JzOiBSZWNvcmQ8c3RyaW5nLCBzdHJpbmc+ID0ge1xuICBiZXQzNjU6IFwiIzY5ZDdhNVwiLFxuICBrYWxzaGk6IFwiIzdhYzdmZlwiLFxuICBwb2x5bWFya2V0OiBcIiNmNGM5NmZcIixcbn07XG4iXSwiZmlsZSI6Ii9zcmMvbGliL2NoYXJ0LXRoZW1lLnRzIn0=

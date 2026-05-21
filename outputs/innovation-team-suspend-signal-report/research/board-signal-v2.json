@@ -1,0 +1,1276 @@
+{
+ "summary": {
+  "params": {
+   "BUCKET": 60,
+   "FRESH_CAP": 300,
+   "W": 20,
+   "K_MAD": 6.0,
+   "WARMUP": 8
+  },
+  "n_games": 64,
+  "fp_census_eq": {
+   "median_fire_rate": 0.053954071318832376,
+   "p25": 0.031343656343656344,
+   "p75": 0.09986563009885785,
+   "max": 0.20491803278688525,
+   "mean_fires_per_game": 9.34375
+  },
+  "fp_census_vw": {
+   "median_fire_rate": 0.051780477586929205,
+   "p25": 0.02778174206745635,
+   "p75": 0.09129266012155213,
+   "max": 0.1885245901639344,
+   "mean_fires_per_game": 8.578125
+  },
+  "incidents": [
+   {
+    "incident": "Reaves/Hayes rebound",
+    "board_game": "nba-0042500224",
+    "n_markets": 64,
+    "event": "2026-05-12T04:51:40.2Z",
+    "board_fire_eq": null,
+    "board_fire_eq_lead_s": null,
+    "board_fire_vw": null,
+    "board_fire_vw_lead_s": null
+   },
+   {
+    "incident": "Reaves/Hayes rebound",
+    "board_game": "nba-0042500223",
+    "n_markets": 281,
+    "event": "2026-05-12T04:51:40.2Z",
+    "board_fire_eq": null,
+    "board_fire_eq_lead_s": null,
+    "board_fire_vw": null,
+    "board_fire_vw_lead_s": null
+   },
+   {
+    "incident": "Hartenstein/C.Wallace rebound",
+    "board_game": "nba-0042500222",
+    "n_markets": 64,
+    "event": "2026-05-08T03:12:36.8Z",
+    "board_fire_eq": "2026-05-08T03:12:00Z",
+    "board_fire_eq_lead_s": -36.799999952316284,
+    "board_fire_vw": "2026-05-08T03:12:00Z",
+    "board_fire_vw_lead_s": -36.799999952316284
+   }
+  ]
+ },
+ "per_game": [
+  {
+   "game_id": "nba-0042500102",
+   "n_markets": 64,
+   "inplay_min": "2026-04-22T23:13:36Z",
+   "inplay_max": "2026-04-23T01:48:34Z",
+   "dur_min": 155.0,
+   "eq": {
+    "n_buckets": 154,
+    "n_fires": 5,
+    "fire_rate": 0.032467532467532464,
+    "first_fire": "2026-04-23T00:45:00Z"
+   },
+   "vw": {
+    "n_buckets": 154,
+    "n_fires": 3,
+    "fire_rate": 0.01948051948051948,
+    "first_fire": "2026-04-23T00:59:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500103",
+   "n_markets": 64,
+   "inplay_min": "2026-04-25T17:07:02Z",
+   "inplay_max": "2026-04-25T19:51:26Z",
+   "dur_min": 164.4,
+   "eq": {
+    "n_buckets": 156,
+    "n_fires": 22,
+    "fire_rate": 0.14102564102564102,
+    "first_fire": "2026-04-25T17:42:00Z"
+   },
+   "vw": {
+    "n_buckets": 156,
+    "n_fires": 19,
+    "fire_rate": 0.12179487179487179,
+    "first_fire": "2026-04-25T17:42:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500104",
+   "n_markets": 64,
+   "inplay_min": "2026-04-28T00:07:37Z",
+   "inplay_max": "2026-04-28T02:56:27Z",
+   "dur_min": 168.8,
+   "eq": {
+    "n_buckets": 166,
+    "n_fires": 9,
+    "fire_rate": 0.05421686746987952,
+    "first_fire": "2026-04-28T00:48:00Z"
+   },
+   "vw": {
+    "n_buckets": 166,
+    "n_fires": 9,
+    "fire_rate": 0.05421686746987952,
+    "first_fire": "2026-04-28T00:39:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500105",
+   "n_markets": 64,
+   "inplay_min": "2026-04-29T23:09:17Z",
+   "inplay_max": "2026-04-30T01:42:42Z",
+   "dur_min": 153.4,
+   "eq": {
+    "n_buckets": 152,
+    "n_fires": 3,
+    "fire_rate": 0.019736842105263157,
+    "first_fire": "2026-04-30T00:02:00Z"
+   },
+   "vw": {
+    "n_buckets": 152,
+    "n_fires": 3,
+    "fire_rate": 0.019736842105263157,
+    "first_fire": "2026-04-30T00:02:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500106",
+   "n_markets": 64,
+   "inplay_min": "2026-05-01T23:09:16Z",
+   "inplay_max": "2026-05-02T01:39:10Z",
+   "dur_min": 149.9,
+   "eq": {
+    "n_buckets": 146,
+    "n_fires": 11,
+    "fire_rate": 0.07534246575342465,
+    "first_fire": "2026-05-01T23:53:00Z"
+   },
+   "vw": {
+    "n_buckets": 146,
+    "n_fires": 5,
+    "fire_rate": 0.03424657534246575,
+    "first_fire": "2026-05-02T00:26:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500107",
+   "n_markets": 62,
+   "inplay_min": "2026-05-03T19:41:39Z",
+   "inplay_max": "2026-05-03T22:12:32Z",
+   "dur_min": 150.9,
+   "eq": {
+    "n_buckets": 138,
+    "n_fires": 20,
+    "fire_rate": 0.14492753623188406,
+    "first_fire": "2026-05-03T20:15:00Z"
+   },
+   "vw": {
+    "n_buckets": 138,
+    "n_fires": 17,
+    "fire_rate": 0.12318840579710146,
+    "first_fire": "2026-05-03T20:15:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500112",
+   "n_markets": 64,
+   "inplay_min": "2026-04-21T23:12:57Z",
+   "inplay_max": "2026-04-22T01:28:42Z",
+   "dur_min": 135.7,
+   "eq": {
+    "n_buckets": 135,
+    "n_fires": 1,
+    "fire_rate": 0.007407407407407408,
+    "first_fire": "2026-04-22T00:37:00Z"
+   },
+   "vw": {
+    "n_buckets": 135,
+    "n_fires": 1,
+    "fire_rate": 0.007407407407407408,
+    "first_fire": "2026-04-22T00:37:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500113",
+   "n_markets": 64,
+   "inplay_min": "2026-04-24T23:12:57Z",
+   "inplay_max": "2026-04-25T01:44:57Z",
+   "dur_min": 152.0,
+   "eq": {
+    "n_buckets": 128,
+    "n_fires": 17,
+    "fire_rate": 0.1328125,
+    "first_fire": "2026-04-24T23:26:00Z"
+   },
+   "vw": {
+    "n_buckets": 128,
+    "n_fires": 14,
+    "fire_rate": 0.109375,
+    "first_fire": "2026-04-24T23:26:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500114",
+   "n_markets": 64,
+   "inplay_min": "2026-04-26T23:06:43Z",
+   "inplay_max": "2026-04-27T01:31:25Z",
+   "dur_min": 144.7,
+   "eq": {
+    "n_buckets": 128,
+    "n_fires": 9,
+    "fire_rate": 0.0703125,
+    "first_fire": "2026-04-26T23:16:00Z"
+   },
+   "vw": {
+    "n_buckets": 128,
+    "n_fires": 6,
+    "fire_rate": 0.046875,
+    "first_fire": "2026-04-26T23:16:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500115",
+   "n_markets": 62,
+   "inplay_min": "2026-04-28T23:13:36Z",
+   "inplay_max": "2026-04-29T01:33:54Z",
+   "dur_min": 140.3,
+   "eq": {
+    "n_buckets": 139,
+    "n_fires": 7,
+    "fire_rate": 0.050359712230215826,
+    "first_fire": "2026-04-29T00:29:00Z"
+   },
+   "vw": {
+    "n_buckets": 139,
+    "n_fires": 8,
+    "fire_rate": 0.05755395683453238,
+    "first_fire": "2026-04-29T00:28:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500116",
+   "n_markets": 64,
+   "inplay_min": "2026-05-01T00:13:11Z",
+   "inplay_max": "2026-05-01T02:30:05Z",
+   "dur_min": 136.9,
+   "eq": {
+    "n_buckets": 122,
+    "n_fires": 7,
+    "fire_rate": 0.05737704918032787,
+    "first_fire": "2026-05-01T01:31:00Z"
+   },
+   "vw": {
+    "n_buckets": 122,
+    "n_fires": 5,
+    "fire_rate": 0.040983606557377046,
+    "first_fire": "2026-05-01T01:30:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500117",
+   "n_markets": 62,
+   "inplay_min": "2026-05-02T23:36:16Z",
+   "inplay_max": "2026-05-03T02:03:07Z",
+   "dur_min": 146.8,
+   "eq": {
+    "n_buckets": 145,
+    "n_fires": 15,
+    "fire_rate": 0.10344827586206896,
+    "first_fire": "2026-05-02T23:47:00Z"
+   },
+   "vw": {
+    "n_buckets": 145,
+    "n_fires": 16,
+    "fire_rate": 0.1103448275862069,
+    "first_fire": "2026-05-02T23:47:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500122",
+   "n_markets": 64,
+   "inplay_min": "2026-04-21T00:09:41Z",
+   "inplay_max": "2026-04-21T02:46:26Z",
+   "dur_min": 156.8,
+   "eq": {
+    "n_buckets": 154,
+    "n_fires": 7,
+    "fire_rate": 0.045454545454545456,
+    "first_fire": "2026-04-21T01:23:00Z"
+   },
+   "vw": {
+    "n_buckets": 154,
+    "n_fires": 8,
+    "fire_rate": 0.05194805194805195,
+    "first_fire": "2026-04-21T01:23:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500123",
+   "n_markets": 64,
+   "inplay_min": "2026-04-23T23:10:44Z",
+   "inplay_max": "2026-04-24T01:45:21Z",
+   "dur_min": 154.6,
+   "eq": {
+    "n_buckets": 154,
+    "n_fires": 6,
+    "fire_rate": 0.03896103896103896,
+    "first_fire": "2026-04-23T23:28:00Z"
+   },
+   "vw": {
+    "n_buckets": 154,
+    "n_fires": 4,
+    "fire_rate": 0.025974025974025976,
+    "first_fire": "2026-04-23T23:28:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500124",
+   "n_markets": 62,
+   "inplay_min": "2026-04-25T22:13:05Z",
+   "inplay_max": "2026-04-26T00:51:48Z",
+   "dur_min": 158.7,
+   "eq": {
+    "n_buckets": 122,
+    "n_fires": 25,
+    "fire_rate": 0.20491803278688525,
+    "first_fire": "2026-04-25T22:33:00Z"
+   },
+   "vw": {
+    "n_buckets": 122,
+    "n_fires": 23,
+    "fire_rate": 0.1885245901639344,
+    "first_fire": "2026-04-25T22:33:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500125",
+   "n_markets": 62,
+   "inplay_min": "2026-04-29T00:13:28Z",
+   "inplay_max": "2026-04-29T02:46:28Z",
+   "dur_min": 153.0,
+   "eq": {
+    "n_buckets": 146,
+    "n_fires": 6,
+    "fire_rate": 0.0410958904109589,
+    "first_fire": "2026-04-29T00:58:00Z"
+   },
+   "vw": {
+    "n_buckets": 146,
+    "n_fires": 5,
+    "fire_rate": 0.03424657534246575,
+    "first_fire": "2026-04-29T01:01:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500126",
+   "n_markets": 64,
+   "inplay_min": "2026-04-30T23:13:03Z",
+   "inplay_max": "2026-05-01T01:42:59Z",
+   "dur_min": 149.9,
+   "eq": {
+    "n_buckets": 135,
+    "n_fires": 17,
+    "fire_rate": 0.1259259259259259,
+    "first_fire": "2026-04-30T23:56:00Z"
+   },
+   "vw": {
+    "n_buckets": 135,
+    "n_fires": 17,
+    "fire_rate": 0.1259259259259259,
+    "first_fire": "2026-04-30T23:56:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500132",
+   "n_markets": 64,
+   "inplay_min": "2026-04-20T23:13:02Z",
+   "inplay_max": "2026-04-21T01:36:48Z",
+   "dur_min": 143.8,
+   "eq": {
+    "n_buckets": 141,
+    "n_fires": 7,
+    "fire_rate": 0.04964539007092199,
+    "first_fire": "2026-04-20T23:47:00Z"
+   },
+   "vw": {
+    "n_buckets": 141,
+    "n_fires": 4,
+    "fire_rate": 0.028368794326241134,
+    "first_fire": "2026-04-21T00:26:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500133",
+   "n_markets": 64,
+   "inplay_min": "2026-04-24T00:09:16Z",
+   "inplay_max": "2026-04-24T02:34:05Z",
+   "dur_min": 144.8,
+   "eq": {
+    "n_buckets": 138,
+    "n_fires": 14,
+    "fire_rate": 0.10144927536231885,
+    "first_fire": "2026-04-24T01:31:00Z"
+   },
+   "vw": {
+    "n_buckets": 138,
+    "n_fires": 13,
+    "fire_rate": 0.09420289855072464,
+    "first_fire": "2026-04-24T01:31:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500134",
+   "n_markets": 64,
+   "inplay_min": "2026-04-26T17:13:41Z",
+   "inplay_max": "2026-04-26T19:56:39Z",
+   "dur_min": 163.0,
+   "eq": {
+    "n_buckets": 160,
+    "n_fires": 3,
+    "fire_rate": 0.01875,
+    "first_fire": "2026-04-26T18:16:00Z"
+   },
+   "vw": {
+    "n_buckets": 160,
+    "n_fires": 1,
+    "fire_rate": 0.00625,
+    "first_fire": "2026-04-26T18:20:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500135",
+   "n_markets": 64,
+   "inplay_min": "2026-04-29T23:43:35Z",
+   "inplay_max": "2026-04-30T02:17:59Z",
+   "dur_min": 154.4,
+   "eq": {
+    "n_buckets": 152,
+    "n_fires": 6,
+    "fire_rate": 0.039473684210526314,
+    "first_fire": "2026-04-30T00:44:00Z"
+   },
+   "vw": {
+    "n_buckets": 152,
+    "n_fires": 4,
+    "fire_rate": 0.02631578947368421,
+    "first_fire": "2026-04-30T00:37:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500136",
+   "n_markets": 61,
+   "inplay_min": "2026-05-01T23:41:07Z",
+   "inplay_max": "2026-05-02T02:30:20Z",
+   "dur_min": 169.2,
+   "eq": {
+    "n_buckets": 152,
+    "n_fires": 18,
+    "fire_rate": 0.11842105263157894,
+    "first_fire": "2026-05-02T00:05:00Z"
+   },
+   "vw": {
+    "n_buckets": 152,
+    "n_fires": 11,
+    "fire_rate": 0.07236842105263158,
+    "first_fire": "2026-05-02T00:08:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500137",
+   "n_markets": 60,
+   "inplay_min": "2026-05-03T23:42:55Z",
+   "inplay_max": "2026-05-04T02:26:49Z",
+   "dur_min": 163.9,
+   "eq": {
+    "n_buckets": 160,
+    "n_fires": 7,
+    "fire_rate": 0.04375,
+    "first_fire": "2026-05-04T00:49:00Z"
+   },
+   "vw": {
+    "n_buckets": 160,
+    "n_fires": 7,
+    "fire_rate": 0.04375,
+    "first_fire": "2026-05-04T00:49:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500142",
+   "n_markets": 64,
+   "inplay_min": "2026-04-23T01:48:04Z",
+   "inplay_max": "2026-04-23T04:16:33Z",
+   "dur_min": 148.5,
+   "eq": {
+    "n_buckets": 148,
+    "n_fires": 3,
+    "fire_rate": 0.02027027027027027,
+    "first_fire": "2026-04-23T02:17:00Z"
+   },
+   "vw": {
+    "n_buckets": 148,
+    "n_fires": 3,
+    "fire_rate": 0.02027027027027027,
+    "first_fire": "2026-04-23T03:14:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500143",
+   "n_markets": 64,
+   "inplay_min": "2026-04-25T19:37:27Z",
+   "inplay_max": "2026-04-25T22:01:39Z",
+   "dur_min": 144.2,
+   "eq": {
+    "n_buckets": 135,
+    "n_fires": 26,
+    "fire_rate": 0.1925925925925926,
+    "first_fire": "2026-04-25T20:00:00Z"
+   },
+   "vw": {
+    "n_buckets": 135,
+    "n_fires": 21,
+    "fire_rate": 0.15555555555555556,
+    "first_fire": "2026-04-25T20:00:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500144",
+   "n_markets": 64,
+   "inplay_min": "2026-04-28T01:43:11Z",
+   "inplay_max": "2026-04-28T04:14:00Z",
+   "dur_min": 150.8,
+   "eq": {
+    "n_buckets": 146,
+    "n_fires": 15,
+    "fire_rate": 0.10273972602739725,
+    "first_fire": "2026-04-28T02:28:00Z"
+   },
+   "vw": {
+    "n_buckets": 146,
+    "n_fires": 14,
+    "fire_rate": 0.0958904109589041,
+    "first_fire": "2026-04-28T02:28:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500152",
+   "n_markets": 64,
+   "inplay_min": "2026-04-22T00:07:05Z",
+   "inplay_max": "2026-04-22T02:40:59Z",
+   "dur_min": 153.9,
+   "eq": {
+    "n_buckets": 153,
+    "n_fires": 2,
+    "fire_rate": 0.013071895424836602,
+    "first_fire": "2026-04-22T01:50:00Z"
+   },
+   "vw": {
+    "n_buckets": 153,
+    "n_fires": 3,
+    "fire_rate": 0.0196078431372549,
+    "first_fire": "2026-04-22T02:30:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500153",
+   "n_markets": 64,
+   "inplay_min": "2026-04-25T02:48:40Z",
+   "inplay_max": "2026-04-25T05:20:29Z",
+   "dur_min": 151.8,
+   "eq": {
+    "n_buckets": 151,
+    "n_fires": 15,
+    "fire_rate": 0.09933774834437085,
+    "first_fire": "2026-04-25T03:40:00Z"
+   },
+   "vw": {
+    "n_buckets": 151,
+    "n_fires": 8,
+    "fire_rate": 0.052980132450331126,
+    "first_fire": "2026-04-25T04:17:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500154",
+   "n_markets": 64,
+   "inplay_min": "2026-04-26T19:49:48Z",
+   "inplay_max": "2026-04-26T22:18:47Z",
+   "dur_min": 149.0,
+   "eq": {
+    "n_buckets": 143,
+    "n_fires": 4,
+    "fire_rate": 0.027972027972027972,
+    "first_fire": "2026-04-26T20:00:00Z"
+   },
+   "vw": {
+    "n_buckets": 143,
+    "n_fires": 4,
+    "fire_rate": 0.027972027972027972,
+    "first_fire": "2026-04-26T21:14:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500155",
+   "n_markets": 64,
+   "inplay_min": "2026-04-29T01:48:13Z",
+   "inplay_max": "2026-04-29T04:24:40Z",
+   "dur_min": 156.4,
+   "eq": {
+    "n_buckets": 141,
+    "n_fires": 19,
+    "fire_rate": 0.1347517730496454,
+    "first_fire": "2026-04-29T02:31:00Z"
+   },
+   "vw": {
+    "n_buckets": 141,
+    "n_fires": 16,
+    "fire_rate": 0.11347517730496454,
+    "first_fire": "2026-04-29T02:58:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500162",
+   "n_markets": 64,
+   "inplay_min": "2026-04-21T02:49:36Z",
+   "inplay_max": "2026-04-21T05:25:22Z",
+   "dur_min": 155.8,
+   "eq": {
+    "n_buckets": 155,
+    "n_fires": 9,
+    "fire_rate": 0.05806451612903226,
+    "first_fire": "2026-04-21T04:14:00Z"
+   },
+   "vw": {
+    "n_buckets": 155,
+    "n_fires": 8,
+    "fire_rate": 0.05161290322580645,
+    "first_fire": "2026-04-21T04:32:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500163",
+   "n_markets": 64,
+   "inplay_min": "2026-04-24T01:48:10Z",
+   "inplay_max": "2026-04-24T04:12:24Z",
+   "dur_min": 144.2,
+   "eq": {
+    "n_buckets": 143,
+    "n_fires": 4,
+    "fire_rate": 0.027972027972027972,
+    "first_fire": "2026-04-24T02:38:00Z"
+   },
+   "vw": {
+    "n_buckets": 143,
+    "n_fires": 2,
+    "fire_rate": 0.013986013986013986,
+    "first_fire": "2026-04-24T02:42:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500164",
+   "n_markets": 64,
+   "inplay_min": "2026-04-26T00:48:07Z",
+   "inplay_max": "2026-04-26T03:23:50Z",
+   "dur_min": 155.7,
+   "eq": {
+    "n_buckets": 155,
+    "n_fires": 15,
+    "fire_rate": 0.0967741935483871,
+    "first_fire": "2026-04-26T01:59:00Z"
+   },
+   "vw": {
+    "n_buckets": 155,
+    "n_fires": 9,
+    "fire_rate": 0.05806451612903226,
+    "first_fire": "2026-04-26T02:07:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500165",
+   "n_markets": 64,
+   "inplay_min": "2026-04-28T02:49:18Z",
+   "inplay_max": "2026-04-28T05:21:45Z",
+   "dur_min": 152.5,
+   "eq": {
+    "n_buckets": 150,
+    "n_fires": 9,
+    "fire_rate": 0.06,
+    "first_fire": "2026-04-28T03:30:00Z"
+   },
+   "vw": {
+    "n_buckets": 150,
+    "n_fires": 12,
+    "fire_rate": 0.08,
+    "first_fire": "2026-04-28T03:13:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500166",
+   "n_markets": 64,
+   "inplay_min": "2026-05-01T01:45:28Z",
+   "inplay_max": "2026-05-01T04:22:24Z",
+   "dur_min": 156.9,
+   "eq": {
+    "n_buckets": 155,
+    "n_fires": 10,
+    "fire_rate": 0.06451612903225806,
+    "first_fire": "2026-05-01T02:56:00Z"
+   },
+   "vw": {
+    "n_buckets": 155,
+    "n_fires": 9,
+    "fire_rate": 0.05806451612903226,
+    "first_fire": "2026-05-01T02:56:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500172",
+   "n_markets": 64,
+   "inplay_min": "2026-04-22T02:47:32Z",
+   "inplay_max": "2026-04-22T05:19:17Z",
+   "dur_min": 151.7,
+   "eq": {
+    "n_buckets": 151,
+    "n_fires": 6,
+    "fire_rate": 0.039735099337748346,
+    "first_fire": "2026-04-22T03:32:00Z"
+   },
+   "vw": {
+    "n_buckets": 151,
+    "n_fires": 6,
+    "fire_rate": 0.039735099337748346,
+    "first_fire": "2026-04-22T03:32:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500173",
+   "n_markets": 64,
+   "inplay_min": "2026-04-25T00:09:22Z",
+   "inplay_max": "2026-04-25T03:02:15Z",
+   "dur_min": 172.9,
+   "eq": {
+    "n_buckets": 167,
+    "n_fires": 19,
+    "fire_rate": 0.11377245508982035,
+    "first_fire": "2026-04-25T00:20:00Z"
+   },
+   "vw": {
+    "n_buckets": 167,
+    "n_fires": 12,
+    "fire_rate": 0.0718562874251497,
+    "first_fire": "2026-04-25T00:20:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500174",
+   "n_markets": 64,
+   "inplay_min": "2026-04-27T01:43:40Z",
+   "inplay_max": "2026-04-27T04:16:03Z",
+   "dur_min": 152.4,
+   "eq": {
+    "n_buckets": 150,
+    "n_fires": 10,
+    "fire_rate": 0.06666666666666667,
+    "first_fire": "2026-04-27T02:05:00Z"
+   },
+   "vw": {
+    "n_buckets": 150,
+    "n_fires": 8,
+    "fire_rate": 0.05333333333333334,
+    "first_fire": "2026-04-27T02:05:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500175",
+   "n_markets": 64,
+   "inplay_min": "2026-04-30T02:18:45Z",
+   "inplay_max": "2026-04-30T04:49:07Z",
+   "dur_min": 150.4,
+   "eq": {
+    "n_buckets": 150,
+    "n_fires": 5,
+    "fire_rate": 0.03333333333333333,
+    "first_fire": "2026-04-30T03:11:00Z"
+   },
+   "vw": {
+    "n_buckets": 150,
+    "n_fires": 4,
+    "fire_rate": 0.02666666666666667,
+    "first_fire": "2026-04-30T03:11:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500176",
+   "n_markets": 64,
+   "inplay_min": "2026-05-02T01:48:34Z",
+   "inplay_max": "2026-05-02T04:14:03Z",
+   "dur_min": 145.5,
+   "eq": {
+    "n_buckets": 142,
+    "n_fires": 12,
+    "fire_rate": 0.08450704225352113,
+    "first_fire": "2026-05-02T02:31:00Z"
+   },
+   "vw": {
+    "n_buckets": 142,
+    "n_fires": 12,
+    "fire_rate": 0.08450704225352113,
+    "first_fire": "2026-05-02T03:28:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500201",
+   "n_markets": 64,
+   "inplay_min": "2026-05-05T23:10:07Z",
+   "inplay_max": "2026-05-06T01:35:48Z",
+   "dur_min": 145.7,
+   "eq": {
+    "n_buckets": 143,
+    "n_fires": 10,
+    "fire_rate": 0.06993006993006994,
+    "first_fire": "2026-05-05T23:48:00Z"
+   },
+   "vw": {
+    "n_buckets": 143,
+    "n_fires": 5,
+    "fire_rate": 0.03496503496503497,
+    "first_fire": "2026-05-05T23:20:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500202",
+   "n_markets": 64,
+   "inplay_min": "2026-05-07T23:11:37Z",
+   "inplay_max": "2026-05-08T01:42:00Z",
+   "dur_min": 150.4,
+   "eq": {
+    "n_buckets": 149,
+    "n_fires": 8,
+    "fire_rate": 0.053691275167785234,
+    "first_fire": "2026-05-08T00:00:00Z"
+   },
+   "vw": {
+    "n_buckets": 149,
+    "n_fires": 8,
+    "fire_rate": 0.053691275167785234,
+    "first_fire": "2026-05-08T00:00:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500203",
+   "n_markets": 62,
+   "inplay_min": "2026-05-09T19:13:10Z",
+   "inplay_max": "2026-05-09T21:52:27Z",
+   "dur_min": 159.3,
+   "eq": {
+    "n_buckets": 154,
+    "n_fires": 5,
+    "fire_rate": 0.032467532467532464,
+    "first_fire": "2026-05-09T19:23:00Z"
+   },
+   "vw": {
+    "n_buckets": 154,
+    "n_fires": 4,
+    "fire_rate": 0.025974025974025976,
+    "first_fire": "2026-05-09T19:23:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500204",
+   "n_markets": 411,
+   "inplay_min": "2026-05-12T00:11:44Z",
+   "inplay_max": "2026-05-12T02:39:53Z",
+   "dur_min": 148.1,
+   "eq": {
+    "n_buckets": 147,
+    "n_fires": 3,
+    "fire_rate": 0.02040816326530612,
+    "first_fire": "2026-05-12T00:24:00Z"
+   },
+   "vw": {
+    "n_buckets": 147,
+    "n_fires": 20,
+    "fire_rate": 0.1360544217687075,
+    "first_fire": "2026-05-12T00:43:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500205",
+   "n_markets": 64,
+   "inplay_min": "2026-05-14T00:14:16Z",
+   "inplay_max": "2026-05-14T03:07:14Z",
+   "dur_min": 173.0,
+   "eq": {
+    "n_buckets": 171,
+    "n_fires": 7,
+    "fire_rate": 0.04093567251461988,
+    "first_fire": "2026-05-14T01:34:00Z"
+   },
+   "vw": {
+    "n_buckets": 171,
+    "n_fires": 7,
+    "fire_rate": 0.04093567251461988,
+    "first_fire": "2026-05-14T01:34:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500206",
+   "n_markets": 452,
+   "inplay_min": "2026-05-15T23:12:09Z",
+   "inplay_max": "2026-05-16T01:43:49Z",
+   "dur_min": 151.7,
+   "eq": {
+    "n_buckets": 150,
+    "n_fires": 2,
+    "fire_rate": 0.013333333333333334,
+    "first_fire": "2026-05-16T00:38:00Z"
+   },
+   "vw": {
+    "n_buckets": 150,
+    "n_fires": 7,
+    "fire_rate": 0.04666666666666667,
+    "first_fire": "2026-05-15T23:50:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500207",
+   "n_markets": 367,
+   "inplay_min": "2026-05-18T00:14:27Z",
+   "inplay_max": "2026-05-18T02:47:38Z",
+   "dur_min": 153.2,
+   "eq": {
+    "n_buckets": 151,
+    "n_fires": 2,
+    "fire_rate": 0.013245033112582781,
+    "first_fire": "2026-05-18T01:16:00Z"
+   },
+   "vw": {
+    "n_buckets": 151,
+    "n_fires": 3,
+    "fire_rate": 0.019867549668874173,
+    "first_fire": "2026-05-18T01:54:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500211",
+   "n_markets": 64,
+   "inplay_min": "2026-05-05T00:13:39Z",
+   "inplay_max": "2026-05-05T02:47:07Z",
+   "dur_min": 153.5,
+   "eq": {
+    "n_buckets": 133,
+    "n_fires": 7,
+    "fire_rate": 0.05263157894736842,
+    "first_fire": "2026-05-05T01:45:00Z"
+   },
+   "vw": {
+    "n_buckets": 133,
+    "n_fires": 7,
+    "fire_rate": 0.05263157894736842,
+    "first_fire": "2026-05-05T01:45:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500212",
+   "n_markets": 64,
+   "inplay_min": "2026-05-06T23:13:43Z",
+   "inplay_max": "2026-05-07T01:52:18Z",
+   "dur_min": 158.6,
+   "eq": {
+    "n_buckets": 142,
+    "n_fires": 9,
+    "fire_rate": 0.06338028169014084,
+    "first_fire": "2026-05-07T00:08:00Z"
+   },
+   "vw": {
+    "n_buckets": 142,
+    "n_fires": 7,
+    "fire_rate": 0.04929577464788732,
+    "first_fire": "2026-05-07T00:08:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500213",
+   "n_markets": 64,
+   "inplay_min": "2026-05-08T23:11:38Z",
+   "inplay_max": "2026-05-09T01:45:51Z",
+   "dur_min": 154.2,
+   "eq": {
+    "n_buckets": 153,
+    "n_fires": 5,
+    "fire_rate": 0.032679738562091505,
+    "first_fire": "2026-05-09T00:05:00Z"
+   },
+   "vw": {
+    "n_buckets": 153,
+    "n_fires": 3,
+    "fire_rate": 0.0196078431372549,
+    "first_fire": "2026-05-09T00:05:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500214",
+   "n_markets": 441,
+   "inplay_min": "2026-05-10T19:40:51Z",
+   "inplay_max": "2026-05-10T22:11:09Z",
+   "dur_min": 150.3,
+   "eq": {
+    "n_buckets": 149,
+    "n_fires": 3,
+    "fire_rate": 0.020134228187919462,
+    "first_fire": "2026-05-10T20:00:00Z"
+   },
+   "vw": {
+    "n_buckets": 149,
+    "n_fires": 8,
+    "fire_rate": 0.053691275167785234,
+    "first_fire": "2026-05-10T21:09:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500221",
+   "n_markets": 64,
+   "inplay_min": "2026-05-06T00:43:02Z",
+   "inplay_max": "2026-05-06T03:05:48Z",
+   "dur_min": 142.8,
+   "eq": {
+    "n_buckets": 140,
+    "n_fires": 16,
+    "fire_rate": 0.11428571428571428,
+    "first_fire": "2026-05-06T01:21:00Z"
+   },
+   "vw": {
+    "n_buckets": 140,
+    "n_fires": 14,
+    "fire_rate": 0.1,
+    "first_fire": "2026-05-06T01:21:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500222",
+   "n_markets": 64,
+   "inplay_min": "2026-05-08T01:45:52Z",
+   "inplay_max": "2026-05-08T04:20:12Z",
+   "dur_min": 154.3,
+   "eq": {
+    "n_buckets": 151,
+    "n_fires": 20,
+    "fire_rate": 0.13245033112582782,
+    "first_fire": "2026-05-08T02:30:00Z"
+   },
+   "vw": {
+    "n_buckets": 151,
+    "n_fires": 16,
+    "fire_rate": 0.10596026490066225,
+    "first_fire": "2026-05-08T02:30:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500223",
+   "n_markets": 64,
+   "inplay_min": "2026-05-10T00:41:19Z",
+   "inplay_max": "2026-05-10T02:59:44Z",
+   "dur_min": 138.4,
+   "eq": {
+    "n_buckets": 137,
+    "n_fires": 9,
+    "fire_rate": 0.06569343065693431,
+    "first_fire": "2026-05-10T01:19:00Z"
+   },
+   "vw": {
+    "n_buckets": 137,
+    "n_fires": 6,
+    "fire_rate": 0.043795620437956206,
+    "first_fire": "2026-05-10T01:19:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500224",
+   "n_markets": 64,
+   "inplay_min": "2026-05-12T02:48:02Z",
+   "inplay_max": "2026-05-12T05:25:39Z",
+   "dur_min": 157.6,
+   "eq": {
+    "n_buckets": 157,
+    "n_fires": 9,
+    "fire_rate": 0.05732484076433121,
+    "first_fire": "2026-05-12T04:00:00Z"
+   },
+   "vw": {
+    "n_buckets": 157,
+    "n_fires": 7,
+    "fire_rate": 0.044585987261146494,
+    "first_fire": "2026-05-12T03:33:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500231",
+   "n_markets": 62,
+   "inplay_min": "2026-05-05T01:43:12Z",
+   "inplay_max": "2026-05-05T04:12:50Z",
+   "dur_min": 149.6,
+   "eq": {
+    "n_buckets": 148,
+    "n_fires": 7,
+    "fire_rate": 0.0472972972972973,
+    "first_fire": "2026-05-05T02:30:00Z"
+   },
+   "vw": {
+    "n_buckets": 148,
+    "n_fires": 6,
+    "fire_rate": 0.04054054054054054,
+    "first_fire": "2026-05-05T02:30:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500232",
+   "n_markets": 64,
+   "inplay_min": "2026-05-07T01:48:13Z",
+   "inplay_max": "2026-05-07T04:21:09Z",
+   "dur_min": 152.9,
+   "eq": {
+    "n_buckets": 134,
+    "n_fires": 23,
+    "fire_rate": 0.17164179104477612,
+    "first_fire": "2026-05-07T02:00:00Z"
+   },
+   "vw": {
+    "n_buckets": 134,
+    "n_fires": 20,
+    "fire_rate": 0.14925373134328357,
+    "first_fire": "2026-05-07T02:00:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500233",
+   "n_markets": 64,
+   "inplay_min": "2026-05-09T01:48:18Z",
+   "inplay_max": "2026-05-09T04:29:13Z",
+   "dur_min": 160.9,
+   "eq": {
+    "n_buckets": 160,
+    "n_fires": 1,
+    "fire_rate": 0.00625,
+    "first_fire": "2026-05-09T04:07:00Z"
+   },
+   "vw": {
+    "n_buckets": 160,
+    "n_fires": 2,
+    "fire_rate": 0.0125,
+    "first_fire": "2026-05-09T04:07:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500234",
+   "n_markets": 377,
+   "inplay_min": "2026-05-10T23:43:08Z",
+   "inplay_max": "2026-05-11T02:19:59Z",
+   "dur_min": 156.8,
+   "eq": {
+    "n_buckets": 155,
+    "n_fires": 0,
+    "fire_rate": 0.0,
+    "first_fire": null
+   },
+   "vw": {
+    "n_buckets": 155,
+    "n_fires": 14,
+    "fire_rate": 0.09032258064516129,
+    "first_fire": "2026-05-11T00:25:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500235",
+   "n_markets": 368,
+   "inplay_min": "2026-05-13T00:13:52Z",
+   "inplay_max": "2026-05-13T02:41:41Z",
+   "dur_min": 147.8,
+   "eq": {
+    "n_buckets": 146,
+    "n_fires": 0,
+    "fire_rate": 0.0,
+    "first_fire": null
+   },
+   "vw": {
+    "n_buckets": 146,
+    "n_fires": 1,
+    "fire_rate": 0.00684931506849315,
+    "first_fire": "2026-05-13T01:36:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500236",
+   "n_markets": 393,
+   "inplay_min": "2026-05-16T01:48:11Z",
+   "inplay_max": "2026-05-16T04:15:25Z",
+   "dur_min": 147.2,
+   "eq": {
+    "n_buckets": 147,
+    "n_fires": 0,
+    "fire_rate": 0.0,
+    "first_fire": null
+   },
+   "vw": {
+    "n_buckets": 147,
+    "n_fires": 4,
+    "fire_rate": 0.027210884353741496,
+    "first_fire": "2026-05-16T02:02:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500301",
+   "n_markets": 496,
+   "inplay_min": "2026-05-20T00:13:43Z",
+   "inplay_max": "2026-05-20T02:59:58Z",
+   "dur_min": 166.2,
+   "eq": {
+    "n_buckets": 34,
+    "n_fires": 2,
+    "fire_rate": 0.058823529411764705,
+    "first_fire": "2026-05-20T02:19:00Z"
+   },
+   "vw": {
+    "n_buckets": 34,
+    "n_fires": 4,
+    "fire_rate": 0.11764705882352941,
+    "first_fire": "2026-05-20T02:00:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500311",
+   "n_markets": 403,
+   "inplay_min": "2026-05-19T00:37:11Z",
+   "inplay_max": "2026-05-19T03:43:09Z",
+   "dur_min": 186.0,
+   "eq": {
+    "n_buckets": 185,
+    "n_fires": 25,
+    "fire_rate": 0.13513513513513514,
+    "first_fire": "2026-05-19T01:25:00Z"
+   },
+   "vw": {
+    "n_buckets": 185,
+    "n_fires": 10,
+    "fire_rate": 0.05405405405405406,
+    "first_fire": "2026-05-19T00:59:00Z"
+   }
+  },
+  {
+   "game_id": "nba-0042500312",
+   "n_markets": 419,
+   "inplay_min": "2026-05-21T00:36:56Z",
+   "inplay_max": "2026-05-21T03:05:43Z",
+   "dur_min": 148.8,
+   "eq": {
+    "n_buckets": 86,
+    "n_fires": 0,
+    "fire_rate": 0.0,
+    "first_fire": null
+   },
+   "vw": {
+    "n_buckets": 86,
+    "n_fires": 12,
+    "fire_rate": 0.13953488372093023,
+    "first_fire": "2026-05-21T00:56:00Z"
+   }
+  }
+ ]
+}

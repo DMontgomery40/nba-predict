@@ -1,5 +1,7 @@
 import { classifyGameLifecycle } from "@signal-console/domain";
 
+import { formatOperatorTime } from "./time-format";
+
 type GameStateRow = {
   game: {
     scheduledStart: string;
@@ -76,12 +78,19 @@ export function formatGameScoreClock(row: GameStateRow) {
     return `${awayScore}-${homeScore} final`;
   }
 
+  if (state.kind === "scheduled") {
+    return `Tip ${formatOperatorTime(row.game.scheduledStart)}`;
+  }
+
   if (!row.gameState) {
-    return "no NBA state";
+    return `Tip ${formatOperatorTime(row.game.scheduledStart)}`;
   }
 
   const score = `${row.gameState.awayScore ?? "-"}-${row.gameState.homeScore ?? "-"}`;
   const periodClock = formatGamePeriodClock(row.gameState);
+  if (row.gameState.status === "scheduled") {
+    return `Tip ${formatOperatorTime(row.game.scheduledStart)}`;
+  }
   return periodClock
     ? `${score} · ${periodClock}`
     : `${score} · ${row.gameState.status}`;

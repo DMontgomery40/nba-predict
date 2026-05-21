@@ -1,0 +1,169 @@
+Object.defineProperty(__vite_ssr_exports__, "DivergenceMiniChart", { enumerable: true, configurable: true, get(){ try { return DivergenceMiniChart } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/lib/market-format.ts", {"importedNames":["formatGapPoints"]});
+function formatDuration(ms) {
+  if (ms < 6e4) {
+    return `${Math.round(ms / 1e3)}s`;
+  };
+  if (ms < 60 * 6e4) {
+    return `${Math.round(ms / 6e4)}m`;
+  };
+  return `${(ms / (60 * 6e4)).toFixed(1)}h`;
+}
+function pathForValues(values, width, height) {
+  if (!values.some((value) => typeof value === "number")) {
+    return "";
+  };
+  const numericValues = values.filter(
+    (value) => typeof value === "number"
+  );
+  const min = Math.min(0, ...numericValues);
+  const max = Math.max(1, ...numericValues);
+  const denom = Math.max(1e-3, max - min);
+  const lastIndex = Math.max(1, values.length - 1);
+  let segmentOpen = false;
+  return values.map((value, index) => {
+    if (typeof value !== "number") {
+      segmentOpen = false;
+      return "";
+    };
+    const x = index / lastIndex * width;
+    const y = height - (value - min) / denom * height;
+    const command = segmentOpen ? "L" : "M";
+    segmentOpen = true;
+    return `${command}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).filter(Boolean).join(" ");
+}
+function DivergenceMiniChart({ summary }) {
+  if (!summary || summary.points.length === 0) {
+    return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+      "span",
+      {
+        "aria-label": "No same-time divergence chart",
+        className: "mini-chart-empty"
+      },
+      void 0,
+      false,
+      {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+        lineNumber: 56,
+        columnNumber: 7
+      },
+      this
+    );
+  };
+  const width = 168;
+  const height = 42;
+  const bet365Path = pathForValues(
+    summary.points.map((point) => point.bet365 ?? null),
+    width,
+    height
+  );
+  const externalPath = pathForValues(
+    summary.points.map((point) => point.external ?? null),
+    width,
+    height
+  );
+  const gapPath = pathForValues(
+    summary.points.map((point) => point.gap ?? null),
+    width,
+    height
+  );
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "mini-divergence", children: [
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+      "svg",
+      {
+        "aria-label": `Latest measured divergence ${(0,__vite_ssr_import_1__.formatGapPoints)(
+          summary.currentGap
+        )}, range ${(0,__vite_ssr_import_1__.formatGapPoints)(summary.minGap)} to ${(0,__vite_ssr_import_1__.formatGapPoints)(
+          summary.maxGap
+        )}`,
+        className: "mini-divergence-chart",
+        role: "img",
+        viewBox: `0 0 ${width} ${height}`,
+        children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            "line",
+            {
+              className: "mini-divergence-threshold",
+              x1: "0",
+              x2: width,
+              y1: height - summary.threshold * height,
+              y2: height - summary.threshold * height
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+              lineNumber: 93,
+              columnNumber: 9
+            },
+            this
+          ),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("path", { className: "mini-divergence-bet365", d: bet365Path }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+            lineNumber: 100,
+            columnNumber: 9
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("path", { className: "mini-divergence-external", d: externalPath }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+            lineNumber: 101,
+            columnNumber: 9
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("path", { className: "mini-divergence-gap", d: gapPath }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+            lineNumber: 102,
+            columnNumber: 9
+          }, this)
+        ]
+      },
+      void 0,
+      true,
+      {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+        lineNumber: 83,
+        columnNumber: 7
+      },
+      this
+    ),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "mini-divergence-meta", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+        "latest ",
+        (0,__vite_ssr_import_1__.formatGapPoints)(summary.currentGap)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+        lineNumber: 105,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+        "range ",
+        (0,__vite_ssr_import_1__.formatGapPoints)(summary.minGap),
+        "-",
+        (0,__vite_ssr_import_1__.formatGapPoints)(summary.maxGap)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+        lineNumber: 106,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+        formatDuration(summary.aboveThresholdDurationMs),
+        " above"
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+        lineNumber: 110,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+      lineNumber: 104,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/DivergenceMiniChart.tsx",
+    lineNumber: 82,
+    columnNumber: 5
+  }, this);
+}
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,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SSxTQUFTLFFBQVEsWUFBWTtBQUFBO0FBQUEsWUFMbkM7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLFVBTUE7QUFBQSxVQUNBLGlEQUFDLFVBQUssV0FBVSwwQkFBeUIsR0FBRyxjQUE1QztBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUF3RDtBQUFBLFVBQ3hELGlEQUFDLFVBQUssV0FBVSw0QkFBMkIsR0FBRyxnQkFBOUM7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBNEQ7QUFBQSxVQUM1RCxpREFBQyxVQUFLLFdBQVUsdUJBQXNCLEdBQUcsV0FBekM7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBa0Q7QUFBQTtBQUFBO0FBQUEsTUFuQnBEO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxJQW9CQTtBQUFBLElBQ0EsaURBQUMsU0FBSSxXQUFVLHdCQUNiO0FBQUEsdURBQUMsVUFBSztBQUFBO0FBQUEsV0FBUSx1Q0FBZ0IsUUFBUSxVQUFVO0FBQUEsV0FBaEQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUFrRDtBQUFBLE1BQ2xELGlEQUFDLFVBQUs7QUFBQTtBQUFBLFdBQ0csdUNBQWdCLFFBQVEsTUFBTTtBQUFBLFFBQUU7QUFBQSxXQUN0Qyx1Q0FBZ0IsUUFBUSxNQUFNO0FBQUEsV0FGakM7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUdBO0FBQUEsTUFDQSxpREFBQyxVQUFNO0FBQUEsdUJBQWUsUUFBUSx3QkFBd0I7QUFBQSxRQUFFO0FBQUEsV0FBeEQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUE4RDtBQUFBLFNBTmhFO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FPQTtBQUFBLE9BN0JGO0FBQUE7QUFBQTtBQUFBO0FBQUEsU0E4QkE7QUFFSiIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiRGl2ZXJnZW5jZU1pbmlDaGFydC50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgZm9ybWF0R2FwUG9pbnRzIH0gZnJvbSBcIi4uL2xpYi9tYXJrZXQtZm9ybWF0XCI7XG5cbmltcG9ydCB0eXBlIHsgRGl2ZXJnZW5jZVRyYWNlU3VtbWFyeSB9IGZyb20gXCIuLi9saWIvZGl2ZXJnZW5jZS1oaXN0b3J5XCI7XG5cbnR5cGUgRGl2ZXJnZW5jZU1pbmlDaGFydFByb3BzID0ge1xuICBzdW1tYXJ5PzogRGl2ZXJnZW5jZVRyYWNlU3VtbWFyeSB8IG51bGw7XG59O1xuXG5mdW5jdGlvbiBmb3JtYXREdXJhdGlvbihtczogbnVtYmVyKSB7XG4gIGlmIChtcyA8IDYwXzAwMCkge1xuICAgIHJldHVybiBgJHtNYXRoLnJvdW5kKG1zIC8gMTAwMCl9c2A7XG4gIH1cbiAgaWYgKG1zIDwgNjAgKiA2MF8wMDApIHtcbiAgICByZXR1cm4gYCR7TWF0aC5yb3VuZChtcyAvIDYwXzAwMCl9bWA7XG4gIH1cbiAgcmV0dXJuIGAkeyhtcyAvICg2MCAqIDYwXzAwMCkpLnRvRml4ZWQoMSl9aGA7XG59XG5cbmZ1bmN0aW9uIHBhdGhGb3JWYWx1ZXMoXG4gIHZhbHVlczogQXJyYXk8bnVtYmVyIHwgbnVsbD4sXG4gIHdpZHRoOiBudW1iZXIsXG4gIGhlaWdodDogbnVtYmVyXG4pIHtcbiAgaWYgKCF2YWx1ZXMuc29tZSgodmFsdWUpID0+IHR5cGVvZiB2YWx1ZSA9PT0gXCJudW1iZXJcIikpIHtcbiAgICByZXR1cm4gXCJcIjtcbiAgfVxuXG4gIGNvbnN0IG51bWVyaWNWYWx1ZXMgPSB2YWx1ZXMuZmlsdGVyKFxuICAgICh2YWx1ZSk6IHZhbHVlIGlzIG51bWJlciA9PiB0eXBlb2YgdmFsdWUgPT09IFwibnVtYmVyXCJcbiAgKTtcbiAgY29uc3QgbWluID0gTWF0aC5taW4oMCwgLi4ubnVtZXJpY1ZhbHVlcyk7XG4gIGNvbnN0IG1heCA9IE1hdGgubWF4KDEsIC4uLm51bWVyaWNWYWx1ZXMpO1xuICBjb25zdCBkZW5vbSA9IE1hdGgubWF4KDAuMDAxLCBtYXggLSBtaW4pO1xuICBjb25zdCBsYXN0SW5kZXggPSBNYXRoLm1heCgxLCB2YWx1ZXMubGVuZ3RoIC0gMSk7XG4gIGxldCBzZWdtZW50T3BlbiA9IGZhbHNlO1xuXG4gIHJldHVybiB2YWx1ZXNcbiAgICAubWFwKCh2YWx1ZSwgaW5kZXgpID0+IHtcbiAgICAgIGlmICh0eXBlb2YgdmFsdWUgIT09IFwibnVtYmVyXCIpIHtcbiAgICAgICAgc2VnbWVudE9wZW4gPSBmYWxzZTtcbiAgICAgICAgcmV0dXJuIFwiXCI7XG4gICAgICB9XG4gICAgICBjb25zdCB4ID0gKGluZGV4IC8gbGFzdEluZGV4KSAqIHdpZHRoO1xuICAgICAgY29uc3QgeSA9IGhlaWdodCAtICgodmFsdWUgLSBtaW4pIC8gZGVub20pICogaGVpZ2h0O1xuICAgICAgY29uc3QgY29tbWFuZCA9IHNlZ21lbnRPcGVuID8gXCJMXCIgOiBcIk1cIjtcbiAgICAgIHNlZ21lbnRPcGVuID0gdHJ1ZTtcbiAgICAgIHJldHVybiBgJHtjb21tYW5kfSR7eC50b0ZpeGVkKDEpfSwke3kudG9GaXhlZCgxKX1gO1xuICAgIH0pXG4gICAgLmZpbHRlcihCb29sZWFuKVxuICAgIC5qb2luKFwiIFwiKTtcbn1cblxuZXhwb3J0IGZ1bmN0aW9uIERpdmVyZ2VuY2VNaW5pQ2hhcnQoeyBzdW1tYXJ5IH06IERpdmVyZ2VuY2VNaW5pQ2hhcnRQcm9wcykge1xuICBpZiAoIXN1bW1hcnkgfHwgc3VtbWFyeS5wb2ludHMubGVuZ3RoID09PSAwKSB7XG4gICAgcmV0dXJuIChcbiAgICAgIDxzcGFuXG4gICAgICAgIGFyaWEtbGFiZWw9XCJObyBzYW1lLXRpbWUgZGl2ZXJnZW5jZSBjaGFydFwiXG4gICAgICAgIGNsYXNzTmFtZT1cIm1pbmktY2hhcnQtZW1wdHlcIlxuICAgICAgLz5cbiAgICApO1xuICB9XG5cbiAgY29uc3Qgd2lkdGggPSAxNjg7XG4gIGNvbnN0IGhlaWdodCA9IDQyO1xuICBjb25zdCBiZXQzNjVQYXRoID0gcGF0aEZvclZhbHVlcyhcbiAgICBzdW1tYXJ5LnBvaW50cy5tYXAoKHBvaW50KSA9PiBwb2ludC5iZXQzNjUgPz8gbnVsbCksXG4gICAgd2lkdGgsXG4gICAgaGVpZ2h0XG4gICk7XG4gIGNvbnN0IGV4dGVybmFsUGF0aCA9IHBhdGhGb3JWYWx1ZXMoXG4gICAgc3VtbWFyeS5wb2ludHMubWFwKChwb2ludCkgPT4gcG9pbnQuZXh0ZXJuYWwgPz8gbnVsbCksXG4gICAgd2lkdGgsXG4gICAgaGVpZ2h0XG4gICk7XG4gIGNvbnN0IGdhcFBhdGggPSBwYXRoRm9yVmFsdWVzKFxuICAgIHN1bW1hcnkucG9pbnRzLm1hcCgocG9pbnQpID0+IHBvaW50LmdhcCA/PyBudWxsKSxcbiAgICB3aWR0aCxcbiAgICBoZWlnaHRcbiAgKTtcblxuICByZXR1cm4gKFxuICAgIDxkaXYgY2xhc3NOYW1lPVwibWluaS1kaXZlcmdlbmNlXCI+XG4gICAgICA8c3ZnXG4gICAgICAgIGFyaWEtbGFiZWw9e2BMYXRlc3QgbWVhc3VyZWQgZGl2ZXJnZW5jZSAke2Zvcm1hdEdhcFBvaW50cyhcbiAgICAgICAgICBzdW1tYXJ5LmN1cnJlbnRHYXBcbiAgICAgICAgKX0sIHJhbmdlICR7Zm9ybWF0R2FwUG9pbnRzKHN1bW1hcnkubWluR2FwKX0gdG8gJHtmb3JtYXRHYXBQb2ludHMoXG4gICAgICAgICAgc3VtbWFyeS5tYXhHYXBcbiAgICAgICAgKX1gfVxuICAgICAgICBjbGFzc05hbWU9XCJtaW5pLWRpdmVyZ2VuY2UtY2hhcnRcIlxuICAgICAgICByb2xlPVwiaW1nXCJcbiAgICAgICAgdmlld0JveD17YDAgMCAke3dpZHRofSAke2hlaWdodH1gfVxuICAgICAgPlxuICAgICAgICA8bGluZVxuICAgICAgICAgIGNsYXNzTmFtZT1cIm1pbmktZGl2ZXJnZW5jZS10aHJlc2hvbGRcIlxuICAgICAgICAgIHgxPVwiMFwiXG4gICAgICAgICAgeDI9e3dpZHRofVxuICAgICAgICAgIHkxPXtoZWlnaHQgLSBzdW1tYXJ5LnRocmVzaG9sZCAqIGhlaWdodH1cbiAgICAgICAgICB5Mj17aGVpZ2h0IC0gc3VtbWFyeS50aHJlc2hvbGQgKiBoZWlnaHR9XG4gICAgICAgIC8+XG4gICAgICAgIDxwYXRoIGNsYXNzTmFtZT1cIm1pbmktZGl2ZXJnZW5jZS1iZXQzNjVcIiBkPXtiZXQzNjVQYXRofSAvPlxuICAgICAgICA8cGF0aCBjbGFzc05hbWU9XCJtaW5pLWRpdmVyZ2VuY2UtZXh0ZXJuYWxcIiBkPXtleHRlcm5hbFBhdGh9IC8+XG4gICAgICAgIDxwYXRoIGNsYXNzTmFtZT1cIm1pbmktZGl2ZXJnZW5jZS1nYXBcIiBkPXtnYXBQYXRofSAvPlxuICAgICAgPC9zdmc+XG4gICAgICA8ZGl2IGNsYXNzTmFtZT1cIm1pbmktZGl2ZXJnZW5jZS1tZXRhXCI+XG4gICAgICAgIDxzcGFuPmxhdGVzdCB7Zm9ybWF0R2FwUG9pbnRzKHN1bW1hcnkuY3VycmVudEdhcCl9PC9zcGFuPlxuICAgICAgICA8c3Bhbj5cbiAgICAgICAgICByYW5nZSB7Zm9ybWF0R2FwUG9pbnRzKHN1bW1hcnkubWluR2FwKX0tXG4gICAgICAgICAge2Zvcm1hdEdhcFBvaW50cyhzdW1tYXJ5Lm1heEdhcCl9XG4gICAgICAgIDwvc3Bhbj5cbiAgICAgICAgPHNwYW4+e2Zvcm1hdER1cmF0aW9uKHN1bW1hcnkuYWJvdmVUaHJlc2hvbGREdXJhdGlvbk1zKX0gYWJvdmU8L3NwYW4+XG4gICAgICA8L2Rpdj5cbiAgICA8L2Rpdj5cbiAgKTtcbn1cbiJdLCJmaWxlIjoiL3NyYy9jb21wb25lbnRzL0RpdmVyZ2VuY2VNaW5pQ2hhcnQudHN4In0=

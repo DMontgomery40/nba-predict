@@ -5,7 +5,10 @@ import { ErrorState, LoadingState } from "../../components/ErrorState";
 import { PageFrame } from "../../components/PageFrame";
 import { Panel, SectionTitle } from "../../components/Primitives";
 import { getGames } from "../../data/api";
-import { getGameOperationalState } from "../../lib/game-state";
+import {
+  formatGameScoreClock,
+  getGameOperationalState,
+} from "../../lib/game-state";
 import {
   buildGameTriage,
   getMarketSources,
@@ -19,21 +22,7 @@ import {
 import { formatOperatorDateTime } from "../../lib/time-format";
 
 function scoreLine(entry: GameRow) {
-  const gameState = entry.gameState;
-  const state = getGameOperationalState(entry);
-  if (state.kind === "final") {
-    const awayScore =
-      entry.outcome?.finalAwayScore ?? gameState?.awayScore ?? "-";
-    const homeScore =
-      entry.outcome?.finalHomeScore ?? gameState?.homeScore ?? "-";
-    return `${awayScore} - ${homeScore} · final`;
-  }
-
-  if (!gameState) {
-    return "No scoreboard yet";
-  }
-
-  return `${gameState.awayScore ?? "-"} - ${gameState.homeScore ?? "-"} · ${gameState.status}`;
+  return formatGameScoreClock(entry);
 }
 
 function formatGameName(entry: GameRow) {

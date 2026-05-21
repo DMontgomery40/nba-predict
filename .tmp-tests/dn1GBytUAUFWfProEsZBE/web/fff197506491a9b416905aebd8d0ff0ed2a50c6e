@@ -1,0 +1,920 @@
+Object.defineProperty(__vite_ssr_exports__, "MarketAnomaliesPage", { enumerable: true, configurable: true, get(){ try { return MarketAnomaliesPage } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/@tanstack+react-query@5.99.2_react@19.2.5/node_modules/@tanstack/react-query/build/modern/index.js", {"importedNames":["useMutation","useQuery","useQueryClient"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/lucide-react@0.503.0_react@19.2.5/node_modules/lucide-react/dist/cjs/lucide-react.js", {"importedNames":["RefreshCw","Save"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/index.js", {"importedNames":["useState"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react-router-dom@7.14.2_react-dom@19.2.5_react@19.2.5__react@19.2.5/node_modules/react-router-dom/dist/index.js", {"importedNames":["Link"]});
+const __vite_ssr_import_5__ = await __vite_ssr_import__("/src/components/PageFrame.tsx", {"importedNames":["PageFrame"]});
+const __vite_ssr_import_6__ = await __vite_ssr_import__("/src/components/Primitives.tsx", {"importedNames":["Panel"]});
+const __vite_ssr_import_7__ = await __vite_ssr_import__("/src/data/api.ts", {"importedNames":["getMarketAnomalies","getMarketAnomalyScoreConfig","putMarketAnomalyScoreConfig"]});
+
+
+
+
+const __vite_ssr_import_8__ = await __vite_ssr_import__("/src/lib/time-format.ts", {"importedNames":["formatOperatorDateTime"]});
+const sourceOptions = ["all", "kalshi", "polymarket", "bet365"];
+const familyOptions = [
+  "all",
+  "moneyline",
+  "spread",
+  "total",
+  "player-prop",
+  "team-prop",
+  "other"
+];
+function formatNumber(value, digits = 2) {
+  if (value == null || !Number.isFinite(value)) {
+    return "n/a";
+  };
+  return value.toFixed(digits);
+}
+function formatPercent(value) {
+  if (value == null || !Number.isFinite(value)) {
+    return "n/a";
+  };
+  return `${(value * 100).toFixed(1)}%`;
+}
+function formatCurrency(value) {
+  if (value == null || !Number.isFinite(value)) {
+    return "n/a";
+  };
+  return `$${value.toFixed(2)}`;
+}
+function anomalyTone(alert) {
+  if (alert.severity === "critical") return "critical";
+  if (alert.severity === "high") return "hot";
+  return "warm";
+}
+function anomalyHref(alert) {
+  if (alert.instrumentId) {
+    return `/games/${alert.gameId}/markets/${alert.instrumentId}`;
+  };
+  return `/settings#unmapped`;
+}
+function configDraftFrom(config) {
+  if (!config) {
+    return null;
+  };
+  return {
+    ...config,
+    thresholds: { ...config.thresholds },
+    toggles: { ...config.toggles },
+    weights: { ...config.weights }
+  };
+}
+function updateNumber(object, key, value) {
+  const next = Number(value);
+  return {
+    ...object,
+    [key]: Number.isFinite(next) ? next : object[key]
+  };
+}
+function AnomalyRow({ alert }) {
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { className: `prop-risk-${anomalyTone(alert)}`, children: [
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: alert.score }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 92,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+        formatPercent(alert.confidence),
+        " conf"
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 93,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 91,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: alert.displayLabel }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 96,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: alert.gameLabel }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 97,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 95,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: alert.source }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 100,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: alert.apiSurface }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 101,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 99,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: (0,__vite_ssr_import_8__.formatOperatorDateTime)(alert.eventTimestamp) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 104,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: alert.eventType }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 105,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 103,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: alert.labels.slice(0, 2).join(", ") }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 108,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: alert.mappingStatus }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 109,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 107,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: formatNumber(alert.metrics.tradePrice ?? alert.metrics.price) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 112,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+        "ref ",
+        formatNumber(alert.metrics.referencePrice),
+        " / dist",
+        " ",
+        formatPercent(alert.metrics.tradeDistance)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 115,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 111,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: formatCurrency(alert.metrics.notional) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 121,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+        "size ",
+        formatNumber(alert.metrics.size),
+        " / share",
+        " ",
+        formatPercent(alert.metrics.volumeShare)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 122,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 120,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: formatPercent(alert.metrics.spread) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 128,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+        "depth ",
+        formatNumber(alert.metrics.depthScore, 0)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 129,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 127,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_4__.Link), { className: "desk-link", to: anomalyHref(alert), children: "Open" }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 132,
+      columnNumber: 9
+    }, this) }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 131,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+    lineNumber: 90,
+    columnNumber: 5
+  }, this);
+}
+function MarketAnomaliesPage() {
+  const queryClient = (0,__vite_ssr_import_1__.useQueryClient)();
+  const [source, setSource] = (0,__vite_ssr_import_3__.useState)("all");
+  const [family, setFamily] = (0,__vite_ssr_import_3__.useState)("all");
+  const [includeUnmapped, setIncludeUnmapped] = (0,__vite_ssr_import_3__.useState)(true);
+  const [requireBet365, setRequireBet365] = (0,__vite_ssr_import_3__.useState)(false);
+  const config = (0,__vite_ssr_import_1__.useQuery)({
+    queryKey: ["market-anomaly-score-config"],
+    queryFn: __vite_ssr_import_7__.getMarketAnomalyScoreConfig
+  });
+  const [draft, setDraft] = (0,__vite_ssr_import_3__.useState)(null);
+  const activeConfig = draft ?? configDraftFrom(config.data?.data);
+  const anomalies = (0,__vite_ssr_import_1__.useQuery)({
+    queryKey: [
+      "market-anomalies",
+      source,
+      family,
+      includeUnmapped,
+      requireBet365,
+      activeConfig?.minScore,
+      activeConfig?.minConfidence
+    ],
+    queryFn: () => (0,__vite_ssr_import_7__.getMarketAnomalies)({
+      family: family === "all" ? void 0 : family,
+      includeHistorical: activeConfig?.toggles.includeHistorical,
+      includeUnmapped,
+      limit: 50,
+      minConfidence: activeConfig?.minConfidence,
+      minScore: activeConfig?.minScore,
+      requireBet365,
+      source: source === "all" ? void 0 : source
+    }),
+    refetchInterval: 5e3
+  });
+  const saveConfig = (0,__vite_ssr_import_1__.useMutation)({
+    mutationFn: (next) => (0,__vite_ssr_import_7__.putMarketAnomalyScoreConfig)(next),
+    onSuccess: (payload) => {
+      setDraft(configDraftFrom(payload.data));
+      queryClient.invalidateQueries({
+        queryKey: ["market-anomaly-score-config"]
+      });
+      queryClient.invalidateQueries({ queryKey: ["market-anomalies"] });
+    }
+  });
+  const rows = anomalies.data?.data ?? [];
+  const criticalCount = rows.filter(
+    (row) => row.severity === "critical"
+  ).length;
+  const topScore = rows[0]?.score ?? 0;
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_5__.PageFrame), { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "alert-monitor", "aria-label": "Prediction-market weirdness", children: [
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("section", { className: "alert-monitor-hero", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { className: "eyebrow", children: "Prediction-market weirdness" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 199,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h1", { children: "Market anomaly queue" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 200,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: rows.length > 0 ? `${rows.length} active anomaly rows; top score ${topScore}.` : anomalies.isLoading ? "Loading anomaly queue." : "No current market anomaly rows." }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 201,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 198,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "alert-monitor-actions", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Source" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 211,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            "select",
+            {
+              value: source,
+              onChange: (event) => setSource(event.target.value),
+              children: sourceOptions.map((option) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: option, children: option }, option, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 217,
+                columnNumber: 19
+              }, this))
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 212,
+              columnNumber: 15
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 210,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Family" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 224,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            "select",
+            {
+              value: family,
+              onChange: (event) => setFamily(event.target.value),
+              children: familyOptions.map((option) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: option, children: option }, option, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 230,
+                columnNumber: 19
+              }, this))
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 225,
+              columnNumber: 15
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 223,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "button",
+          {
+            "aria-label": "Refresh anomalies",
+            className: "icon-button",
+            onClick: () => anomalies.refetch(),
+            type: "button",
+            children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_2__.RefreshCw), { "aria-hidden": "true", size: 16 }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 242,
+              columnNumber: 15
+            }, this)
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 236,
+            columnNumber: 13
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 209,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 197,
+      columnNumber: 9
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("section", { className: "alert-monitor-stats", "aria-label": "Anomaly summary", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Rows" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 249,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: rows.length }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 250,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 248,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Critical" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 253,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: criticalCount }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 254,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 252,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Top score" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 257,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: topScore }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 258,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 256,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Generated" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 261,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: (0,__vite_ssr_import_8__.formatOperatorDateTime)(anomalies.data?.meta.generatedAt) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 262,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 260,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 247,
+      columnNumber: 9
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Panel), { className: "alert-monitor-panel", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "alert-monitor-section-head", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Live queue" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 271,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h2", { children: "Go look now" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 272,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 270,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "alert-monitor-actions", children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Unmapped" }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 276,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              "input",
+              {
+                checked: includeUnmapped,
+                onChange: (event) => setIncludeUnmapped(event.target.checked),
+                type: "checkbox"
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 277,
+                columnNumber: 17
+              },
+              this
+            )
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 275,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Require b365" }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 284,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              "input",
+              {
+                checked: requireBet365,
+                onChange: (event) => setRequireBet365(event.target.checked),
+                type: "checkbox"
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 285,
+                columnNumber: 17
+              },
+              this
+            )
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 283,
+            columnNumber: 15
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 274,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 269,
+        columnNumber: 11
+      }, this),
+      anomalies.isError ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "alert-monitor-error", children: "Market anomaly feed failed to load." }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 294,
+        columnNumber: 13
+      }, this) : rows.length === 0 ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "alert-monitor-empty", children: "No current prediction-market weirdness above the active score." }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 298,
+        columnNumber: 13
+      }, this) : /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "table-shell settings-table-shell", children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("table", { className: "desk-table compact settings-table", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("thead", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Score" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 306,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Market" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 307,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Venue" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 308,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Time" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 309,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Signal" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 310,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Price" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 311,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Volume" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 312,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Book" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 313,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Open" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 314,
+            columnNumber: 21
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 305,
+          columnNumber: 19
+        }, this) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 304,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tbody", { children: rows.map((alert) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(AnomalyRow, { alert }, alert.id, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 319,
+          columnNumber: 21
+        }, this)) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 317,
+          columnNumber: 17
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 303,
+        columnNumber: 15
+      }, this) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 302,
+        columnNumber: 13
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 268,
+      columnNumber: 9
+    }, this),
+    activeConfig ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Panel), { className: "alert-monitor-panel", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "alert-monitor-section-head", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Score profile" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 331,
+            columnNumber: 17
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h2", { children: "Active knobs" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 332,
+            columnNumber: 17
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 330,
+          columnNumber: 15
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          "button",
+          {
+            className: "ghost-button",
+            disabled: saveConfig.isPending,
+            onClick: () => saveConfig.mutate(activeConfig),
+            type: "button",
+            children: [
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_2__.Save), { "aria-hidden": "true", size: 14 }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 340,
+                columnNumber: 17
+              }, this),
+              "Save"
+            ]
+          },
+          void 0,
+          true,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 334,
+            columnNumber: 15
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 329,
+        columnNumber: 13
+      }, this),
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "table-shell settings-table-shell", children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("table", { className: "desk-table compact settings-table", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("thead", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Knob" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 348,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Value" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 349,
+            columnNumber: 21
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Current use" }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 350,
+            columnNumber: 21
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 347,
+          columnNumber: 19
+        }, this) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 346,
+          columnNumber: 17
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tbody", { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: "Minimum score" }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 355,
+              columnNumber: 21
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              "input",
+              {
+                onChange: (event) => setDraft({
+                  ...activeConfig,
+                  minScore: Number(event.target.value)
+                }),
+                type: "number",
+                value: activeConfig.minScore
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 357,
+                columnNumber: 23
+              },
+              this
+            ) }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 356,
+              columnNumber: 21
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: "Queue threshold" }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 368,
+              columnNumber: 21
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 354,
+            columnNumber: 19
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: "Minimum confidence" }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 371,
+              columnNumber: 21
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              "input",
+              {
+                onChange: (event) => setDraft({
+                  ...activeConfig,
+                  minConfidence: Number(event.target.value)
+                }),
+                step: "0.05",
+                type: "number",
+                value: activeConfig.minConfidence
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 373,
+                columnNumber: 23
+              },
+              this
+            ) }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 372,
+              columnNumber: 21
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: "Surface quality threshold" }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 385,
+              columnNumber: 21
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 370,
+            columnNumber: 19
+          }, this),
+          Object.entries(activeConfig.weights).map(([key, value]) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: [
+              key,
+              " weight"
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 389,
+              columnNumber: 23
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              "input",
+              {
+                onChange: (event) => setDraft({
+                  ...activeConfig,
+                  weights: updateNumber(
+                    activeConfig.weights,
+                    key,
+                    event.target.value
+                  )
+                }),
+                step: "0.05",
+                type: "number",
+                value
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 391,
+                columnNumber: 25
+              },
+              this
+            ) }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 390,
+              columnNumber: 23
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: "Score component" }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 407,
+              columnNumber: 23
+            }, this)
+          ] }, `weight-${key}`, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+            lineNumber: 388,
+            columnNumber: 21
+          }, this)),
+          Object.entries(activeConfig.thresholds).map(
+            ([key, value]) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { children: [
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: key }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 413,
+                columnNumber: 25
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                "input",
+                {
+                  onChange: (event) => setDraft({
+                    ...activeConfig,
+                    thresholds: updateNumber(
+                      activeConfig.thresholds,
+                      key,
+                      event.target.value
+                    )
+                  }),
+                  step: "0.01",
+                  type: "number",
+                  value
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                  lineNumber: 415,
+                  columnNumber: 27
+                },
+                this
+              ) }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 414,
+                columnNumber: 25
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: "Detection threshold" }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+                lineNumber: 431,
+                columnNumber: 25
+              }, this)
+            ] }, `threshold-${key}`, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+              lineNumber: 412,
+              columnNumber: 23
+            }, this)
+          )
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+          lineNumber: 353,
+          columnNumber: 17
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 345,
+        columnNumber: 15
+      }, this) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+        lineNumber: 344,
+        columnNumber: 13
+      }, this)
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+      lineNumber: 328,
+      columnNumber: 11
+    }, this) : null
+  ] }, void 0, true, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+    lineNumber: 196,
+    columnNumber: 7
+  }, this) }, void 0, false, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/anomalies/MarketAnomaliesPage.tsx",
+    lineNumber: 195,
+    columnNumber: 5
+  }, this);
+}
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IjtBQTJGUTtBQTNGUjtBQUNBO0FBQ0E7QUFDQTtBQUVBO0FBQ0E7QUFDQTs7Ozs7QUFPQTtBQUlBLE1BQU0sZ0JBQWdCLENBQUMsT0FBTyxVQUFVLGNBQWMsUUFBUTtBQUM5RCxNQUFNLGdCQUFnQjtBQUFBLEVBQ3BCO0FBQUEsRUFDQTtBQUFBLEVBQ0E7QUFBQSxFQUNBO0FBQUEsRUFDQTtBQUFBLEVBQ0E7QUFBQSxFQUNBO0FBQ0Y7QUFFQSxTQUFTLGFBQWEsT0FBdUIsU0FBUyxHQUFHO0FBQ3ZELE1BQUksU0FBUyxRQUFRLENBQUMsT0FBTyxTQUFTLEtBQUssR0FBRztBQUM1QyxXQUFPO0FBQUEsRUFDVDtBQUNBLFNBQU8sTUFBTSxRQUFRLE1BQU07QUFDN0I7QUFFQSxTQUFTLGNBQWMsT0FBdUI7QUFDNUMsTUFBSSxTQUFTLFFBQVEsQ0FBQyxPQUFPLFNBQVMsS0FBSyxHQUFHO0FBQzVDLFdBQU87QUFBQSxFQUNUO0FBQ0EsU0FBTyxJQUFJLFFBQVEsS0FBSyxRQUFRLENBQUMsQ0FBQztBQUNwQztBQUVBLFNBQVMsZUFBZSxPQUF1QjtBQUM3QyxNQUFJLFNBQVMsUUFBUSxDQUFDLE9BQU8sU0FBUyxLQUFLLEdBQUc7QUFDNUMsV0FBTztBQUFBLEVBQ1Q7QUFDQSxTQUFPLElBQUksTUFBTSxRQUFRLENBQUMsQ0FBQztBQUM3QjtBQUVBLFNBQVMsWUFBWSxPQUFzQjtBQUN6QyxNQUFJLE1BQU0sYUFBYSxXQUFZLFFBQU87QUFDMUMsTUFBSSxNQUFNLGFBQWEsT0FBUSxRQUFPO0FBQ3RDLFNBQU87QUFDVDtBQUVBLFNBQVMsWUFBWSxPQUFzQjtBQUN6QyxNQUFJLE1BQU0sY0FBYztBQUN0QixXQUFPLFVBQVUsTUFBTSxNQUFNLFlBQVksTUFBTSxZQUFZO0FBQUEsRUFDN0Q7QUFDQSxTQUFPO0FBQ1Q7QUFFQSxTQUFTLGdCQUFnQixRQUFtQztBQUMxRCxNQUFJLENBQUMsUUFBUTtBQUNYLFdBQU87QUFBQSxFQUNUO0FBQ0EsU0FBTztBQUFBLElBQ0wsR0FBRztBQUFBLElBQ0gsWUFBWSxFQUFFLEdBQUcsT0FBTyxXQUFXO0FBQUEsSUFDbkMsU0FBUyxFQUFFLEdBQUcsT0FBTyxRQUFRO0FBQUEsSUFDN0IsU0FBUyxFQUFFLEdBQUcsT0FBTyxRQUFRO0FBQUEsRUFDL0I7QUFDRjtBQUVBLFNBQVMsYUFDUCxRQUNBLEtBQ0EsT0FDRztBQUNILFFBQU0sT0FBTyxPQUFPLEtBQUs7QUFDekIsU0FBTztBQUFBLElBQ0wsR0FBRztBQUFBLElBQ0gsQ0FBQyxHQUFHLEdBQUcsT0FBTyxTQUFTLElBQUksSUFBSSxPQUFPLE9BQU8sR0FBRztBQUFBLEVBQ2xEO0FBQ0Y7QUFFQSxTQUFTLFdBQVcsRUFBRSxNQUFNLEdBQTZCO0FBQ3ZELFNBQ0UsaURBQUMsUUFBRyxXQUFXLGFBQWEsWUFBWSxLQUFLLENBQUMsSUFDNUM7QUFBQSxxREFBQyxRQUNDO0FBQUEsdURBQUMsWUFBUSxnQkFBTSxTQUFmO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBcUI7QUFBQSxNQUNyQixpREFBQyxVQUFNO0FBQUEsc0JBQWMsTUFBTSxVQUFVO0FBQUEsUUFBRTtBQUFBLFdBQXZDO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBNEM7QUFBQSxTQUY5QztBQUFBO0FBQUE7QUFBQTtBQUFBLFdBR0E7QUFBQSxJQUNBLGlEQUFDLFFBQ0M7QUFBQSx1REFBQyxZQUFRLGdCQUFNLGdCQUFmO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBNEI7QUFBQSxNQUM1QixpREFBQyxVQUFNLGdCQUFNLGFBQWI7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUF1QjtBQUFBLFNBRnpCO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FHQTtBQUFBLElBQ0EsaURBQUMsUUFDQztBQUFBLHVEQUFDLFlBQVEsZ0JBQU0sVUFBZjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBQXNCO0FBQUEsTUFDdEIsaURBQUMsVUFBTSxnQkFBTSxjQUFiO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBd0I7QUFBQSxTQUYxQjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBR0E7QUFBQSxJQUNBLGlEQUFDLFFBQ0M7QUFBQSx1REFBQyxZQUFRLDJEQUF1QixNQUFNLGNBQWMsS0FBcEQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUFzRDtBQUFBLE1BQ3RELGlEQUFDLFVBQU0sZ0JBQU0sYUFBYjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBQXVCO0FBQUEsU0FGekI7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQUdBO0FBQUEsSUFDQSxpREFBQyxRQUNDO0FBQUEsdURBQUMsWUFBUSxnQkFBTSxPQUFPLE1BQU0sR0FBRyxDQUFDLEVBQUUsS0FBSyxJQUFJLEtBQTNDO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBNkM7QUFBQSxNQUM3QyxpREFBQyxVQUFNLGdCQUFNLGlCQUFiO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBMkI7QUFBQSxTQUY3QjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBR0E7QUFBQSxJQUNBLGlEQUFDLFFBQ0M7QUFBQSx1REFBQyxZQUNFLHVCQUFhLE1BQU0sUUFBUSxjQUFjLE1BQU0sUUFBUSxLQUFLLEtBRC9EO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFFQTtBQUFBLE1BQ0EsaURBQUMsVUFBSztBQUFBO0FBQUEsUUFDQyxhQUFhLE1BQU0sUUFBUSxjQUFjO0FBQUEsUUFBRTtBQUFBLFFBQVE7QUFBQSxRQUN2RCxjQUFjLE1BQU0sUUFBUSxhQUFhO0FBQUEsV0FGNUM7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUdBO0FBQUEsU0FQRjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBUUE7QUFBQSxJQUNBLGlEQUFDLFFBQ0M7QUFBQSx1REFBQyxZQUFRLHlCQUFlLE1BQU0sUUFBUSxRQUFRLEtBQTlDO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFBZ0Q7QUFBQSxNQUNoRCxpREFBQyxVQUFLO0FBQUE7QUFBQSxRQUNFLGFBQWEsTUFBTSxRQUFRLElBQUk7QUFBQSxRQUFFO0FBQUEsUUFBUztBQUFBLFFBQy9DLGNBQWMsTUFBTSxRQUFRLFdBQVc7QUFBQSxXQUYxQztBQUFBO0FBQUE7QUFBQTtBQUFBLGFBR0E7QUFBQSxTQUxGO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FNQTtBQUFBLElBQ0EsaURBQUMsUUFDQztBQUFBLHVEQUFDLFlBQVEsd0JBQWMsTUFBTSxRQUFRLE1BQU0sS0FBM0M7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUE2QztBQUFBLE1BQzdDLGlEQUFDLFVBQUs7QUFBQTtBQUFBLFFBQU8sYUFBYSxNQUFNLFFBQVEsWUFBWSxDQUFDO0FBQUEsV0FBckQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUF1RDtBQUFBLFNBRnpEO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FHQTtBQUFBLElBQ0EsaURBQUMsUUFDQyw4REFBQywrQkFBSyxXQUFVLGFBQVksSUFBSSxZQUFZLEtBQUssR0FBRyxvQkFBcEQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQUVBLEtBSEY7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQUlBO0FBQUEsT0E3Q0Y7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQThDQTtBQUVKO0FBRU8sU0FBUyxzQkFBc0I7QUFDcEMsUUFBTSxpQkFBYyxzQ0FBZTtBQUNuQyxRQUFNLENBQUMsUUFBUSxTQUFTLE9BQUksZ0NBQVMsS0FBSztBQUMxQyxRQUFNLENBQUMsUUFBUSxTQUFTLE9BQUksZ0NBQVMsS0FBSztBQUMxQyxRQUFNLENBQUMsaUJBQWlCLGtCQUFrQixPQUFJLGdDQUFTLElBQUk7QUFDM0QsUUFBTSxDQUFDLGVBQWUsZ0JBQWdCLE9BQUksZ0NBQVMsS0FBSztBQUN4RCxRQUFNLFlBQVMsZ0NBQVM7QUFBQSxJQUN0QixVQUFVLENBQUMsNkJBQTZCO0FBQUEsSUFDeEMsU0FBUztBQUFBLEVBQ1gsQ0FBQztBQUNELFFBQU0sQ0FBQyxPQUFPLFFBQVEsT0FBSSxnQ0FBMEMsSUFBSTtBQUV4RSxRQUFNLGVBQWUsU0FBUyxnQkFBZ0IsT0FBTyxNQUFNLElBQUk7QUFDL0QsUUFBTSxlQUFZLGdDQUFTO0FBQUEsSUFDekIsVUFBVTtBQUFBLE1BQ1I7QUFBQSxNQUNBO0FBQUEsTUFDQTtBQUFBLE1BQ0E7QUFBQSxNQUNBO0FBQUEsTUFDQSxjQUFjO0FBQUEsTUFDZCxjQUFjO0FBQUEsSUFDaEI7QUFBQSxJQUNBLFNBQVMsU0FDUCwwQ0FBbUI7QUFBQSxNQUNqQixRQUFRLFdBQVcsUUFBUSxTQUFZO0FBQUEsTUFDdkMsbUJBQW1CLGNBQWMsUUFBUTtBQUFBLE1BQ3pDO0FBQUEsTUFDQSxPQUFPO0FBQUEsTUFDUCxlQUFlLGNBQWM7QUFBQSxNQUM3QixVQUFVLGNBQWM7QUFBQSxNQUN4QjtBQUFBLE1BQ0EsUUFBUSxXQUFXLFFBQVEsU0FBWTtBQUFBLElBQ3pDLENBQUM7QUFBQSxJQUNILGlCQUFpQjtBQUFBLEVBQ25CLENBQUM7QUFDRCxRQUFNLGdCQUFhLG1DQUFZO0FBQUEsSUFDN0IsWUFBWSxDQUFDLFlBQ1gsbURBQTRCLElBQUk7QUFBQSxJQUNsQyxXQUFXLENBQUMsWUFBWTtBQUN0QixlQUFTLGdCQUFnQixRQUFRLElBQUksQ0FBQztBQUN0QyxrQkFBWSxrQkFBa0I7QUFBQSxRQUM1QixVQUFVLENBQUMsNkJBQTZCO0FBQUEsTUFDMUMsQ0FBQztBQUNELGtCQUFZLGtCQUFrQixFQUFFLFVBQVUsQ0FBQyxrQkFBa0IsRUFBRSxDQUFDO0FBQUEsSUFDbEU7QUFBQSxFQUNGLENBQUM7QUFFRCxRQUFNLE9BQU8sVUFBVSxNQUFNLFFBQVEsQ0FBQztBQUN0QyxRQUFNLGdCQUFnQixLQUFLO0FBQUEsSUFDekIsQ0FBQyxRQUFRLElBQUksYUFBYTtBQUFBLEVBQzVCLEVBQUU7QUFDRixRQUFNLFdBQVcsS0FBSyxDQUFDLEdBQUcsU0FBUztBQUVuQyxTQUNFLG9EQUFDLG9DQUNDLDJEQUFDLFNBQUksV0FBVSxpQkFBZ0IsY0FBVywrQkFDeEM7QUFBQSxxREFBQyxhQUFRLFdBQVUsc0JBQ2pCO0FBQUEsdURBQUMsU0FDQztBQUFBLHlEQUFDLFVBQUssV0FBVSxXQUFVLDJDQUExQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQXFEO0FBQUEsUUFDckQsaURBQUMsUUFBRyxvQ0FBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQXdCO0FBQUEsUUFDeEIsaURBQUMsT0FDRSxlQUFLLFNBQVMsSUFDWCxHQUFHLEtBQUssTUFBTSxtQ0FBbUMsUUFBUSxNQUN6RCxVQUFVLFlBQ1IsMkJBQ0EscUNBTFI7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQU1BO0FBQUEsV0FURjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBVUE7QUFBQSxNQUNBLGlEQUFDLFNBQUksV0FBVSx5QkFDYjtBQUFBLHlEQUFDLFdBQ0M7QUFBQSwyREFBQyxVQUFLLHNCQUFOO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBQVk7QUFBQSxVQUNaO0FBQUEsWUFBQztBQUFBO0FBQUEsY0FDQyxPQUFPO0FBQUEsY0FDUCxVQUFVLENBQUMsVUFBVSxVQUFVLE1BQU0sT0FBTyxLQUFLO0FBQUEsY0FFaEQsd0JBQWMsSUFBSSxDQUFDLFdBQ2xCLGlEQUFDLFlBQW9CLE9BQU8sUUFDekIsb0JBRFUsUUFBYjtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUVBLENBQ0Q7QUFBQTtBQUFBLFlBUkg7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLFVBU0E7QUFBQSxhQVhGO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFZQTtBQUFBLFFBQ0EsaURBQUMsV0FDQztBQUFBLDJEQUFDLFVBQUssc0JBQU47QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBWTtBQUFBLFVBQ1o7QUFBQSxZQUFDO0FBQUE7QUFBQSxjQUNDLE9BQU87QUFBQSxjQUNQLFVBQVUsQ0FBQyxVQUFVLFVBQVUsTUFBTSxPQUFPLEtBQUs7QUFBQSxjQUVoRCx3QkFBYyxJQUFJLENBQUMsV0FDbEIsaURBQUMsWUFBb0IsT0FBTyxRQUN6QixvQkFEVSxRQUFiO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBRUEsQ0FDRDtBQUFBO0FBQUEsWUFSSDtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsVUFTQTtBQUFBLGFBWEY7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQVlBO0FBQUEsUUFDQTtBQUFBLFVBQUM7QUFBQTtBQUFBLFlBQ0MsY0FBVztBQUFBLFlBQ1gsV0FBVTtBQUFBLFlBQ1YsU0FBUyxNQUFNLFVBQVUsUUFBUTtBQUFBLFlBQ2pDLE1BQUs7QUFBQSxZQUVMLDhEQUFDLG9DQUFVLGVBQVksUUFBTyxNQUFNLE1BQXBDO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBQXdDO0FBQUE7QUFBQSxVQU4xQztBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsUUFPQTtBQUFBLFdBbENGO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFtQ0E7QUFBQSxTQS9DRjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBZ0RBO0FBQUEsSUFFQSxpREFBQyxhQUFRLFdBQVUsdUJBQXNCLGNBQVcsbUJBQ2xEO0FBQUEsdURBQUMsU0FDQztBQUFBLHlEQUFDLFVBQUssb0JBQU47QUFBQTtBQUFBO0FBQUE7QUFBQSxlQUFVO0FBQUEsUUFDVixpREFBQyxZQUFRLGVBQUssVUFBZDtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQXFCO0FBQUEsV0FGdkI7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUdBO0FBQUEsTUFDQSxpREFBQyxTQUNDO0FBQUEseURBQUMsVUFBSyx3QkFBTjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQWM7QUFBQSxRQUNkLGlEQUFDLFlBQVEsMkJBQVQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQUF1QjtBQUFBLFdBRnpCO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFHQTtBQUFBLE1BQ0EsaURBQUMsU0FDQztBQUFBLHlEQUFDLFVBQUsseUJBQU47QUFBQTtBQUFBO0FBQUE7QUFBQSxlQUFlO0FBQUEsUUFDZixpREFBQyxZQUFRLHNCQUFUO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBa0I7QUFBQSxXQUZwQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBR0E7QUFBQSxNQUNBLGlEQUFDLFNBQ0M7QUFBQSx5REFBQyxVQUFLLHlCQUFOO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBZTtBQUFBLFFBQ2YsaURBQUMsWUFDRSwyREFBdUIsVUFBVSxNQUFNLEtBQUssV0FBVyxLQUQxRDtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBRUE7QUFBQSxXQUpGO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFLQTtBQUFBLFNBbEJGO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FtQkE7QUFBQSxJQUVBLG9EQUFDLGdDQUFNLFdBQVUsdUJBQ2Y7QUFBQSx1REFBQyxTQUFJLFdBQVUsOEJBQ2I7QUFBQSx5REFBQyxTQUNDO0FBQUEsMkRBQUMsVUFBSywwQkFBTjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUFnQjtBQUFBLFVBQ2hCLGlEQUFDLFFBQUcsMkJBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBZTtBQUFBLGFBRmpCO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFHQTtBQUFBLFFBQ0EsaURBQUMsU0FBSSxXQUFVLHlCQUNiO0FBQUEsMkRBQUMsV0FDQztBQUFBLDZEQUFDLFVBQUssd0JBQU47QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFBYztBQUFBLFlBQ2Q7QUFBQSxjQUFDO0FBQUE7QUFBQSxnQkFDQyxTQUFTO0FBQUEsZ0JBQ1QsVUFBVSxDQUFDLFVBQVUsbUJBQW1CLE1BQU0sT0FBTyxPQUFPO0FBQUEsZ0JBQzVELE1BQUs7QUFBQTtBQUFBLGNBSFA7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLFlBSUE7QUFBQSxlQU5GO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBT0E7QUFBQSxVQUNBLGlEQUFDLFdBQ0M7QUFBQSw2REFBQyxVQUFLLDRCQUFOO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBQWtCO0FBQUEsWUFDbEI7QUFBQSxjQUFDO0FBQUE7QUFBQSxnQkFDQyxTQUFTO0FBQUEsZ0JBQ1QsVUFBVSxDQUFDLFVBQVUsaUJBQWlCLE1BQU0sT0FBTyxPQUFPO0FBQUEsZ0JBQzFELE1BQUs7QUFBQTtBQUFBLGNBSFA7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLFlBSUE7QUFBQSxlQU5GO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBT0E7QUFBQSxhQWhCRjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBaUJBO0FBQUEsV0F0QkY7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQXVCQTtBQUFBLE1BQ0MsVUFBVSxVQUNULGlEQUFDLFNBQUksV0FBVSx1QkFBc0IsbURBQXJDO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFFQSxJQUNFLEtBQUssV0FBVyxJQUNsQixpREFBQyxTQUFJLFdBQVUsdUJBQXNCLDhFQUFyQztBQUFBO0FBQUE7QUFBQTtBQUFBLGFBRUEsSUFFQSxpREFBQyxTQUFJLFdBQVUsb0NBQ2IsMkRBQUMsV0FBTSxXQUFVLHFDQUNmO0FBQUEseURBQUMsV0FDQywyREFBQyxRQUNDO0FBQUEsMkRBQUMsUUFBRyxxQkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUFTO0FBQUEsVUFDVCxpREFBQyxRQUFHLHNCQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBQVU7QUFBQSxVQUNWLGlEQUFDLFFBQUcscUJBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBUztBQUFBLFVBQ1QsaURBQUMsUUFBRyxvQkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUFRO0FBQUEsVUFDUixpREFBQyxRQUFHLHNCQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBQVU7QUFBQSxVQUNWLGlEQUFDLFFBQUcscUJBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBUztBQUFBLFVBQ1QsaURBQUMsUUFBRyxzQkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUFVO0FBQUEsVUFDVixpREFBQyxRQUFHLG9CQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBQVE7QUFBQSxVQUNSLGlEQUFDLFFBQUcsb0JBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBUTtBQUFBLGFBVFY7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQVVBLEtBWEY7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQVlBO0FBQUEsUUFDQSxpREFBQyxXQUNFLGVBQUssSUFBSSxDQUFDLFVBQ1QsaURBQUMsY0FBVyxTQUFtQixNQUFNLElBQXJDO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBeUMsQ0FDMUMsS0FISDtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBSUE7QUFBQSxXQWxCRjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBbUJBLEtBcEJGO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFxQkE7QUFBQSxTQXZESjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBeURBO0FBQUEsSUFFQyxlQUNDLG9EQUFDLGdDQUFNLFdBQVUsdUJBQ2Y7QUFBQSx1REFBQyxTQUFJLFdBQVUsOEJBQ2I7QUFBQSx5REFBQyxTQUNDO0FBQUEsMkRBQUMsVUFBSyw2QkFBTjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUFtQjtBQUFBLFVBQ25CLGlEQUFDLFFBQUcsNEJBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBZ0I7QUFBQSxhQUZsQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBR0E7QUFBQSxRQUNBO0FBQUEsVUFBQztBQUFBO0FBQUEsWUFDQyxXQUFVO0FBQUEsWUFDVixVQUFVLFdBQVc7QUFBQSxZQUNyQixTQUFTLE1BQU0sV0FBVyxPQUFPLFlBQVk7QUFBQSxZQUM3QyxNQUFLO0FBQUEsWUFFTDtBQUFBLGtFQUFDLCtCQUFLLGVBQVksUUFBTyxNQUFNLE1BQS9CO0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQW1DO0FBQUEsY0FBRTtBQUFBO0FBQUE7QUFBQSxVQU52QztBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsUUFRQTtBQUFBLFdBYkY7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQWNBO0FBQUEsTUFDQSxpREFBQyxTQUFJLFdBQVUsb0NBQ2IsMkRBQUMsV0FBTSxXQUFVLHFDQUNmO0FBQUEseURBQUMsV0FDQywyREFBQyxRQUNDO0FBQUEsMkRBQUMsUUFBRyxvQkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUFRO0FBQUEsVUFDUixpREFBQyxRQUFHLHFCQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBQVM7QUFBQSxVQUNULGlEQUFDLFFBQUcsMkJBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBZTtBQUFBLGFBSGpCO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFJQSxLQUxGO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFNQTtBQUFBLFFBQ0EsaURBQUMsV0FDQztBQUFBLDJEQUFDLFFBQ0M7QUFBQSw2REFBQyxRQUFHLDZCQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBQWlCO0FBQUEsWUFDakIsaURBQUMsUUFDQztBQUFBLGNBQUM7QUFBQTtBQUFBLGdCQUNDLFVBQVUsQ0FBQyxVQUNULFNBQVM7QUFBQSxrQkFDUCxHQUFHO0FBQUEsa0JBQ0gsVUFBVSxPQUFPLE1BQU0sT0FBTyxLQUFLO0FBQUEsZ0JBQ3JDLENBQUM7QUFBQSxnQkFFSCxNQUFLO0FBQUEsZ0JBQ0wsT0FBTyxhQUFhO0FBQUE7QUFBQSxjQVJ0QjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsWUFTQSxLQVZGO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBV0E7QUFBQSxZQUNBLGlEQUFDLFFBQUcsK0JBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFBbUI7QUFBQSxlQWRyQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQWVBO0FBQUEsVUFDQSxpREFBQyxRQUNDO0FBQUEsNkRBQUMsUUFBRyxrQ0FBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQUFzQjtBQUFBLFlBQ3RCLGlEQUFDLFFBQ0M7QUFBQSxjQUFDO0FBQUE7QUFBQSxnQkFDQyxVQUFVLENBQUMsVUFDVCxTQUFTO0FBQUEsa0JBQ1AsR0FBRztBQUFBLGtCQUNILGVBQWUsT0FBTyxNQUFNLE9BQU8sS0FBSztBQUFBLGdCQUMxQyxDQUFDO0FBQUEsZ0JBRUgsTUFBSztBQUFBLGdCQUNMLE1BQUs7QUFBQSxnQkFDTCxPQUFPLGFBQWE7QUFBQTtBQUFBLGNBVHRCO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxZQVVBLEtBWEY7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFZQTtBQUFBLFlBQ0EsaURBQUMsUUFBRyx5Q0FBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQUE2QjtBQUFBLGVBZi9CO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBZ0JBO0FBQUEsVUFDQyxPQUFPLFFBQVEsYUFBYSxPQUFPLEVBQUUsSUFBSSxDQUFDLENBQUMsS0FBSyxLQUFLLE1BQ3BELGlEQUFDLFFBQ0M7QUFBQSw2REFBQyxRQUFJO0FBQUE7QUFBQSxjQUFJO0FBQUEsaUJBQVQ7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFBZ0I7QUFBQSxZQUNoQixpREFBQyxRQUNDO0FBQUEsY0FBQztBQUFBO0FBQUEsZ0JBQ0MsVUFBVSxDQUFDLFVBQ1QsU0FBUztBQUFBLGtCQUNQLEdBQUc7QUFBQSxrQkFDSCxTQUFTO0FBQUEsb0JBQ1AsYUFBYTtBQUFBLG9CQUNiO0FBQUEsb0JBQ0EsTUFBTSxPQUFPO0FBQUEsa0JBQ2Y7QUFBQSxnQkFDRixDQUFDO0FBQUEsZ0JBRUgsTUFBSztBQUFBLGdCQUNMLE1BQUs7QUFBQSxnQkFDTDtBQUFBO0FBQUEsY0FiRjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsWUFjQSxLQWZGO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBZ0JBO0FBQUEsWUFDQSxpREFBQyxRQUFHLCtCQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBQW1CO0FBQUEsZUFuQlosVUFBVSxHQUFHLElBQXRCO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBb0JBLENBQ0Q7QUFBQSxVQUNBLE9BQU8sUUFBUSxhQUFhLFVBQVUsRUFBRTtBQUFBLFlBQ3ZDLENBQUMsQ0FBQyxLQUFLLEtBQUssTUFDVixpREFBQyxRQUNDO0FBQUEsK0RBQUMsUUFBSSxpQkFBTDtBQUFBO0FBQUE7QUFBQTtBQUFBLHFCQUFTO0FBQUEsY0FDVCxpREFBQyxRQUNDO0FBQUEsZ0JBQUM7QUFBQTtBQUFBLGtCQUNDLFVBQVUsQ0FBQyxVQUNULFNBQVM7QUFBQSxvQkFDUCxHQUFHO0FBQUEsb0JBQ0gsWUFBWTtBQUFBLHNCQUNWLGFBQWE7QUFBQSxzQkFDYjtBQUFBLHNCQUNBLE1BQU0sT0FBTztBQUFBLG9CQUNmO0FBQUEsa0JBQ0YsQ0FBQztBQUFBLGtCQUVILE1BQUs7QUFBQSxrQkFDTCxNQUFLO0FBQUEsa0JBQ0w7QUFBQTtBQUFBLGdCQWJGO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxjQWNBLEtBZkY7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFnQkE7QUFBQSxjQUNBLGlEQUFDLFFBQUcsbUNBQUo7QUFBQTtBQUFBO0FBQUE7QUFBQSxxQkFBdUI7QUFBQSxpQkFuQmhCLGFBQWEsR0FBRyxJQUF6QjtBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQW9CQTtBQUFBLFVBRUo7QUFBQSxhQWpGRjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBa0ZBO0FBQUEsV0ExRkY7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQTJGQSxLQTVGRjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBNkZBO0FBQUEsU0E3R0Y7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQThHQSxJQUNFO0FBQUEsT0FuUE47QUFBQTtBQUFBO0FBQUE7QUFBQSxTQW9QQSxLQXJQRjtBQUFBO0FBQUE7QUFBQTtBQUFBLFNBc1BBO0FBRUoiLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIk1hcmtldEFub21hbGllc1BhZ2UudHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHVzZU11dGF0aW9uLCB1c2VRdWVyeSwgdXNlUXVlcnlDbGllbnQgfSBmcm9tIFwiQHRhbnN0YWNrL3JlYWN0LXF1ZXJ5XCI7XG5pbXBvcnQgeyBSZWZyZXNoQ3csIFNhdmUgfSBmcm9tIFwibHVjaWRlLXJlYWN0XCI7XG5pbXBvcnQgeyB1c2VTdGF0ZSB9IGZyb20gXCJyZWFjdFwiO1xuaW1wb3J0IHsgTGluayB9IGZyb20gXCJyZWFjdC1yb3V0ZXItZG9tXCI7XG5cbmltcG9ydCB7IFBhZ2VGcmFtZSB9IGZyb20gXCIuLi8uLi9jb21wb25lbnRzL1BhZ2VGcmFtZVwiO1xuaW1wb3J0IHsgUGFuZWwgfSBmcm9tIFwiLi4vLi4vY29tcG9uZW50cy9QcmltaXRpdmVzXCI7XG5pbXBvcnQge1xuICBnZXRNYXJrZXRBbm9tYWxpZXMsXG4gIGdldE1hcmtldEFub21hbHlTY29yZUNvbmZpZyxcbiAgcHV0TWFya2V0QW5vbWFseVNjb3JlQ29uZmlnLFxuICB0eXBlIE1hcmtldEFub21hbGllc1BheWxvYWQsXG4gIHR5cGUgTWFya2V0QW5vbWFseVNjb3JlQ29uZmlnLFxufSBmcm9tIFwiLi4vLi4vZGF0YS9hcGlcIjtcbmltcG9ydCB7IGZvcm1hdE9wZXJhdG9yRGF0ZVRpbWUgfSBmcm9tIFwiLi4vLi4vbGliL3RpbWUtZm9ybWF0XCI7XG5cbnR5cGUgTWFya2V0QW5vbWFseSA9IE1hcmtldEFub21hbGllc1BheWxvYWRbXCJkYXRhXCJdW251bWJlcl07XG5cbmNvbnN0IHNvdXJjZU9wdGlvbnMgPSBbXCJhbGxcIiwgXCJrYWxzaGlcIiwgXCJwb2x5bWFya2V0XCIsIFwiYmV0MzY1XCJdO1xuY29uc3QgZmFtaWx5T3B0aW9ucyA9IFtcbiAgXCJhbGxcIixcbiAgXCJtb25leWxpbmVcIixcbiAgXCJzcHJlYWRcIixcbiAgXCJ0b3RhbFwiLFxuICBcInBsYXllci1wcm9wXCIsXG4gIFwidGVhbS1wcm9wXCIsXG4gIFwib3RoZXJcIixcbl07XG5cbmZ1bmN0aW9uIGZvcm1hdE51bWJlcih2YWx1ZT86IG51bWJlciB8IG51bGwsIGRpZ2l0cyA9IDIpIHtcbiAgaWYgKHZhbHVlID09IG51bGwgfHwgIU51bWJlci5pc0Zpbml0ZSh2YWx1ZSkpIHtcbiAgICByZXR1cm4gXCJuL2FcIjtcbiAgfVxuICByZXR1cm4gdmFsdWUudG9GaXhlZChkaWdpdHMpO1xufVxuXG5mdW5jdGlvbiBmb3JtYXRQZXJjZW50KHZhbHVlPzogbnVtYmVyIHwgbnVsbCkge1xuICBpZiAodmFsdWUgPT0gbnVsbCB8fCAhTnVtYmVyLmlzRmluaXRlKHZhbHVlKSkge1xuICAgIHJldHVybiBcIm4vYVwiO1xuICB9XG4gIHJldHVybiBgJHsodmFsdWUgKiAxMDApLnRvRml4ZWQoMSl9JWA7XG59XG5cbmZ1bmN0aW9uIGZvcm1hdEN1cnJlbmN5KHZhbHVlPzogbnVtYmVyIHwgbnVsbCkge1xuICBpZiAodmFsdWUgPT0gbnVsbCB8fCAhTnVtYmVyLmlzRmluaXRlKHZhbHVlKSkge1xuICAgIHJldHVybiBcIm4vYVwiO1xuICB9XG4gIHJldHVybiBgJCR7dmFsdWUudG9GaXhlZCgyKX1gO1xufVxuXG5mdW5jdGlvbiBhbm9tYWx5VG9uZShhbGVydDogTWFya2V0QW5vbWFseSkge1xuICBpZiAoYWxlcnQuc2V2ZXJpdHkgPT09IFwiY3JpdGljYWxcIikgcmV0dXJuIFwiY3JpdGljYWxcIjtcbiAgaWYgKGFsZXJ0LnNldmVyaXR5ID09PSBcImhpZ2hcIikgcmV0dXJuIFwiaG90XCI7XG4gIHJldHVybiBcIndhcm1cIjtcbn1cblxuZnVuY3Rpb24gYW5vbWFseUhyZWYoYWxlcnQ6IE1hcmtldEFub21hbHkpIHtcbiAgaWYgKGFsZXJ0Lmluc3RydW1lbnRJZCkge1xuICAgIHJldHVybiBgL2dhbWVzLyR7YWxlcnQuZ2FtZUlkfS9tYXJrZXRzLyR7YWxlcnQuaW5zdHJ1bWVudElkfWA7XG4gIH1cbiAgcmV0dXJuIGAvc2V0dGluZ3MjdW5tYXBwZWRgO1xufVxuXG5mdW5jdGlvbiBjb25maWdEcmFmdEZyb20oY29uZmlnPzogTWFya2V0QW5vbWFseVNjb3JlQ29uZmlnKSB7XG4gIGlmICghY29uZmlnKSB7XG4gICAgcmV0dXJuIG51bGw7XG4gIH1cbiAgcmV0dXJuIHtcbiAgICAuLi5jb25maWcsXG4gICAgdGhyZXNob2xkczogeyAuLi5jb25maWcudGhyZXNob2xkcyB9LFxuICAgIHRvZ2dsZXM6IHsgLi4uY29uZmlnLnRvZ2dsZXMgfSxcbiAgICB3ZWlnaHRzOiB7IC4uLmNvbmZpZy53ZWlnaHRzIH0sXG4gIH07XG59XG5cbmZ1bmN0aW9uIHVwZGF0ZU51bWJlcjxUIGV4dGVuZHMgUmVjb3JkPHN0cmluZywgbnVtYmVyPj4oXG4gIG9iamVjdDogVCxcbiAga2V5OiBrZXlvZiBULFxuICB2YWx1ZTogc3RyaW5nXG4pOiBUIHtcbiAgY29uc3QgbmV4dCA9IE51bWJlcih2YWx1ZSk7XG4gIHJldHVybiB7XG4gICAgLi4ub2JqZWN0LFxuICAgIFtrZXldOiBOdW1iZXIuaXNGaW5pdGUobmV4dCkgPyBuZXh0IDogb2JqZWN0W2tleV0sXG4gIH0gYXMgVDtcbn1cblxuZnVuY3Rpb24gQW5vbWFseVJvdyh7IGFsZXJ0IH06IHsgYWxlcnQ6IE1hcmtldEFub21hbHkgfSkge1xuICByZXR1cm4gKFxuICAgIDx0ciBjbGFzc05hbWU9e2Bwcm9wLXJpc2stJHthbm9tYWx5VG9uZShhbGVydCl9YH0+XG4gICAgICA8dGQ+XG4gICAgICAgIDxzdHJvbmc+e2FsZXJ0LnNjb3JlfTwvc3Ryb25nPlxuICAgICAgICA8c3Bhbj57Zm9ybWF0UGVyY2VudChhbGVydC5jb25maWRlbmNlKX0gY29uZjwvc3Bhbj5cbiAgICAgIDwvdGQ+XG4gICAgICA8dGQ+XG4gICAgICAgIDxzdHJvbmc+e2FsZXJ0LmRpc3BsYXlMYWJlbH08L3N0cm9uZz5cbiAgICAgICAgPHNwYW4+e2FsZXJ0LmdhbWVMYWJlbH08L3NwYW4+XG4gICAgICA8L3RkPlxuICAgICAgPHRkPlxuICAgICAgICA8c3Ryb25nPnthbGVydC5zb3VyY2V9PC9zdHJvbmc+XG4gICAgICAgIDxzcGFuPnthbGVydC5hcGlTdXJmYWNlfTwvc3Bhbj5cbiAgICAgIDwvdGQ+XG4gICAgICA8dGQ+XG4gICAgICAgIDxzdHJvbmc+e2Zvcm1hdE9wZXJhdG9yRGF0ZVRpbWUoYWxlcnQuZXZlbnRUaW1lc3RhbXApfTwvc3Ryb25nPlxuICAgICAgICA8c3Bhbj57YWxlcnQuZXZlbnRUeXBlfTwvc3Bhbj5cbiAgICAgIDwvdGQ+XG4gICAgICA8dGQ+XG4gICAgICAgIDxzdHJvbmc+e2FsZXJ0LmxhYmVscy5zbGljZSgwLCAyKS5qb2luKFwiLCBcIil9PC9zdHJvbmc+XG4gICAgICAgIDxzcGFuPnthbGVydC5tYXBwaW5nU3RhdHVzfTwvc3Bhbj5cbiAgICAgIDwvdGQ+XG4gICAgICA8dGQ+XG4gICAgICAgIDxzdHJvbmc+XG4gICAgICAgICAge2Zvcm1hdE51bWJlcihhbGVydC5tZXRyaWNzLnRyYWRlUHJpY2UgPz8gYWxlcnQubWV0cmljcy5wcmljZSl9XG4gICAgICAgIDwvc3Ryb25nPlxuICAgICAgICA8c3Bhbj5cbiAgICAgICAgICByZWYge2Zvcm1hdE51bWJlcihhbGVydC5tZXRyaWNzLnJlZmVyZW5jZVByaWNlKX0gLyBkaXN0e1wiIFwifVxuICAgICAgICAgIHtmb3JtYXRQZXJjZW50KGFsZXJ0Lm1ldHJpY3MudHJhZGVEaXN0YW5jZSl9XG4gICAgICAgIDwvc3Bhbj5cbiAgICAgIDwvdGQ+XG4gICAgICA8dGQ+XG4gICAgICAgIDxzdHJvbmc+e2Zvcm1hdEN1cnJlbmN5KGFsZXJ0Lm1ldHJpY3Mubm90aW9uYWwpfTwvc3Ryb25nPlxuICAgICAgICA8c3Bhbj5cbiAgICAgICAgICBzaXplIHtmb3JtYXROdW1iZXIoYWxlcnQubWV0cmljcy5zaXplKX0gLyBzaGFyZXtcIiBcIn1cbiAgICAgICAgICB7Zm9ybWF0UGVyY2VudChhbGVydC5tZXRyaWNzLnZvbHVtZVNoYXJlKX1cbiAgICAgICAgPC9zcGFuPlxuICAgICAgPC90ZD5cbiAgICAgIDx0ZD5cbiAgICAgICAgPHN0cm9uZz57Zm9ybWF0UGVyY2VudChhbGVydC5tZXRyaWNzLnNwcmVhZCl9PC9zdHJvbmc+XG4gICAgICAgIDxzcGFuPmRlcHRoIHtmb3JtYXROdW1iZXIoYWxlcnQubWV0cmljcy5kZXB0aFNjb3JlLCAwKX08L3NwYW4+XG4gICAgICA8L3RkPlxuICAgICAgPHRkPlxuICAgICAgICA8TGluayBjbGFzc05hbWU9XCJkZXNrLWxpbmtcIiB0bz17YW5vbWFseUhyZWYoYWxlcnQpfT5cbiAgICAgICAgICBPcGVuXG4gICAgICAgIDwvTGluaz5cbiAgICAgIDwvdGQ+XG4gICAgPC90cj5cbiAgKTtcbn1cblxuZXhwb3J0IGZ1bmN0aW9uIE1hcmtldEFub21hbGllc1BhZ2UoKSB7XG4gIGNvbnN0IHF1ZXJ5Q2xpZW50ID0gdXNlUXVlcnlDbGllbnQoKTtcbiAgY29uc3QgW3NvdXJjZSwgc2V0U291cmNlXSA9IHVzZVN0YXRlKFwiYWxsXCIpO1xuICBjb25zdCBbZmFtaWx5LCBzZXRGYW1pbHldID0gdXNlU3RhdGUoXCJhbGxcIik7XG4gIGNvbnN0IFtpbmNsdWRlVW5tYXBwZWQsIHNldEluY2x1ZGVVbm1hcHBlZF0gPSB1c2VTdGF0ZSh0cnVlKTtcbiAgY29uc3QgW3JlcXVpcmVCZXQzNjUsIHNldFJlcXVpcmVCZXQzNjVdID0gdXNlU3RhdGUoZmFsc2UpO1xuICBjb25zdCBjb25maWcgPSB1c2VRdWVyeSh7XG4gICAgcXVlcnlLZXk6IFtcIm1hcmtldC1hbm9tYWx5LXNjb3JlLWNvbmZpZ1wiXSxcbiAgICBxdWVyeUZuOiBnZXRNYXJrZXRBbm9tYWx5U2NvcmVDb25maWcsXG4gIH0pO1xuICBjb25zdCBbZHJhZnQsIHNldERyYWZ0XSA9IHVzZVN0YXRlPE1hcmtldEFub21hbHlTY29yZUNvbmZpZyB8IG51bGw+KG51bGwpO1xuXG4gIGNvbnN0IGFjdGl2ZUNvbmZpZyA9IGRyYWZ0ID8/IGNvbmZpZ0RyYWZ0RnJvbShjb25maWcuZGF0YT8uZGF0YSk7XG4gIGNvbnN0IGFub21hbGllcyA9IHVzZVF1ZXJ5KHtcbiAgICBxdWVyeUtleTogW1xuICAgICAgXCJtYXJrZXQtYW5vbWFsaWVzXCIsXG4gICAgICBzb3VyY2UsXG4gICAgICBmYW1pbHksXG4gICAgICBpbmNsdWRlVW5tYXBwZWQsXG4gICAgICByZXF1aXJlQmV0MzY1LFxuICAgICAgYWN0aXZlQ29uZmlnPy5taW5TY29yZSxcbiAgICAgIGFjdGl2ZUNvbmZpZz8ubWluQ29uZmlkZW5jZSxcbiAgICBdLFxuICAgIHF1ZXJ5Rm46ICgpID0+XG4gICAgICBnZXRNYXJrZXRBbm9tYWxpZXMoe1xuICAgICAgICBmYW1pbHk6IGZhbWlseSA9PT0gXCJhbGxcIiA/IHVuZGVmaW5lZCA6IGZhbWlseSxcbiAgICAgICAgaW5jbHVkZUhpc3RvcmljYWw6IGFjdGl2ZUNvbmZpZz8udG9nZ2xlcy5pbmNsdWRlSGlzdG9yaWNhbCxcbiAgICAgICAgaW5jbHVkZVVubWFwcGVkLFxuICAgICAgICBsaW1pdDogNTAsXG4gICAgICAgIG1pbkNvbmZpZGVuY2U6IGFjdGl2ZUNvbmZpZz8ubWluQ29uZmlkZW5jZSxcbiAgICAgICAgbWluU2NvcmU6IGFjdGl2ZUNvbmZpZz8ubWluU2NvcmUsXG4gICAgICAgIHJlcXVpcmVCZXQzNjUsXG4gICAgICAgIHNvdXJjZTogc291cmNlID09PSBcImFsbFwiID8gdW5kZWZpbmVkIDogc291cmNlLFxuICAgICAgfSksXG4gICAgcmVmZXRjaEludGVydmFsOiA1MDAwLFxuICB9KTtcbiAgY29uc3Qgc2F2ZUNvbmZpZyA9IHVzZU11dGF0aW9uKHtcbiAgICBtdXRhdGlvbkZuOiAobmV4dDogTWFya2V0QW5vbWFseVNjb3JlQ29uZmlnKSA9PlxuICAgICAgcHV0TWFya2V0QW5vbWFseVNjb3JlQ29uZmlnKG5leHQpLFxuICAgIG9uU3VjY2VzczogKHBheWxvYWQpID0+IHtcbiAgICAgIHNldERyYWZ0KGNvbmZpZ0RyYWZ0RnJvbShwYXlsb2FkLmRhdGEpKTtcbiAgICAgIHF1ZXJ5Q2xpZW50LmludmFsaWRhdGVRdWVyaWVzKHtcbiAgICAgICAgcXVlcnlLZXk6IFtcIm1hcmtldC1hbm9tYWx5LXNjb3JlLWNvbmZpZ1wiXSxcbiAgICAgIH0pO1xuICAgICAgcXVlcnlDbGllbnQuaW52YWxpZGF0ZVF1ZXJpZXMoeyBxdWVyeUtleTogW1wibWFya2V0LWFub21hbGllc1wiXSB9KTtcbiAgICB9LFxuICB9KTtcblxuICBjb25zdCByb3dzID0gYW5vbWFsaWVzLmRhdGE/LmRhdGEgPz8gW107XG4gIGNvbnN0IGNyaXRpY2FsQ291bnQgPSByb3dzLmZpbHRlcihcbiAgICAocm93KSA9PiByb3cuc2V2ZXJpdHkgPT09IFwiY3JpdGljYWxcIlxuICApLmxlbmd0aDtcbiAgY29uc3QgdG9wU2NvcmUgPSByb3dzWzBdPy5zY29yZSA/PyAwO1xuXG4gIHJldHVybiAoXG4gICAgPFBhZ2VGcmFtZT5cbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwiYWxlcnQtbW9uaXRvclwiIGFyaWEtbGFiZWw9XCJQcmVkaWN0aW9uLW1hcmtldCB3ZWlyZG5lc3NcIj5cbiAgICAgICAgPHNlY3Rpb24gY2xhc3NOYW1lPVwiYWxlcnQtbW9uaXRvci1oZXJvXCI+XG4gICAgICAgICAgPGRpdj5cbiAgICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cImV5ZWJyb3dcIj5QcmVkaWN0aW9uLW1hcmtldCB3ZWlyZG5lc3M8L3NwYW4+XG4gICAgICAgICAgICA8aDE+TWFya2V0IGFub21hbHkgcXVldWU8L2gxPlxuICAgICAgICAgICAgPHA+XG4gICAgICAgICAgICAgIHtyb3dzLmxlbmd0aCA+IDBcbiAgICAgICAgICAgICAgICA/IGAke3Jvd3MubGVuZ3RofSBhY3RpdmUgYW5vbWFseSByb3dzOyB0b3Agc2NvcmUgJHt0b3BTY29yZX0uYFxuICAgICAgICAgICAgICAgIDogYW5vbWFsaWVzLmlzTG9hZGluZ1xuICAgICAgICAgICAgICAgICAgPyBcIkxvYWRpbmcgYW5vbWFseSBxdWV1ZS5cIlxuICAgICAgICAgICAgICAgICAgOiBcIk5vIGN1cnJlbnQgbWFya2V0IGFub21hbHkgcm93cy5cIn1cbiAgICAgICAgICAgIDwvcD5cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImFsZXJ0LW1vbml0b3ItYWN0aW9uc1wiPlxuICAgICAgICAgICAgPGxhYmVsPlxuICAgICAgICAgICAgICA8c3Bhbj5Tb3VyY2U8L3NwYW4+XG4gICAgICAgICAgICAgIDxzZWxlY3RcbiAgICAgICAgICAgICAgICB2YWx1ZT17c291cmNlfVxuICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZXZlbnQpID0+IHNldFNvdXJjZShldmVudC50YXJnZXQudmFsdWUpfVxuICAgICAgICAgICAgICA+XG4gICAgICAgICAgICAgICAge3NvdXJjZU9wdGlvbnMubWFwKChvcHRpb24pID0+IChcbiAgICAgICAgICAgICAgICAgIDxvcHRpb24ga2V5PXtvcHRpb259IHZhbHVlPXtvcHRpb259PlxuICAgICAgICAgICAgICAgICAgICB7b3B0aW9ufVxuICAgICAgICAgICAgICAgICAgPC9vcHRpb24+XG4gICAgICAgICAgICAgICAgKSl9XG4gICAgICAgICAgICAgIDwvc2VsZWN0PlxuICAgICAgICAgICAgPC9sYWJlbD5cbiAgICAgICAgICAgIDxsYWJlbD5cbiAgICAgICAgICAgICAgPHNwYW4+RmFtaWx5PC9zcGFuPlxuICAgICAgICAgICAgICA8c2VsZWN0XG4gICAgICAgICAgICAgICAgdmFsdWU9e2ZhbWlseX1cbiAgICAgICAgICAgICAgICBvbkNoYW5nZT17KGV2ZW50KSA9PiBzZXRGYW1pbHkoZXZlbnQudGFyZ2V0LnZhbHVlKX1cbiAgICAgICAgICAgICAgPlxuICAgICAgICAgICAgICAgIHtmYW1pbHlPcHRpb25zLm1hcCgob3B0aW9uKSA9PiAoXG4gICAgICAgICAgICAgICAgICA8b3B0aW9uIGtleT17b3B0aW9ufSB2YWx1ZT17b3B0aW9ufT5cbiAgICAgICAgICAgICAgICAgICAge29wdGlvbn1cbiAgICAgICAgICAgICAgICAgIDwvb3B0aW9uPlxuICAgICAgICAgICAgICAgICkpfVxuICAgICAgICAgICAgICA8L3NlbGVjdD5cbiAgICAgICAgICAgIDwvbGFiZWw+XG4gICAgICAgICAgICA8YnV0dG9uXG4gICAgICAgICAgICAgIGFyaWEtbGFiZWw9XCJSZWZyZXNoIGFub21hbGllc1wiXG4gICAgICAgICAgICAgIGNsYXNzTmFtZT1cImljb24tYnV0dG9uXCJcbiAgICAgICAgICAgICAgb25DbGljaz17KCkgPT4gYW5vbWFsaWVzLnJlZmV0Y2goKX1cbiAgICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXG4gICAgICAgICAgICA+XG4gICAgICAgICAgICAgIDxSZWZyZXNoQ3cgYXJpYS1oaWRkZW49XCJ0cnVlXCIgc2l6ZT17MTZ9IC8+XG4gICAgICAgICAgICA8L2J1dHRvbj5cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgPC9zZWN0aW9uPlxuXG4gICAgICAgIDxzZWN0aW9uIGNsYXNzTmFtZT1cImFsZXJ0LW1vbml0b3Itc3RhdHNcIiBhcmlhLWxhYmVsPVwiQW5vbWFseSBzdW1tYXJ5XCI+XG4gICAgICAgICAgPGRpdj5cbiAgICAgICAgICAgIDxzcGFuPlJvd3M8L3NwYW4+XG4gICAgICAgICAgICA8c3Ryb25nPntyb3dzLmxlbmd0aH08L3N0cm9uZz5cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICA8ZGl2PlxuICAgICAgICAgICAgPHNwYW4+Q3JpdGljYWw8L3NwYW4+XG4gICAgICAgICAgICA8c3Ryb25nPntjcml0aWNhbENvdW50fTwvc3Ryb25nPlxuICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICA8c3Bhbj5Ub3Agc2NvcmU8L3NwYW4+XG4gICAgICAgICAgICA8c3Ryb25nPnt0b3BTY29yZX08L3N0cm9uZz5cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICA8ZGl2PlxuICAgICAgICAgICAgPHNwYW4+R2VuZXJhdGVkPC9zcGFuPlxuICAgICAgICAgICAgPHN0cm9uZz5cbiAgICAgICAgICAgICAge2Zvcm1hdE9wZXJhdG9yRGF0ZVRpbWUoYW5vbWFsaWVzLmRhdGE/Lm1ldGEuZ2VuZXJhdGVkQXQpfVxuICAgICAgICAgICAgPC9zdHJvbmc+XG4gICAgICAgICAgPC9kaXY+XG4gICAgICAgIDwvc2VjdGlvbj5cblxuICAgICAgICA8UGFuZWwgY2xhc3NOYW1lPVwiYWxlcnQtbW9uaXRvci1wYW5lbFwiPlxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiYWxlcnQtbW9uaXRvci1zZWN0aW9uLWhlYWRcIj5cbiAgICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICAgIDxzcGFuPkxpdmUgcXVldWU8L3NwYW4+XG4gICAgICAgICAgICAgIDxoMj5HbyBsb29rIG5vdzwvaDI+XG4gICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiYWxlcnQtbW9uaXRvci1hY3Rpb25zXCI+XG4gICAgICAgICAgICAgIDxsYWJlbD5cbiAgICAgICAgICAgICAgICA8c3Bhbj5Vbm1hcHBlZDwvc3Bhbj5cbiAgICAgICAgICAgICAgICA8aW5wdXRcbiAgICAgICAgICAgICAgICAgIGNoZWNrZWQ9e2luY2x1ZGVVbm1hcHBlZH1cbiAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZXZlbnQpID0+IHNldEluY2x1ZGVVbm1hcHBlZChldmVudC50YXJnZXQuY2hlY2tlZCl9XG4gICAgICAgICAgICAgICAgICB0eXBlPVwiY2hlY2tib3hcIlxuICAgICAgICAgICAgICAgIC8+XG4gICAgICAgICAgICAgIDwvbGFiZWw+XG4gICAgICAgICAgICAgIDxsYWJlbD5cbiAgICAgICAgICAgICAgICA8c3Bhbj5SZXF1aXJlIGIzNjU8L3NwYW4+XG4gICAgICAgICAgICAgICAgPGlucHV0XG4gICAgICAgICAgICAgICAgICBjaGVja2VkPXtyZXF1aXJlQmV0MzY1fVxuICAgICAgICAgICAgICAgICAgb25DaGFuZ2U9eyhldmVudCkgPT4gc2V0UmVxdWlyZUJldDM2NShldmVudC50YXJnZXQuY2hlY2tlZCl9XG4gICAgICAgICAgICAgICAgICB0eXBlPVwiY2hlY2tib3hcIlxuICAgICAgICAgICAgICAgIC8+XG4gICAgICAgICAgICAgIDwvbGFiZWw+XG4gICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICB7YW5vbWFsaWVzLmlzRXJyb3IgPyAoXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImFsZXJ0LW1vbml0b3ItZXJyb3JcIj5cbiAgICAgICAgICAgICAgTWFya2V0IGFub21hbHkgZmVlZCBmYWlsZWQgdG8gbG9hZC5cbiAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICkgOiByb3dzLmxlbmd0aCA9PT0gMCA/IChcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiYWxlcnQtbW9uaXRvci1lbXB0eVwiPlxuICAgICAgICAgICAgICBObyBjdXJyZW50IHByZWRpY3Rpb24tbWFya2V0IHdlaXJkbmVzcyBhYm92ZSB0aGUgYWN0aXZlIHNjb3JlLlxuICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgKSA6IChcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwidGFibGUtc2hlbGwgc2V0dGluZ3MtdGFibGUtc2hlbGxcIj5cbiAgICAgICAgICAgICAgPHRhYmxlIGNsYXNzTmFtZT1cImRlc2stdGFibGUgY29tcGFjdCBzZXR0aW5ncy10YWJsZVwiPlxuICAgICAgICAgICAgICAgIDx0aGVhZD5cbiAgICAgICAgICAgICAgICAgIDx0cj5cbiAgICAgICAgICAgICAgICAgICAgPHRoPlNjb3JlPC90aD5cbiAgICAgICAgICAgICAgICAgICAgPHRoPk1hcmtldDwvdGg+XG4gICAgICAgICAgICAgICAgICAgIDx0aD5WZW51ZTwvdGg+XG4gICAgICAgICAgICAgICAgICAgIDx0aD5UaW1lPC90aD5cbiAgICAgICAgICAgICAgICAgICAgPHRoPlNpZ25hbDwvdGg+XG4gICAgICAgICAgICAgICAgICAgIDx0aD5QcmljZTwvdGg+XG4gICAgICAgICAgICAgICAgICAgIDx0aD5Wb2x1bWU8L3RoPlxuICAgICAgICAgICAgICAgICAgICA8dGg+Qm9vazwvdGg+XG4gICAgICAgICAgICAgICAgICAgIDx0aD5PcGVuPC90aD5cbiAgICAgICAgICAgICAgICAgIDwvdHI+XG4gICAgICAgICAgICAgICAgPC90aGVhZD5cbiAgICAgICAgICAgICAgICA8dGJvZHk+XG4gICAgICAgICAgICAgICAgICB7cm93cy5tYXAoKGFsZXJ0KSA9PiAoXG4gICAgICAgICAgICAgICAgICAgIDxBbm9tYWx5Um93IGFsZXJ0PXthbGVydH0ga2V5PXthbGVydC5pZH0gLz5cbiAgICAgICAgICAgICAgICAgICkpfVxuICAgICAgICAgICAgICAgIDwvdGJvZHk+XG4gICAgICAgICAgICAgIDwvdGFibGU+XG4gICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICApfVxuICAgICAgICA8L1BhbmVsPlxuXG4gICAgICAgIHthY3RpdmVDb25maWcgPyAoXG4gICAgICAgICAgPFBhbmVsIGNsYXNzTmFtZT1cImFsZXJ0LW1vbml0b3ItcGFuZWxcIj5cbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiYWxlcnQtbW9uaXRvci1zZWN0aW9uLWhlYWRcIj5cbiAgICAgICAgICAgICAgPGRpdj5cbiAgICAgICAgICAgICAgICA8c3Bhbj5TY29yZSBwcm9maWxlPC9zcGFuPlxuICAgICAgICAgICAgICAgIDxoMj5BY3RpdmUga25vYnM8L2gyPlxuICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgPGJ1dHRvblxuICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cImdob3N0LWJ1dHRvblwiXG4gICAgICAgICAgICAgICAgZGlzYWJsZWQ9e3NhdmVDb25maWcuaXNQZW5kaW5nfVxuICAgICAgICAgICAgICAgIG9uQ2xpY2s9eygpID0+IHNhdmVDb25maWcubXV0YXRlKGFjdGl2ZUNvbmZpZyl9XG4gICAgICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXG4gICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICA8U2F2ZSBhcmlhLWhpZGRlbj1cInRydWVcIiBzaXplPXsxNH0gLz5cbiAgICAgICAgICAgICAgICBTYXZlXG4gICAgICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInRhYmxlLXNoZWxsIHNldHRpbmdzLXRhYmxlLXNoZWxsXCI+XG4gICAgICAgICAgICAgIDx0YWJsZSBjbGFzc05hbWU9XCJkZXNrLXRhYmxlIGNvbXBhY3Qgc2V0dGluZ3MtdGFibGVcIj5cbiAgICAgICAgICAgICAgICA8dGhlYWQ+XG4gICAgICAgICAgICAgICAgICA8dHI+XG4gICAgICAgICAgICAgICAgICAgIDx0aD5Lbm9iPC90aD5cbiAgICAgICAgICAgICAgICAgICAgPHRoPlZhbHVlPC90aD5cbiAgICAgICAgICAgICAgICAgICAgPHRoPkN1cnJlbnQgdXNlPC90aD5cbiAgICAgICAgICAgICAgICAgIDwvdHI+XG4gICAgICAgICAgICAgICAgPC90aGVhZD5cbiAgICAgICAgICAgICAgICA8dGJvZHk+XG4gICAgICAgICAgICAgICAgICA8dHI+XG4gICAgICAgICAgICAgICAgICAgIDx0ZD5NaW5pbXVtIHNjb3JlPC90ZD5cbiAgICAgICAgICAgICAgICAgICAgPHRkPlxuICAgICAgICAgICAgICAgICAgICAgIDxpbnB1dFxuICAgICAgICAgICAgICAgICAgICAgICAgb25DaGFuZ2U9eyhldmVudCkgPT5cbiAgICAgICAgICAgICAgICAgICAgICAgICAgc2V0RHJhZnQoe1xuICAgICAgICAgICAgICAgICAgICAgICAgICAgIC4uLmFjdGl2ZUNvbmZpZyxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICBtaW5TY29yZTogTnVtYmVyKGV2ZW50LnRhcmdldC52YWx1ZSksXG4gICAgICAgICAgICAgICAgICAgICAgICAgIH0pXG4gICAgICAgICAgICAgICAgICAgICAgICB9XG4gICAgICAgICAgICAgICAgICAgICAgICB0eXBlPVwibnVtYmVyXCJcbiAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXthY3RpdmVDb25maWcubWluU2NvcmV9XG4gICAgICAgICAgICAgICAgICAgICAgLz5cbiAgICAgICAgICAgICAgICAgICAgPC90ZD5cbiAgICAgICAgICAgICAgICAgICAgPHRkPlF1ZXVlIHRocmVzaG9sZDwvdGQ+XG4gICAgICAgICAgICAgICAgICA8L3RyPlxuICAgICAgICAgICAgICAgICAgPHRyPlxuICAgICAgICAgICAgICAgICAgICA8dGQ+TWluaW11bSBjb25maWRlbmNlPC90ZD5cbiAgICAgICAgICAgICAgICAgICAgPHRkPlxuICAgICAgICAgICAgICAgICAgICAgIDxpbnB1dFxuICAgICAgICAgICAgICAgICAgICAgICAgb25DaGFuZ2U9eyhldmVudCkgPT5cbiAgICAgICAgICAgICAgICAgICAgICAgICAgc2V0RHJhZnQoe1xuICAgICAgICAgICAgICAgICAgICAgICAgICAgIC4uLmFjdGl2ZUNvbmZpZyxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICBtaW5Db25maWRlbmNlOiBOdW1iZXIoZXZlbnQudGFyZ2V0LnZhbHVlKSxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgfSlcbiAgICAgICAgICAgICAgICAgICAgICAgIH1cbiAgICAgICAgICAgICAgICAgICAgICAgIHN0ZXA9XCIwLjA1XCJcbiAgICAgICAgICAgICAgICAgICAgICAgIHR5cGU9XCJudW1iZXJcIlxuICAgICAgICAgICAgICAgICAgICAgICAgdmFsdWU9e2FjdGl2ZUNvbmZpZy5taW5Db25maWRlbmNlfVxuICAgICAgICAgICAgICAgICAgICAgIC8+XG4gICAgICAgICAgICAgICAgICAgIDwvdGQ+XG4gICAgICAgICAgICAgICAgICAgIDx0ZD5TdXJmYWNlIHF1YWxpdHkgdGhyZXNob2xkPC90ZD5cbiAgICAgICAgICAgICAgICAgIDwvdHI+XG4gICAgICAgICAgICAgICAgICB7T2JqZWN0LmVudHJpZXMoYWN0aXZlQ29uZmlnLndlaWdodHMpLm1hcCgoW2tleSwgdmFsdWVdKSA9PiAoXG4gICAgICAgICAgICAgICAgICAgIDx0ciBrZXk9e2B3ZWlnaHQtJHtrZXl9YH0+XG4gICAgICAgICAgICAgICAgICAgICAgPHRkPntrZXl9IHdlaWdodDwvdGQ+XG4gICAgICAgICAgICAgICAgICAgICAgPHRkPlxuICAgICAgICAgICAgICAgICAgICAgICAgPGlucHV0XG4gICAgICAgICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZXZlbnQpID0+XG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgc2V0RHJhZnQoe1xuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLi4uYWN0aXZlQ29uZmlnLFxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgd2VpZ2h0czogdXBkYXRlTnVtYmVyKFxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBhY3RpdmVDb25maWcud2VpZ2h0cyxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAga2V5IGFzIGtleW9mIE1hcmtldEFub21hbHlTY29yZUNvbmZpZ1tcIndlaWdodHNcIl0sXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGV2ZW50LnRhcmdldC52YWx1ZVxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKSxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICB9KVxuICAgICAgICAgICAgICAgICAgICAgICAgICB9XG4gICAgICAgICAgICAgICAgICAgICAgICAgIHN0ZXA9XCIwLjA1XCJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgdHlwZT1cIm51bWJlclwiXG4gICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlPXt2YWx1ZX1cbiAgICAgICAgICAgICAgICAgICAgICAgIC8+XG4gICAgICAgICAgICAgICAgICAgICAgPC90ZD5cbiAgICAgICAgICAgICAgICAgICAgICA8dGQ+U2NvcmUgY29tcG9uZW50PC90ZD5cbiAgICAgICAgICAgICAgICAgICAgPC90cj5cbiAgICAgICAgICAgICAgICAgICkpfVxuICAgICAgICAgICAgICAgICAge09iamVjdC5lbnRyaWVzKGFjdGl2ZUNvbmZpZy50aHJlc2hvbGRzKS5tYXAoXG4gICAgICAgICAgICAgICAgICAgIChba2V5LCB2YWx1ZV0pID0+IChcbiAgICAgICAgICAgICAgICAgICAgICA8dHIga2V5PXtgdGhyZXNob2xkLSR7a2V5fWB9PlxuICAgICAgICAgICAgICAgICAgICAgICAgPHRkPntrZXl9PC90ZD5cbiAgICAgICAgICAgICAgICAgICAgICAgIDx0ZD5cbiAgICAgICAgICAgICAgICAgICAgICAgICAgPGlucHV0XG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgb25DaGFuZ2U9eyhldmVudCkgPT5cbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHNldERyYWZ0KHtcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLi4uYWN0aXZlQ29uZmlnLFxuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB0aHJlc2hvbGRzOiB1cGRhdGVOdW1iZXIoXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYWN0aXZlQ29uZmlnLnRocmVzaG9sZHMsXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAga2V5IGFzIGtleW9mIE1hcmtldEFub21hbHlTY29yZUNvbmZpZ1tcInRocmVzaG9sZHNcIl0sXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZXZlbnQudGFyZ2V0LnZhbHVlXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICksXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICB9KVxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIH1cbiAgICAgICAgICAgICAgICAgICAgICAgICAgICBzdGVwPVwiMC4wMVwiXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgdHlwZT1cIm51bWJlclwiXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgdmFsdWU9e3ZhbHVlfVxuICAgICAgICAgICAgICAgICAgICAgICAgICAvPlxuICAgICAgICAgICAgICAgICAgICAgICAgPC90ZD5cbiAgICAgICAgICAgICAgICAgICAgICAgIDx0ZD5EZXRlY3Rpb24gdGhyZXNob2xkPC90ZD5cbiAgICAgICAgICAgICAgICAgICAgICA8L3RyPlxuICAgICAgICAgICAgICAgICAgICApXG4gICAgICAgICAgICAgICAgICApfVxuICAgICAgICAgICAgICAgIDwvdGJvZHk+XG4gICAgICAgICAgICAgIDwvdGFibGU+XG4gICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICA8L1BhbmVsPlxuICAgICAgICApIDogbnVsbH1cbiAgICAgIDwvZGl2PlxuICAgIDwvUGFnZUZyYW1lPlxuICApO1xufVxuIl0sImZpbGUiOiIvc3JjL2ZlYXR1cmVzL2Fub21hbGllcy9NYXJrZXRBbm9tYWxpZXNQYWdlLnRzeCJ9

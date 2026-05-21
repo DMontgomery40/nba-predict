@@ -24,7 +24,8 @@ output/playwright/
 *.log
 .DS_Store
 .env
-.codex
+.codex/*
+!.codex/hooks.json
 PLAN.md
 *.docx
 *.pdf

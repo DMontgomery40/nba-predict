@@ -1,0 +1,1363 @@
+Object.defineProperty(__vite_ssr_exports__, "buildHistoricalGapSummary", { enumerable: true, configurable: true, get(){ try { return buildHistoricalGapSummary } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "HistoryPage", { enumerable: true, configurable: true, get(){ try { return HistoryPage } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/jsx-dev-runtime.js", {"importedNames":["Fragment","jsxDEV"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/@tanstack+react-query@5.99.2_react@19.2.5/node_modules/@tanstack/react-query/build/modern/index.js", {"importedNames":["useQueries","useQuery"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/index.js", {"importedNames":["useMemo","useState"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react-router-dom@7.14.2_react-dom@19.2.5_react@19.2.5__react@19.2.5/node_modules/react-router-dom/dist/index.js", {"importedNames":["Link","useSearchParams"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/src/components/ErrorState.tsx", {"importedNames":["ErrorState","LoadingState"]});
+const __vite_ssr_import_5__ = await __vite_ssr_import__("/src/components/PageFrame.tsx", {"importedNames":["PageFrame"]});
+const __vite_ssr_import_6__ = await __vite_ssr_import__("/src/components/Primitives.tsx", {"importedNames":["Badge","MetricTile","Panel","SectionTitle"]});
+
+
+
+
+
+const __vite_ssr_import_7__ = await __vite_ssr_import__("/src/data/api.ts", {"importedNames":["getAdminCaptureRuns","getAdminStorageCoverage","getDivergence","getInstrumentTimeline","getResearchCoverage","getSignalMismatches"]});
+
+
+
+
+
+
+
+const __vite_ssr_import_8__ = await __vite_ssr_import__("/src/lib/market-format.ts", {"importedNames":["formatGapPoints","formatMarketMatchLabel","formatProbabilityPercent"]});
+
+
+
+
+const __vite_ssr_import_9__ = await __vite_ssr_import__("/src/lib/source-coverage.ts", {"importedNames":["formatMarketSourceList","hasNbaStateSource"]});
+
+
+
+const __vite_ssr_import_10__ = await __vite_ssr_import__("/src/lib/time-format.ts", {"importedNames":["formatOperatorDateTime"]});
+function localDateInputValue(date = /* @__PURE__ */ new Date()) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 6e4);
+  return local.toISOString().slice(0, 10);
+}
+function yesterdayDateInputValue() {
+  const date = /* @__PURE__ */ new Date();
+  date.setDate(date.getDate() - 1);
+  return localDateInputValue(date);
+}
+function formatReviewDateLabel(value) {
+  if (!value) {
+    return "all persisted dates";
+  };
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (!Number.isFinite(date.getTime())) {
+    return value;
+  };
+  return date.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+}
+function formatTimestamp(value) {
+  return (0,__vite_ssr_import_10__.formatOperatorDateTime)(value);
+}
+function averageDefinedNumbers(values) {
+  const defined = values.filter(
+    (value) => typeof value === "number"
+  );
+  if (defined.length === 0) {
+    return null;
+  };
+  return defined.reduce((sum, value) => sum + value, 0) / defined.length;
+}
+function formatScoreline(row) {
+  if (row.finalAwayScore != null && row.finalHomeScore != null) {
+    return `Final ${row.finalAwayScore}-${row.finalHomeScore}`;
+  };
+  return row.gameStatus.replace("-", " ");
+}
+function formatGameContext(row) {
+  if (row.finalAwayScore != null && row.finalHomeScore != null) {
+    return `Final ${row.finalAwayScore}-${row.finalHomeScore}`;
+  };
+  const scheduledAt = new Date(row.scheduledStart);
+  if (Number.isFinite(scheduledAt.getTime())) {
+    return `Scheduled ${(0,__vite_ssr_import_10__.formatOperatorDateTime)(row.scheduledStart)}`;
+  };
+  return row.gameStatus.replace("-", " ");
+}
+function formatPeakMoment(state) {
+  if (!state) {
+    return "Pregame";
+  };
+  if (state.status === "scheduled" || state.period == null || state.period <= 0 || state.clock == null || state.clock === "None") {
+    return "Pregame";
+  };
+  const period = state.period != null ? `Q${state.period}` : state.status.replace("-", " ");
+  const clock = state.clock ? ` ${state.clock}` : "";
+  const score = state.awayScore != null && state.homeScore != null ? ` · ${state.awayScore}-${state.homeScore}` : "";
+  return `${period}${clock}${score}`;
+}
+function findGameStateAt(states, capturedAt) {
+  const target = Date.parse(capturedAt);
+  if (!Number.isFinite(target)) {
+    return null;
+  };
+  let current = null;
+  for (const state of states) {
+    const stateTime = Date.parse(state.capturedAt);
+    if (!Number.isFinite(stateTime)) {
+      continue;
+    };
+    if (stateTime <= target) {
+      current = state;
+      continue;
+    };
+    return current ?? state;
+  };
+  return current;
+}
+function buildHistoricalGapSummary(timeline) {
+  const quoteTimeWindowMs = 10 * 6e4;
+  const points = ["bet365", "kalshi", "polymarket"].flatMap(
+    (source) => timeline.quoteSeriesBySource[source].filter((point) => typeof point.impliedProbability === "number").map((point) => ({
+      capturedAt: point.capturedAt,
+      impliedProbability: point.impliedProbability,
+      source
+    }))
+  ).sort((left, right) => left.capturedAt.localeCompare(right.capturedAt));
+  if (points.length === 0) {
+    return null;
+  };
+  const latestBySource = /* @__PURE__ */ new Map();
+  let openingGap = null;
+  let peakSummary = null;
+  for (const point of points) {
+    const pointTime = Date.parse(point.capturedAt);
+    if (!Number.isFinite(pointTime)) {
+      continue;
+    };
+    latestBySource.set(point.source, {
+      capturedAtMs: pointTime,
+      value: point.impliedProbability
+    });
+    const bet365 = latestBySource.get("bet365");
+    const kalshi = latestBySource.get("kalshi");
+    const polymarket = latestBySource.get("polymarket");
+    const externalEntries = ["kalshi", "polymarket"].map((source) => latestBySource.get(source)).filter(
+      (entry) => Boolean(
+        entry && bet365 && Math.abs(entry.capturedAtMs - bet365.capturedAtMs) <= quoteTimeWindowMs
+      )
+    );
+    if (!bet365 || externalEntries.length === 0) {
+      continue;
+    };
+    const externalAverage = externalEntries.reduce((sum, entry) => sum + entry.value, 0) / externalEntries.length;
+    const gap = Math.abs(bet365.value - externalAverage);
+    const comparisonCapturedAt = new Date(
+      Math.max(
+        bet365.capturedAtMs,
+        ...externalEntries.map((entry) => entry.capturedAtMs)
+      )
+    ).toISOString();
+    if (openingGap == null) {
+      openingGap = gap;
+    };
+    if (!peakSummary || gap > peakSummary.peakGap) {
+      peakSummary = {
+        openingGap,
+        peakBet365: bet365.value,
+        peakCapturedAt: comparisonCapturedAt,
+        peakGap: gap,
+        peakGameState: findGameStateAt(
+          timeline.gameStateSeries,
+          comparisonCapturedAt
+        ),
+        peakKalshi: kalshi != null && externalEntries.includes(kalshi) ? kalshi.value : null,
+        peakPolymarket: polymarket != null && externalEntries.includes(polymarket) ? polymarket.value : null
+      };
+    }
+  };
+  return peakSummary;
+};
+function selectHighlightRows(rows, reviewDateLabel) {
+  const finishedRows = rows.filter(
+    (row) => row.gameStatus === "final" && !row.lineMismatch
+  );
+  if (finishedRows.length > 0) {
+    return {
+      body: `Finished-game mismatches persisted for ${reviewDateLabel}, ranked by divergence.`,
+      rows: finishedRows.slice(0, 3),
+      usesFallback: false
+    };
+  };
+  if (rows.length === 0) {
+    return {
+      body: `No signal mismatch rows are persisted for ${reviewDateLabel}.`,
+      rows: [],
+      usesFallback: false
+    };
+  };
+  return {
+    body: `Current or pregame mismatches persisted for ${reviewDateLabel}.`,
+    rows: rows.filter((row) => !row.lineMismatch).slice(0, 3),
+    usesFallback: true
+  };
+}
+function marketFamilyFromParam(value) {
+  return value === "player-prop" || value === "moneyline" || value === "spread" || value === "total" ? value : "all";
+}
+function formatPlayerPropCount(count) {
+  return `${count} player prop${count === 1 ? "" : "s"} tracked`;
+}
+function HistoryPage() {
+  const [searchParams, setSearchParams] = (0,__vite_ssr_import_3__.useSearchParams)();
+  const [reviewDate, setReviewDate] = (0,__vite_ssr_import_2__.useState)(
+    () => searchParams.get("date") ?? yesterdayDateInputValue()
+  );
+  const [marketFamily, setMarketFamily] = (0,__vite_ssr_import_2__.useState)(
+    () => marketFamilyFromParam(searchParams.get("family"))
+  );
+  const reviewDateLabel = (0,__vite_ssr_import_2__.useMemo)(
+    () => formatReviewDateLabel(reviewDate),
+    [reviewDate]
+  );
+  const selectedFamily = marketFamily === "all" ? void 0 : marketFamily;
+  function updateHistoryFilters(next) {
+    const nextDate = next.date ?? reviewDate;
+    const nextFamily = next.family ?? marketFamily;
+    setReviewDate(nextDate);
+    setMarketFamily(nextFamily);
+    setSearchParams((current) => {
+      const params = new URLSearchParams(current);
+      if (nextDate) {
+        params.set("date", nextDate);
+      } else {
+        params.delete("date");
+      };
+      if (nextFamily !== "all") {
+        params.set("family", nextFamily);
+      } else {
+        params.delete("family");
+      };
+      return params;
+    });
+  }
+  const signalMismatches = (0,__vite_ssr_import_1__.useQuery)({
+    queryKey: ["research-signal-mismatches", reviewDate, selectedFamily],
+    queryFn: () => (0,__vite_ssr_import_7__.getSignalMismatches)({
+      date: reviewDate || void 0,
+      family: selectedFamily
+    })
+  });
+  const trackedPlayerProps = (0,__vite_ssr_import_1__.useQuery)({
+    enabled: selectedFamily === "player-prop",
+    queryKey: ["research-history-tracked-player-props", reviewDate],
+    queryFn: () => (0,__vite_ssr_import_7__.getDivergence)({
+      date: reviewDate || void 0,
+      family: "player-prop",
+      limit: 500,
+      sort: "signalPriority"
+    })
+  });
+  const secondaryHistoryEnabled = Boolean(signalMismatches.data);
+  const captureRuns = (0,__vite_ssr_import_1__.useQuery)({
+    enabled: secondaryHistoryEnabled,
+    queryKey: ["admin-capture-runs"],
+    queryFn: __vite_ssr_import_7__.getAdminCaptureRuns
+  });
+  const storageCoverage = (0,__vite_ssr_import_1__.useQuery)({
+    enabled: secondaryHistoryEnabled,
+    queryKey: ["admin-storage-coverage"],
+    queryFn: __vite_ssr_import_7__.getAdminStorageCoverage
+  });
+  const researchCoverage = (0,__vite_ssr_import_1__.useQuery)({
+    enabled: secondaryHistoryEnabled,
+    queryKey: ["research-coverage"],
+    queryFn: __vite_ssr_import_7__.getResearchCoverage
+  });
+  const highlightedRows = selectHighlightRows(
+    signalMismatches.data?.data ?? [],
+    reviewDateLabel
+  );
+  const highlightTimelines = (0,__vite_ssr_import_1__.useQueries)({
+    queries: highlightedRows.rows.map((row) => ({
+      queryKey: [
+        "instrument-timeline",
+        row.gameId,
+        row.instrumentId,
+        "history"
+      ],
+      queryFn: () => (0,__vite_ssr_import_7__.getInstrumentTimeline)(row.gameId, row.instrumentId)
+    }))
+  });
+  if (signalMismatches.isLoading || !signalMismatches.data && !signalMismatches.isError) {
+    return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_4__.LoadingState), { message: "Loading persisted research history…" }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+      lineNumber: 399,
+      columnNumber: 12
+    }, this);
+  };
+  if (signalMismatches.isError || !signalMismatches.data) {
+    return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+      (0,__vite_ssr_import_5__.PageFrame),
+      {
+        aside: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Panel), { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.SectionTitle), { eyebrow: "Fallback", title: "History unavailable" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+          lineNumber: 407,
+          columnNumber: 13
+        }, this) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+          lineNumber: 406,
+          columnNumber: 11
+        }, this),
+        children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          (0,__vite_ssr_import_4__.ErrorState),
+          {
+            description: "The persisted signal mismatch surface could not be loaded.",
+            error: signalMismatches.error,
+            onAction: () => {
+              void signalMismatches.refetch();
+            },
+            title: "History failed to load"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 411,
+            columnNumber: 9
+          },
+          this
+        )
+      },
+      void 0,
+      false,
+      {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+        lineNumber: 404,
+        columnNumber: 7
+      },
+      this
+    );
+  };
+  const storageCoverageRows = storageCoverage.data?.data ?? [];
+  const researchCoverageRows = researchCoverage.data?.data ?? [];
+  const quoteTicksPersisted = storageCoverageRows.reduce(
+    (sum, row) => sum + row.quoteTickCount,
+    0
+  );
+  const finishedSignalCount = signalMismatches.data.data.filter(
+    (row) => row.gameStatus === "final"
+  ).length;
+  const directionalSignalCount = signalMismatches.data.data.filter(
+    (row) => row.directionalDisagreement
+  ).length;
+  const trackedPlayerPropRows = trackedPlayerProps.data?.data ?? [];
+  const firstHighlight = highlightedRows.rows[0] ?? null;
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+    (0,__vite_ssr_import_5__.PageFrame),
+    {
+      aside: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Panel), { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+        (0,__vite_ssr_import_6__.SectionTitle),
+        {
+          eyebrow: "Review Date",
+          title: firstHighlight?.displayLabel ?? "No highlighted comparison",
+          body: firstHighlight ? `${reviewDateLabel} · ${(0,__vite_ssr_import_8__.formatGapPoints)(
+            firstHighlight.impliedProbabilityGap
+          )} peak divergence` : reviewDateLabel
+        },
+        void 0,
+        false,
+        {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+          lineNumber: 442,
+          columnNumber: 11
+        },
+        this
+      ) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+        lineNumber: 441,
+        columnNumber: 9
+      }, this),
+      children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("section", { className: "hero-strip", children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "eyebrow", children: "History" }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 458,
+              columnNumber: 11
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h1", { children: "Persisted market history" }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 459,
+              columnNumber: 11
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: [
+              reviewDateLabel,
+              selectedFamily ? ` · ${selectedFamily}` : "",
+              " · source comparisons and ingest evidence."
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 460,
+              columnNumber: 11
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 457,
+            columnNumber: 9
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "history-review-actions", children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { children: [
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Review date" }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 468,
+                columnNumber: 13
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                "input",
+                {
+                  onChange: (event) => updateHistoryFilters({ date: event.target.value }),
+                  type: "date",
+                  value: reviewDate
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                  lineNumber: 469,
+                  columnNumber: 13
+                },
+                this
+              )
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 467,
+              columnNumber: 11
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("label", { children: [
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Family" }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 478,
+                columnNumber: 13
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                "select",
+                {
+                  onChange: (event) => updateHistoryFilters({ family: event.target.value }),
+                  value: marketFamily,
+                  children: [
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: "all", children: "All families" }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 485,
+                      columnNumber: 15
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: "player-prop", children: "Player props" }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 486,
+                      columnNumber: 15
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: "moneyline", children: "Moneyline" }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 487,
+                      columnNumber: 15
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: "spread", children: "Spread" }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 488,
+                      columnNumber: 15
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("option", { value: "total", children: "Total" }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 489,
+                      columnNumber: 15
+                    }, this)
+                  ]
+                },
+                void 0,
+                true,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                  lineNumber: 479,
+                  columnNumber: 13
+                },
+                this
+              )
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 477,
+              columnNumber: 11
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 466,
+            columnNumber: 9
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+          lineNumber: 456,
+          columnNumber: 7
+        }, this),
+        selectedFamily === "player-prop" ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Panel), { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_6__.SectionTitle),
+            {
+              eyebrow: "Tracked Player Props",
+              title: trackedPlayerProps.isLoading ? "Loading tracked player props" : formatPlayerPropCount(trackedPlayerPropRows.length),
+              body: "Includes props below the notification threshold."
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 497,
+              columnNumber: 11
+            },
+            this
+          ),
+          trackedPlayerProps.isError ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_4__.ErrorState),
+            {
+              description: "Tracked player-prop rows could not be loaded.",
+              error: trackedPlayerProps.error,
+              onAction: () => void trackedPlayerProps.refetch(),
+              title: "Tracked player props failed to load"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 507,
+              columnNumber: 13
+            },
+            this
+          ) : trackedPlayerProps.isLoading ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "loading-panel", children: "Loading tracked player props..." }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 514,
+            columnNumber: 13
+          }, this) : trackedPlayerPropRows.length === 0 ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "No persisted player-prop rows are available for this date." }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 516,
+            columnNumber: 13
+          }, this) : /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "tracked-history-grid", children: trackedPlayerPropRows.slice(0, 24).map((row) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_3__.Link),
+            {
+              className: "tracked-history-row",
+              to: `/games/${row.gameId}/markets/${row.instrumentId}`,
+              children: [
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: row.displayLabel }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 528,
+                    columnNumber: 21
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: row.gameId }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 529,
+                    columnNumber: 21
+                  }, this)
+                ] }, void 0, true, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                  lineNumber: 527,
+                  columnNumber: 19
+                }, this),
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("em", { children: (0,__vite_ssr_import_8__.formatGapPoints)(row.impliedProbabilityGap) }, void 0, false, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                  lineNumber: 531,
+                  columnNumber: 19
+                }, this),
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: (0,__vite_ssr_import_8__.formatMarketMatchLabel)(row.comparableState) }, void 0, false, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                  lineNumber: 532,
+                  columnNumber: 19
+                }, this)
+              ]
+            },
+            `${row.gameId}:${row.instrumentId}`,
+            true,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 522,
+              columnNumber: 17
+            },
+            this
+          )) }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 520,
+            columnNumber: 13
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+          lineNumber: 496,
+          columnNumber: 9
+        }, this) : null,
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Panel), { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_6__.SectionTitle),
+            {
+              eyebrow: "Finished Games",
+              title: "Largest persisted divergences",
+              body: highlightedRows.body
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 541,
+              columnNumber: 9
+            },
+            this
+          ),
+          highlightedRows.rows.length === 0 ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "No signal mismatch rows are available yet." }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 547,
+            columnNumber: 11
+          }, this) : /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "card-grid", children: highlightedRows.rows.map((row, index) => {
+            const timelineQuery = highlightTimelines[index];
+            const highlightSummary = timelineQuery?.data?.data != null ? buildHistoricalGapSummary(timelineQuery.data.data) : null;
+            const peakMomentLabel = formatPeakMoment(
+              highlightSummary?.peakGameState
+            );
+            return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              "article",
+              {
+                className: "history-highlight-card",
+                children: [
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "history-highlight-head", children: [
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "eyebrow", children: highlightedRows.usesFallback ? row.gameStatus.replace("-", " ") : "finished game" }, void 0, false, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 567,
+                        columnNumber: 23
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h3", { children: row.displayLabel }, void 0, false, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 572,
+                        columnNumber: 23
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: [
+                        row.gameLabel,
+                        " · ",
+                        formatGameContext(row)
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 573,
+                        columnNumber: 23
+                      }, this)
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 566,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "history-highlight-gap", children: [
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Peak divergence" }, void 0, false, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 578,
+                        columnNumber: 23
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: highlightSummary ? (0,__vite_ssr_import_8__.formatGapPoints)(highlightSummary.peakGap) : (0,__vite_ssr_import_8__.formatGapPoints)(row.impliedProbabilityGap) }, void 0, false, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 579,
+                        columnNumber: 23
+                      }, this)
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 577,
+                      columnNumber: 21
+                    }, this)
+                  ] }, void 0, true, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 565,
+                    columnNumber: 19
+                  }, this),
+                  timelineQuery?.isLoading ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "loading-panel", children: "Loading timeline context for this signal…" }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 588,
+                    columnNumber: 21
+                  }, this) : /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_0__.Fragment), { children: [
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "history-highlight-metrics", children: [
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Opened" }, void 0, false, {
+                          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                          lineNumber: 595,
+                          columnNumber: 27
+                        }, this),
+                        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: highlightSummary ? (0,__vite_ssr_import_8__.formatGapPoints)(highlightSummary.openingGap) : "n/a" }, void 0, false, {
+                          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                          lineNumber: 596,
+                          columnNumber: 27
+                        }, this)
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 594,
+                        columnNumber: 25
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Peak moment" }, void 0, false, {
+                          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                          lineNumber: 603,
+                          columnNumber: 27
+                        }, this),
+                        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: highlightSummary ? peakMomentLabel : "Unavailable" }, void 0, false, {
+                          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                          lineNumber: 604,
+                          columnNumber: 27
+                        }, this)
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 602,
+                        columnNumber: 25
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "bet365" }, void 0, false, {
+                          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                          lineNumber: 609,
+                          columnNumber: 27
+                        }, this),
+                        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: (0,__vite_ssr_import_8__.formatProbabilityPercent)(
+                          highlightSummary?.peakBet365 ?? row.bet365ImpliedProbability
+                        ) }, void 0, false, {
+                          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                          lineNumber: 610,
+                          columnNumber: 27
+                        }, this)
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 608,
+                        columnNumber: 25
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Exchanges" }, void 0, false, {
+                          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                          lineNumber: 618,
+                          columnNumber: 27
+                        }, this),
+                        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: (0,__vite_ssr_import_8__.formatProbabilityPercent)(
+                          averageDefinedNumbers([
+                            highlightSummary?.peakKalshi ?? row.kalshiImpliedProbability,
+                            highlightSummary?.peakPolymarket ?? row.polymarketImpliedProbability
+                          ])
+                        ) }, void 0, false, {
+                          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                          lineNumber: 619,
+                          columnNumber: 27
+                        }, this)
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 617,
+                        columnNumber: 25
+                      }, this)
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 593,
+                      columnNumber: 23
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "history-highlight-summary", children: [
+                      "Bet365 differed by",
+                      " ",
+                      highlightSummary ? (0,__vite_ssr_import_8__.formatGapPoints)(highlightSummary.peakGap) : (0,__vite_ssr_import_8__.formatGapPoints)(row.impliedProbabilityGap),
+                      " ",
+                      "from the exchange average after opening at",
+                      " ",
+                      highlightSummary ? (0,__vite_ssr_import_8__.formatGapPoints)(highlightSummary.openingGap) : "n/a",
+                      highlightSummary ? peakMomentLabel === "Pregame" ? ", peaking before tipoff." : `, peaking at ${peakMomentLabel}.` : "."
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 632,
+                      columnNumber: 23
+                    }, this)
+                  ] }, void 0, true, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 592,
+                    columnNumber: 21
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "tag-row", children: [
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                      (0,__vite_ssr_import_6__.Badge),
+                      {
+                        tone: row.directionalDisagreement ? "warning" : "neutral",
+                        children: row.directionalDisagreement ? "directional disagreement" : "same side"
+                      },
+                      void 0,
+                      false,
+                      {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 651,
+                        columnNumber: 21
+                      },
+                      this
+                    ),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Badge), { tone: row.lineMismatch ? "warning" : "positive", children: row.lineMismatch ? "line mismatch" : "line aligned" }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 658,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Badge), { tone: "neutral", children: row.family }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 661,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                      (0,__vite_ssr_import_3__.Link),
+                      {
+                        className: "ghost-button",
+                        to: `/games/${row.gameId}/markets/${row.instrumentId}`,
+                        children: "Open instrument"
+                      },
+                      void 0,
+                      false,
+                      {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                        lineNumber: 662,
+                        columnNumber: 21
+                      },
+                      this
+                    )
+                  ] }, void 0, true, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 650,
+                    columnNumber: 19
+                  }, this)
+                ]
+              },
+              `${row.gameId}-${row.instrumentId}`,
+              true,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 561,
+                columnNumber: 17
+              },
+              this
+            );
+          }) }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 549,
+            columnNumber: 11
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+          lineNumber: 540,
+          columnNumber: 7
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "grid-metrics", children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_6__.MetricTile),
+            {
+              label: "Signal Rows",
+              value: String(signalMismatches.data.data.length),
+              tone: signalMismatches.data.data.length > 0 ? "warning" : "positive"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 677,
+              columnNumber: 9
+            },
+            this
+          ),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_6__.MetricTile),
+            {
+              label: "Finished Signals",
+              value: String(finishedSignalCount),
+              tone: finishedSignalCount > 0 ? "positive" : "warning"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 682,
+              columnNumber: 9
+            },
+            this
+          ),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_6__.MetricTile),
+            {
+              label: "Directional Splits",
+              value: String(directionalSignalCount),
+              tone: directionalSignalCount > 0 ? "warning" : "neutral"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 687,
+              columnNumber: 9
+            },
+            this
+          ),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_6__.MetricTile),
+            {
+              label: "Quote Ticks",
+              value: storageCoverage.isLoading ? "..." : String(quoteTicksPersisted),
+              tone: quoteTicksPersisted > 0 ? "positive" : "warning"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 692,
+              columnNumber: 9
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+          lineNumber: 676,
+          columnNumber: 7
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Panel), { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_6__.SectionTitle),
+            {
+              eyebrow: "Capture Runs",
+              title: "Recent adapter activity",
+              body: "These rows come from persisted adapter run logging, not the current browser session."
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 702,
+              columnNumber: 9
+            },
+            this
+          ),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "stack", children: captureRuns.isLoading ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "loading-panel", children: "Loading capture runs..." }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 709,
+            columnNumber: 13
+          }, this) : captureRuns.isError || !captureRuns.data ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_4__.ErrorState),
+            {
+              description: "Capture-run history could not be loaded.",
+              error: captureRuns.error,
+              onAction: () => void captureRuns.refetch(),
+              title: "Capture runs failed to load"
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 711,
+              columnNumber: 13
+            },
+            this
+          ) : captureRuns.data.data.length === 0 ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "No capture runs have been written yet." }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 718,
+            columnNumber: 13
+          }, this) : captureRuns.data.data.slice(0, 10).map((run) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "action-row", children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: run.source }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 723,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: [
+                run.recordsSeen,
+                " seen · ",
+                run.recordsWritten,
+                " written · started ",
+                formatTimestamp(run.startedAt)
+              ] }, void 0, true, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 724,
+                columnNumber: 19
+              }, this)
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 722,
+              columnNumber: 17
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Badge), { tone: run.status === "ok" ? "positive" : "critical", children: run.status }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 729,
+              columnNumber: 17
+            }, this)
+          ] }, run.id, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 721,
+            columnNumber: 15
+          }, this)) }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 707,
+            columnNumber: 9
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+          lineNumber: 701,
+          columnNumber: 7
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "dual-grid", children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Panel), { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              (0,__vite_ssr_import_6__.SectionTitle),
+              {
+                eyebrow: "Storage",
+                title: "Persisted source coverage",
+                body: "This shows which sources and market families have durable payloads behind them."
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 740,
+                columnNumber: 11
+              },
+              this
+            ),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "stack", children: storageCoverage.isLoading ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "loading-panel", children: "Loading storage coverage..." }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 747,
+              columnNumber: 15
+            }, this) : storageCoverage.isError || !storageCoverage.data ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              (0,__vite_ssr_import_4__.ErrorState),
+              {
+                description: "Persisted source coverage could not be loaded.",
+                error: storageCoverage.error,
+                onAction: () => void storageCoverage.refetch(),
+                title: "Storage coverage failed to load"
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 749,
+                columnNumber: 15
+              },
+              this
+            ) : storageCoverageRows.length === 0 ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "No persisted source coverage rows yet." }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 756,
+              columnNumber: 15
+            }, this) : storageCoverageRows.slice(0, 8).map((row) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              "div",
+              {
+                className: "storage-coverage-row",
+                children: [
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: row.gameId }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 764,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: [
+                      row.source,
+                      " · ",
+                      row.family ?? "all families"
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 765,
+                      columnNumber: 21
+                    }, this)
+                  ] }, void 0, true, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 763,
+                    columnNumber: 19
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "storage-coverage-metrics", children: [
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                      row.sourceMarketCount,
+                      " source markets"
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 770,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                      row.quoteTickCount,
+                      " quote ticks"
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 771,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                      row.rawPayloadCount,
+                      " raw payloads"
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 772,
+                      columnNumber: 21
+                    }, this)
+                  ] }, void 0, true, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 769,
+                    columnNumber: 19
+                  }, this)
+                ]
+              },
+              `${row.gameId}-${row.source}-${row.family ?? "all"}`,
+              true,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 759,
+                columnNumber: 17
+              },
+              this
+            )) }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 745,
+              columnNumber: 11
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 739,
+            columnNumber: 9
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Panel), { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              (0,__vite_ssr_import_6__.SectionTitle),
+              {
+                eyebrow: "Coverage",
+                title: "Research gaps and unmapped rows",
+                body: "This keeps missing and unmapped source visibility alive when there is nothing new on the current slate."
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 781,
+                columnNumber: 11
+              },
+              this
+            ),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "stack", children: researchCoverage.isLoading ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "loading-panel", children: "Loading research coverage..." }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 788,
+              columnNumber: 15
+            }, this) : researchCoverage.isError || !researchCoverage.data ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              (0,__vite_ssr_import_4__.ErrorState),
+              {
+                description: "Research coverage rows could not be loaded.",
+                error: researchCoverage.error,
+                onAction: () => void researchCoverage.refetch(),
+                title: "Research coverage failed to load"
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 790,
+                columnNumber: 15
+              },
+              this
+            ) : researchCoverageRows.length === 0 ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "No research coverage rows are available yet." }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 797,
+              columnNumber: 15
+            }, this) : researchCoverageRows.slice(0, 8).map((row) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              "div",
+              {
+                className: "storage-coverage-row",
+                children: [
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: row.gameId }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 807,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: [
+                      row.instrumentId ?? "game aggregate",
+                      " ·",
+                      " ",
+                      row.family ?? "all families"
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 808,
+                      columnNumber: 21
+                    }, this)
+                  ] }, void 0, true, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 806,
+                    columnNumber: 19
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "storage-coverage-metrics", children: [
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                      "market feeds",
+                      " ",
+                      (0,__vite_ssr_import_9__.formatMarketSourceList)(row.availableSources)
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 814,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                      "NBA state",
+                      " ",
+                      (0,__vite_ssr_import_9__.hasNbaStateSource)(row.availableSources) ? "available" : "missing"
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 818,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                      "missing market feeds",
+                      " ",
+                      row.missingSources.join(", ") || "none"
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 824,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                      "unmapped ",
+                      row.unmappedSources.join(", ") || "none"
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 828,
+                      columnNumber: 21
+                    }, this)
+                  ] }, void 0, true, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 813,
+                    columnNumber: 19
+                  }, this)
+                ]
+              },
+              `${row.gameId}-${row.instrumentId ?? "game"}-${row.family ?? "all"}`,
+              true,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                lineNumber: 802,
+                columnNumber: 17
+              },
+              this
+            )) }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 786,
+              columnNumber: 11
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 780,
+            columnNumber: 9
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+          lineNumber: 738,
+          columnNumber: 7
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Panel), { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_6__.SectionTitle),
+            {
+              eyebrow: "Mismatch Archive",
+              title: "Past disagreement snapshot",
+              body: "This stays available as the denser archive view after the clearer weekly highlights above."
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 840,
+              columnNumber: 9
+            },
+            this
+          ),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "stack", children: signalMismatches.data.data.length === 0 ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "No signal mismatch rows are available yet." }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 847,
+            columnNumber: 13
+          }, this) : signalMismatches.data.data.slice(0, 10).map((row) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            "div",
+            {
+              className: "note-card compact",
+              children: [
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h3", { children: row.displayLabel }, void 0, false, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                  lineNumber: 854,
+                  columnNumber: 17
+                }, this),
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: [
+                  row.gameLabel,
+                  " · ",
+                  row.family,
+                  " · divergence",
+                  " ",
+                  (0,__vite_ssr_import_8__.formatGapPoints)(row.impliedProbabilityGap),
+                  " · bet365",
+                  " ",
+                  (0,__vite_ssr_import_8__.formatProbabilityPercent)(row.bet365ImpliedProbability),
+                  " · kalshi",
+                  " ",
+                  (0,__vite_ssr_import_8__.formatProbabilityPercent)(row.kalshiImpliedProbability),
+                  " · polymarket",
+                  " ",
+                  (0,__vite_ssr_import_8__.formatProbabilityPercent)(row.polymarketImpliedProbability)
+                ] }, void 0, true, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                  lineNumber: 855,
+                  columnNumber: 17
+                }, this),
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "tag-row", children: [
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                    (0,__vite_ssr_import_6__.Badge),
+                    {
+                      tone: row.directionalDisagreement ? "warning" : "neutral",
+                      children: row.directionalDisagreement ? "directional disagreement" : "same direction"
+                    },
+                    void 0,
+                    false,
+                    {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                      lineNumber: 865,
+                      columnNumber: 19
+                    },
+                    this
+                  ),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Badge), { tone: row.lineMismatch ? "warning" : "positive", children: row.lineMismatch ? "line mismatch" : "line aligned" }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 872,
+                    columnNumber: 19
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Badge), { tone: "neutral", children: row.mappingStatus }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 875,
+                    columnNumber: 19
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_6__.Badge), { tone: "neutral", children: formatScoreline(row) }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                    lineNumber: 876,
+                    columnNumber: 19
+                  }, this)
+                ] }, void 0, true, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+                  lineNumber: 864,
+                  columnNumber: 17
+                }, this)
+              ]
+            },
+            `${row.gameId}-${row.instrumentId}`,
+            true,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+              lineNumber: 850,
+              columnNumber: 15
+            },
+            this
+          )) }, void 0, false, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+            lineNumber: 845,
+            columnNumber: 9
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+          lineNumber: 839,
+          columnNumber: 7
+        }, this)
+      ]
+    },
+    void 0,
+    true,
+    {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/history/HistoryPage.tsx",
+      lineNumber: 439,
+      columnNumber: 5
+    },
+    this
+  );
+}
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,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QztBQUFBLHFCQVo5QztBQUFBO0FBQUE7QUFBQTtBQUFBLHVCQWFBO0FBQUE7QUFBQTtBQUFBLFlBekJLLEdBQUcsSUFBSSxNQUFNLElBQUksSUFBSSxZQUFZO0FBQUEsWUFGeEM7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxVQTRCQSxDQUNELEtBbENMO0FBQUE7QUFBQTtBQUFBO0FBQUEsaUJBb0NBO0FBQUEsYUExQ0Y7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQTJDQTtBQUFBO0FBQUE7QUFBQSxJQTNiRjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsRUE0YkE7QUFFSiIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiSGlzdG9yeVBhZ2UudHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHVzZVF1ZXJpZXMsIHVzZVF1ZXJ5IH0gZnJvbSBcIkB0YW5zdGFjay9yZWFjdC1xdWVyeVwiO1xuaW1wb3J0IHsgdXNlTWVtbywgdXNlU3RhdGUgfSBmcm9tIFwicmVhY3RcIjtcbmltcG9ydCB7IExpbmssIHVzZVNlYXJjaFBhcmFtcyB9IGZyb20gXCJyZWFjdC1yb3V0ZXItZG9tXCI7XG5cbmltcG9ydCB7IEVycm9yU3RhdGUsIExvYWRpbmdTdGF0ZSB9IGZyb20gXCIuLi8uLi9jb21wb25lbnRzL0Vycm9yU3RhdGVcIjtcbmltcG9ydCB7IFBhZ2VGcmFtZSB9IGZyb20gXCIuLi8uLi9jb21wb25lbnRzL1BhZ2VGcmFtZVwiO1xuaW1wb3J0IHtcbiAgQmFkZ2UsXG4gIE1ldHJpY1RpbGUsXG4gIFBhbmVsLFxuICBTZWN0aW9uVGl0bGUsXG59IGZyb20gXCIuLi8uLi9jb21wb25lbnRzL1ByaW1pdGl2ZXNcIjtcbmltcG9ydCB7XG4gIGdldEFkbWluQ2FwdHVyZVJ1bnMsXG4gIGdldEFkbWluU3RvcmFnZUNvdmVyYWdlLFxuICBnZXREaXZlcmdlbmNlLFxuICBnZXRJbnN0cnVtZW50VGltZWxpbmUsXG4gIGdldFJlc2VhcmNoQ292ZXJhZ2UsXG4gIGdldFNpZ25hbE1pc21hdGNoZXMsXG59IGZyb20gXCIuLi8uLi9kYXRhL2FwaVwiO1xuaW1wb3J0IHtcbiAgZm9ybWF0R2FwUG9pbnRzLFxuICBmb3JtYXRNYXJrZXRNYXRjaExhYmVsLFxuICBmb3JtYXRQcm9iYWJpbGl0eVBlcmNlbnQsXG59IGZyb20gXCIuLi8uLi9saWIvbWFya2V0LWZvcm1hdFwiO1xuaW1wb3J0IHtcbiAgZm9ybWF0TWFya2V0U291cmNlTGlzdCxcbiAgaGFzTmJhU3RhdGVTb3VyY2UsXG59IGZyb20gXCIuLi8uLi9saWIvc291cmNlLWNvdmVyYWdlXCI7XG5pbXBvcnQgeyBmb3JtYXRPcGVyYXRvckRhdGVUaW1lIH0gZnJvbSBcIi4uLy4uL2xpYi90aW1lLWZvcm1hdFwiO1xuXG50eXBlIFNpZ25hbE1pc21hdGNoUm93ID0gQXdhaXRlZDxcbiAgUmV0dXJuVHlwZTx0eXBlb2YgZ2V0U2lnbmFsTWlzbWF0Y2hlcz5cbj5bXCJkYXRhXCJdW251bWJlcl07XG50eXBlIERpdmVyZ2VuY2VSb3cgPSBBd2FpdGVkPFJldHVyblR5cGU8dHlwZW9mIGdldERpdmVyZ2VuY2U+PltcImRhdGFcIl1bbnVtYmVyXTtcbnR5cGUgSW5zdHJ1bWVudFRpbWVsaW5lRGF0YSA9IEF3YWl0ZWQ8XG4gIFJldHVyblR5cGU8dHlwZW9mIGdldEluc3RydW1lbnRUaW1lbGluZT5cbj5bXCJkYXRhXCJdO1xudHlwZSBUaW1lbGluZUdhbWVTdGF0ZSA9IEluc3RydW1lbnRUaW1lbGluZURhdGFbXCJnYW1lU3RhdGVTZXJpZXNcIl1bbnVtYmVyXTtcblxudHlwZSBIaXN0b3JpY2FsR2FwU3VtbWFyeSA9IHtcbiAgb3BlbmluZ0dhcD86IG51bWJlciB8IG51bGw7XG4gIHBlYWtCZXQzNjU/OiBudW1iZXIgfCBudWxsO1xuICBwZWFrQ2FwdHVyZWRBdDogc3RyaW5nO1xuICBwZWFrR2FwOiBudW1iZXI7XG4gIHBlYWtHYW1lU3RhdGU/OiBUaW1lbGluZUdhbWVTdGF0ZSB8IG51bGw7XG4gIHBlYWtLYWxzaGk/OiBudW1iZXIgfCBudWxsO1xuICBwZWFrUG9seW1hcmtldD86IG51bWJlciB8IG51bGw7XG59O1xuXG5mdW5jdGlvbiBsb2NhbERhdGVJbnB1dFZhbHVlKGRhdGUgPSBuZXcgRGF0ZSgpKSB7XG4gIGNvbnN0IGxvY2FsID0gbmV3IERhdGUoZGF0ZS5nZXRUaW1lKCkgLSBkYXRlLmdldFRpbWV6b25lT2Zmc2V0KCkgKiA2MF8wMDApO1xuICByZXR1cm4gbG9jYWwudG9JU09TdHJpbmcoKS5zbGljZSgwLCAxMCk7XG59XG5cbmZ1bmN0aW9uIHllc3RlcmRheURhdGVJbnB1dFZhbHVlKCkge1xuICBjb25zdCBkYXRlID0gbmV3IERhdGUoKTtcbiAgZGF0ZS5zZXREYXRlKGRhdGUuZ2V0RGF0ZSgpIC0gMSk7XG4gIHJldHVybiBsb2NhbERhdGVJbnB1dFZhbHVlKGRhdGUpO1xufVxuXG5mdW5jdGlvbiBmb3JtYXRSZXZpZXdEYXRlTGFiZWwodmFsdWU6IHN0cmluZykge1xuICBpZiAoIXZhbHVlKSB7XG4gICAgcmV0dXJuIFwiYWxsIHBlcnNpc3RlZCBkYXRlc1wiO1xuICB9XG5cbiAgY29uc3QgW3llYXIsIG1vbnRoLCBkYXldID0gdmFsdWUuc3BsaXQoXCItXCIpLm1hcChOdW1iZXIpO1xuICBjb25zdCBkYXRlID0gbmV3IERhdGUoeWVhciwgbW9udGggLSAxLCBkYXkpO1xuICBpZiAoIU51bWJlci5pc0Zpbml0ZShkYXRlLmdldFRpbWUoKSkpIHtcbiAgICByZXR1cm4gdmFsdWU7XG4gIH1cblxuICByZXR1cm4gZGF0ZS50b0xvY2FsZURhdGVTdHJpbmcoXCJlbi1VU1wiLCB7XG4gICAgZGF5OiBcIm51bWVyaWNcIixcbiAgICBtb250aDogXCJsb25nXCIsXG4gICAgeWVhcjogXCJudW1lcmljXCIsXG4gIH0pO1xufVxuXG5mdW5jdGlvbiBmb3JtYXRUaW1lc3RhbXAodmFsdWU/OiBzdHJpbmcgfCBudWxsKSB7XG4gIHJldHVybiBmb3JtYXRPcGVyYXRvckRhdGVUaW1lKHZhbHVlKTtcbn1cblxuZnVuY3Rpb24gYXZlcmFnZURlZmluZWROdW1iZXJzKHZhbHVlczogQXJyYXk8bnVtYmVyIHwgbnVsbCB8IHVuZGVmaW5lZD4pIHtcbiAgY29uc3QgZGVmaW5lZCA9IHZhbHVlcy5maWx0ZXIoXG4gICAgKHZhbHVlKTogdmFsdWUgaXMgbnVtYmVyID0+IHR5cGVvZiB2YWx1ZSA9PT0gXCJudW1iZXJcIlxuICApO1xuXG4gIGlmIChkZWZpbmVkLmxlbmd0aCA9PT0gMCkge1xuICAgIHJldHVybiBudWxsO1xuICB9XG5cbiAgcmV0dXJuIGRlZmluZWQucmVkdWNlKChzdW0sIHZhbHVlKSA9PiBzdW0gKyB2YWx1ZSwgMCkgLyBkZWZpbmVkLmxlbmd0aDtcbn1cblxuZnVuY3Rpb24gZm9ybWF0U2NvcmVsaW5lKHJvdzogU2lnbmFsTWlzbWF0Y2hSb3cpIHtcbiAgaWYgKHJvdy5maW5hbEF3YXlTY29yZSAhPSBudWxsICYmIHJvdy5maW5hbEhvbWVTY29yZSAhPSBudWxsKSB7XG4gICAgcmV0dXJuIGBGaW5hbCAke3Jvdy5maW5hbEF3YXlTY29yZX0tJHtyb3cuZmluYWxIb21lU2NvcmV9YDtcbiAgfVxuXG4gIHJldHVybiByb3cuZ2FtZVN0YXR1cy5yZXBsYWNlKFwiLVwiLCBcIiBcIik7XG59XG5cbmZ1bmN0aW9uIGZvcm1hdEdhbWVDb250ZXh0KHJvdzogU2lnbmFsTWlzbWF0Y2hSb3cpIHtcbiAgaWYgKHJvdy5maW5hbEF3YXlTY29yZSAhPSBudWxsICYmIHJvdy5maW5hbEhvbWVTY29yZSAhPSBudWxsKSB7XG4gICAgcmV0dXJuIGBGaW5hbCAke3Jvdy5maW5hbEF3YXlTY29yZX0tJHtyb3cuZmluYWxIb21lU2NvcmV9YDtcbiAgfVxuXG4gIGNvbnN0IHNjaGVkdWxlZEF0ID0gbmV3IERhdGUocm93LnNjaGVkdWxlZFN0YXJ0KTtcbiAgaWYgKE51bWJlci5pc0Zpbml0ZShzY2hlZHVsZWRBdC5nZXRUaW1lKCkpKSB7XG4gICAgcmV0dXJuIGBTY2hlZHVsZWQgJHtmb3JtYXRPcGVyYXRvckRhdGVUaW1lKHJvdy5zY2hlZHVsZWRTdGFydCl9YDtcbiAgfVxuXG4gIHJldHVybiByb3cuZ2FtZVN0YXR1cy5yZXBsYWNlKFwiLVwiLCBcIiBcIik7XG59XG5cbmZ1bmN0aW9uIGZvcm1hdFBlYWtNb21lbnQoc3RhdGU/OiBUaW1lbGluZUdhbWVTdGF0ZSB8IG51bGwpIHtcbiAgaWYgKCFzdGF0ZSkge1xuICAgIHJldHVybiBcIlByZWdhbWVcIjtcbiAgfVxuXG4gIGlmIChcbiAgICBzdGF0ZS5zdGF0dXMgPT09IFwic2NoZWR1bGVkXCIgfHxcbiAgICBzdGF0ZS5wZXJpb2QgPT0gbnVsbCB8fFxuICAgIHN0YXRlLnBlcmlvZCA8PSAwIHx8XG4gICAgc3RhdGUuY2xvY2sgPT0gbnVsbCB8fFxuICAgIHN0YXRlLmNsb2NrID09PSBcIk5vbmVcIlxuICApIHtcbiAgICByZXR1cm4gXCJQcmVnYW1lXCI7XG4gIH1cblxuICBjb25zdCBwZXJpb2QgPVxuICAgIHN0YXRlLnBlcmlvZCAhPSBudWxsID8gYFEke3N0YXRlLnBlcmlvZH1gIDogc3RhdGUuc3RhdHVzLnJlcGxhY2UoXCItXCIsIFwiIFwiKTtcbiAgY29uc3QgY2xvY2sgPSBzdGF0ZS5jbG9jayA/IGAgJHtzdGF0ZS5jbG9ja31gIDogXCJcIjtcbiAgY29uc3Qgc2NvcmUgPVxuICAgIHN0YXRlLmF3YXlTY29yZSAhPSBudWxsICYmIHN0YXRlLmhvbWVTY29yZSAhPSBudWxsXG4gICAgICA/IGAgwrcgJHtzdGF0ZS5hd2F5U2NvcmV9LSR7c3RhdGUuaG9tZVNjb3JlfWBcbiAgICAgIDogXCJcIjtcblxuICByZXR1cm4gYCR7cGVyaW9kfSR7Y2xvY2t9JHtzY29yZX1gO1xufVxuXG5mdW5jdGlvbiBmaW5kR2FtZVN0YXRlQXQoXG4gIHN0YXRlczogSW5zdHJ1bWVudFRpbWVsaW5lRGF0YVtcImdhbWVTdGF0ZVNlcmllc1wiXSxcbiAgY2FwdHVyZWRBdDogc3RyaW5nXG4pIHtcbiAgY29uc3QgdGFyZ2V0ID0gRGF0ZS5wYXJzZShjYXB0dXJlZEF0KTtcbiAgaWYgKCFOdW1iZXIuaXNGaW5pdGUodGFyZ2V0KSkge1xuICAgIHJldHVybiBudWxsO1xuICB9XG5cbiAgbGV0IGN1cnJlbnQ6IFRpbWVsaW5lR2FtZVN0YXRlIHwgbnVsbCA9IG51bGw7XG4gIGZvciAoY29uc3Qgc3RhdGUgb2Ygc3RhdGVzKSB7XG4gICAgY29uc3Qgc3RhdGVUaW1lID0gRGF0ZS5wYXJzZShzdGF0ZS5jYXB0dXJlZEF0KTtcbiAgICBpZiAoIU51bWJlci5pc0Zpbml0ZShzdGF0ZVRpbWUpKSB7XG4gICAgICBjb250aW51ZTtcbiAgICB9XG4gICAgaWYgKHN0YXRlVGltZSA8PSB0YXJnZXQpIHtcbiAgICAgIGN1cnJlbnQgPSBzdGF0ZTtcbiAgICAgIGNvbnRpbnVlO1xuICAgIH1cbiAgICByZXR1cm4gY3VycmVudCA/PyBzdGF0ZTtcbiAgfVxuXG4gIHJldHVybiBjdXJyZW50O1xufVxuXG5leHBvcnQgZnVuY3Rpb24gYnVpbGRIaXN0b3JpY2FsR2FwU3VtbWFyeShcbiAgdGltZWxpbmU6IEluc3RydW1lbnRUaW1lbGluZURhdGFcbik6IEhpc3RvcmljYWxHYXBTdW1tYXJ5IHwgbnVsbCB7XG4gIGNvbnN0IHF1b3RlVGltZVdpbmRvd01zID0gMTAgKiA2MF8wMDA7XG4gIGNvbnN0IHBvaW50cyA9IChbXCJiZXQzNjVcIiwgXCJrYWxzaGlcIiwgXCJwb2x5bWFya2V0XCJdIGFzIGNvbnN0KVxuICAgIC5mbGF0TWFwKChzb3VyY2UpID0+XG4gICAgICB0aW1lbGluZS5xdW90ZVNlcmllc0J5U291cmNlW3NvdXJjZV1cbiAgICAgICAgLmZpbHRlcigocG9pbnQpID0+IHR5cGVvZiBwb2ludC5pbXBsaWVkUHJvYmFiaWxpdHkgPT09IFwibnVtYmVyXCIpXG4gICAgICAgIC5tYXAoKHBvaW50KSA9PiAoe1xuICAgICAgICAgIGNhcHR1cmVkQXQ6IHBvaW50LmNhcHR1cmVkQXQsXG4gICAgICAgICAgaW1wbGllZFByb2JhYmlsaXR5OiBwb2ludC5pbXBsaWVkUHJvYmFiaWxpdHkgYXMgbnVtYmVyLFxuICAgICAgICAgIHNvdXJjZSxcbiAgICAgICAgfSkpXG4gICAgKVxuICAgIC5zb3J0KChsZWZ0LCByaWdodCkgPT4gbGVmdC5jYXB0dXJlZEF0LmxvY2FsZUNvbXBhcmUocmlnaHQuY2FwdHVyZWRBdCkpO1xuXG4gIGlmIChwb2ludHMubGVuZ3RoID09PSAwKSB7XG4gICAgcmV0dXJuIG51bGw7XG4gIH1cblxuICBjb25zdCBsYXRlc3RCeVNvdXJjZSA9IG5ldyBNYXA8XG4gICAgc3RyaW5nLFxuICAgIHsgY2FwdHVyZWRBdE1zOiBudW1iZXI7IHZhbHVlOiBudW1iZXIgfVxuICA+KCk7XG4gIGxldCBvcGVuaW5nR2FwOiBudW1iZXIgfCBudWxsID0gbnVsbDtcbiAgbGV0IHBlYWtTdW1tYXJ5OiBIaXN0b3JpY2FsR2FwU3VtbWFyeSB8IG51bGwgPSBudWxsO1xuXG4gIGZvciAoY29uc3QgcG9pbnQgb2YgcG9pbnRzKSB7XG4gICAgY29uc3QgcG9pbnRUaW1lID0gRGF0ZS5wYXJzZShwb2ludC5jYXB0dXJlZEF0KTtcbiAgICBpZiAoIU51bWJlci5pc0Zpbml0ZShwb2ludFRpbWUpKSB7XG4gICAgICBjb250aW51ZTtcbiAgICB9XG5cbiAgICBsYXRlc3RCeVNvdXJjZS5zZXQocG9pbnQuc291cmNlLCB7XG4gICAgICBjYXB0dXJlZEF0TXM6IHBvaW50VGltZSxcbiAgICAgIHZhbHVlOiBwb2ludC5pbXBsaWVkUHJvYmFiaWxpdHksXG4gICAgfSk7XG5cbiAgICBjb25zdCBiZXQzNjUgPSBsYXRlc3RCeVNvdXJjZS5nZXQoXCJiZXQzNjVcIik7XG4gICAgY29uc3Qga2Fsc2hpID0gbGF0ZXN0QnlTb3VyY2UuZ2V0KFwia2Fsc2hpXCIpO1xuICAgIGNvbnN0IHBvbHltYXJrZXQgPSBsYXRlc3RCeVNvdXJjZS5nZXQoXCJwb2x5bWFya2V0XCIpO1xuICAgIGNvbnN0IGV4dGVybmFsRW50cmllcyA9IFtcImthbHNoaVwiLCBcInBvbHltYXJrZXRcIl1cbiAgICAgIC5tYXAoKHNvdXJjZSkgPT4gbGF0ZXN0QnlTb3VyY2UuZ2V0KHNvdXJjZSkpXG4gICAgICAuZmlsdGVyKChlbnRyeSk6IGVudHJ5IGlzIHsgY2FwdHVyZWRBdE1zOiBudW1iZXI7IHZhbHVlOiBudW1iZXIgfSA9PlxuICAgICAgICBCb29sZWFuKFxuICAgICAgICAgIGVudHJ5ICYmXG4gICAgICAgICAgYmV0MzY1ICYmXG4gICAgICAgICAgTWF0aC5hYnMoZW50cnkuY2FwdHVyZWRBdE1zIC0gYmV0MzY1LmNhcHR1cmVkQXRNcykgPD1cbiAgICAgICAgICAgIHF1b3RlVGltZVdpbmRvd01zXG4gICAgICAgIClcbiAgICAgICk7XG5cbiAgICBpZiAoIWJldDM2NSB8fCBleHRlcm5hbEVudHJpZXMubGVuZ3RoID09PSAwKSB7XG4gICAgICBjb250aW51ZTtcbiAgICB9XG5cbiAgICBjb25zdCBleHRlcm5hbEF2ZXJhZ2UgPVxuICAgICAgZXh0ZXJuYWxFbnRyaWVzLnJlZHVjZSgoc3VtLCBlbnRyeSkgPT4gc3VtICsgZW50cnkudmFsdWUsIDApIC9cbiAgICAgIGV4dGVybmFsRW50cmllcy5sZW5ndGg7XG4gICAgY29uc3QgZ2FwID0gTWF0aC5hYnMoYmV0MzY1LnZhbHVlIC0gZXh0ZXJuYWxBdmVyYWdlKTtcbiAgICBjb25zdCBjb21wYXJpc29uQ2FwdHVyZWRBdCA9IG5ldyBEYXRlKFxuICAgICAgTWF0aC5tYXgoXG4gICAgICAgIGJldDM2NS5jYXB0dXJlZEF0TXMsXG4gICAgICAgIC4uLmV4dGVybmFsRW50cmllcy5tYXAoKGVudHJ5KSA9PiBlbnRyeS5jYXB0dXJlZEF0TXMpXG4gICAgICApXG4gICAgKS50b0lTT1N0cmluZygpO1xuXG4gICAgaWYgKG9wZW5pbmdHYXAgPT0gbnVsbCkge1xuICAgICAgb3BlbmluZ0dhcCA9IGdhcDtcbiAgICB9XG5cbiAgICBpZiAoIXBlYWtTdW1tYXJ5IHx8IGdhcCA+IHBlYWtTdW1tYXJ5LnBlYWtHYXApIHtcbiAgICAgIHBlYWtTdW1tYXJ5ID0ge1xuICAgICAgICBvcGVuaW5nR2FwLFxuICAgICAgICBwZWFrQmV0MzY1OiBiZXQzNjUudmFsdWUsXG4gICAgICAgIHBlYWtDYXB0dXJlZEF0OiBjb21wYXJpc29uQ2FwdHVyZWRBdCxcbiAgICAgICAgcGVha0dhcDogZ2FwLFxuICAgICAgICBwZWFrR2FtZVN0YXRlOiBmaW5kR2FtZVN0YXRlQXQoXG4gICAgICAgICAgdGltZWxpbmUuZ2FtZVN0YXRlU2VyaWVzLFxuICAgICAgICAgIGNvbXBhcmlzb25DYXB0dXJlZEF0XG4gICAgICAgICksXG4gICAgICAgIHBlYWtLYWxzaGk6XG4gICAgICAgICAga2Fsc2hpICE9IG51bGwgJiYgZXh0ZXJuYWxFbnRyaWVzLmluY2x1ZGVzKGthbHNoaSlcbiAgICAgICAgICAgID8ga2Fsc2hpLnZhbHVlXG4gICAgICAgICAgICA6IG51bGwsXG4gICAgICAgIHBlYWtQb2x5bWFya2V0OlxuICAgICAgICAgIHBvbHltYXJrZXQgIT0gbnVsbCAmJiBleHRlcm5hbEVudHJpZXMuaW5jbHVkZXMocG9seW1hcmtldClcbiAgICAgICAgICAgID8gcG9seW1hcmtldC52YWx1ZVxuICAgICAgICAgICAgOiBudWxsLFxuICAgICAgfTtcbiAgICB9XG4gIH1cblxuICByZXR1cm4gcGVha1N1bW1hcnk7XG59XG5cbmZ1bmN0aW9uIHNlbGVjdEhpZ2hsaWdodFJvd3MoXG4gIHJvd3M6IFNpZ25hbE1pc21hdGNoUm93W10sXG4gIHJldmlld0RhdGVMYWJlbDogc3RyaW5nXG4pIHtcbiAgY29uc3QgZmluaXNoZWRSb3dzID0gcm93cy5maWx0ZXIoXG4gICAgKHJvdykgPT4gcm93LmdhbWVTdGF0dXMgPT09IFwiZmluYWxcIiAmJiAhcm93LmxpbmVNaXNtYXRjaFxuICApO1xuXG4gIGlmIChmaW5pc2hlZFJvd3MubGVuZ3RoID4gMCkge1xuICAgIHJldHVybiB7XG4gICAgICBib2R5OiBgRmluaXNoZWQtZ2FtZSBtaXNtYXRjaGVzIHBlcnNpc3RlZCBmb3IgJHtyZXZpZXdEYXRlTGFiZWx9LCByYW5rZWQgYnkgZGl2ZXJnZW5jZS5gLFxuICAgICAgcm93czogZmluaXNoZWRSb3dzLnNsaWNlKDAsIDMpLFxuICAgICAgdXNlc0ZhbGxiYWNrOiBmYWxzZSxcbiAgICB9O1xuICB9XG5cbiAgaWYgKHJvd3MubGVuZ3RoID09PSAwKSB7XG4gICAgcmV0dXJuIHtcbiAgICAgIGJvZHk6IGBObyBzaWduYWwgbWlzbWF0Y2ggcm93cyBhcmUgcGVyc2lzdGVkIGZvciAke3Jldmlld0RhdGVMYWJlbH0uYCxcbiAgICAgIHJvd3M6IFtdLFxuICAgICAgdXNlc0ZhbGxiYWNrOiBmYWxzZSxcbiAgICB9O1xuICB9XG5cbiAgcmV0dXJuIHtcbiAgICBib2R5OiBgQ3VycmVudCBvciBwcmVnYW1lIG1pc21hdGNoZXMgcGVyc2lzdGVkIGZvciAke3Jldmlld0RhdGVMYWJlbH0uYCxcbiAgICByb3dzOiByb3dzLmZpbHRlcigocm93KSA9PiAhcm93LmxpbmVNaXNtYXRjaCkuc2xpY2UoMCwgMyksXG4gICAgdXNlc0ZhbGxiYWNrOiB0cnVlLFxuICB9O1xufVxuXG5mdW5jdGlvbiBtYXJrZXRGYW1pbHlGcm9tUGFyYW0odmFsdWU6IHN0cmluZyB8IG51bGwpIHtcbiAgcmV0dXJuIHZhbHVlID09PSBcInBsYXllci1wcm9wXCIgfHxcbiAgICB2YWx1ZSA9PT0gXCJtb25leWxpbmVcIiB8fFxuICAgIHZhbHVlID09PSBcInNwcmVhZFwiIHx8XG4gICAgdmFsdWUgPT09IFwidG90YWxcIlxuICAgID8gdmFsdWVcbiAgICA6IFwiYWxsXCI7XG59XG5cbmZ1bmN0aW9uIGZvcm1hdFBsYXllclByb3BDb3VudChjb3VudDogbnVtYmVyKSB7XG4gIHJldHVybiBgJHtjb3VudH0gcGxheWVyIHByb3Ake2NvdW50ID09PSAxID8gXCJcIiA6IFwic1wifSB0cmFja2VkYDtcbn1cblxuZXhwb3J0IGZ1bmN0aW9uIEhpc3RvcnlQYWdlKCkge1xuICBjb25zdCBbc2VhcmNoUGFyYW1zLCBzZXRTZWFyY2hQYXJhbXNdID0gdXNlU2VhcmNoUGFyYW1zKCk7XG4gIGNvbnN0IFtyZXZpZXdEYXRlLCBzZXRSZXZpZXdEYXRlXSA9IHVzZVN0YXRlKFxuICAgICgpID0+IHNlYXJjaFBhcmFtcy5nZXQoXCJkYXRlXCIpID8/IHllc3RlcmRheURhdGVJbnB1dFZhbHVlKClcbiAgKTtcbiAgY29uc3QgW21hcmtldEZhbWlseSwgc2V0TWFya2V0RmFtaWx5XSA9IHVzZVN0YXRlKCgpID0+XG4gICAgbWFya2V0RmFtaWx5RnJvbVBhcmFtKHNlYXJjaFBhcmFtcy5nZXQoXCJmYW1pbHlcIikpXG4gICk7XG4gIGNvbnN0IHJldmlld0RhdGVMYWJlbCA9IHVzZU1lbW8oXG4gICAgKCkgPT4gZm9ybWF0UmV2aWV3RGF0ZUxhYmVsKHJldmlld0RhdGUpLFxuICAgIFtyZXZpZXdEYXRlXVxuICApO1xuICBjb25zdCBzZWxlY3RlZEZhbWlseSA9IG1hcmtldEZhbWlseSA9PT0gXCJhbGxcIiA/IHVuZGVmaW5lZCA6IG1hcmtldEZhbWlseTtcblxuICBmdW5jdGlvbiB1cGRhdGVIaXN0b3J5RmlsdGVycyhuZXh0OiB7IGRhdGU/OiBzdHJpbmc7IGZhbWlseT86IHN0cmluZyB9KSB7XG4gICAgY29uc3QgbmV4dERhdGUgPSBuZXh0LmRhdGUgPz8gcmV2aWV3RGF0ZTtcbiAgICBjb25zdCBuZXh0RmFtaWx5ID0gbmV4dC5mYW1pbHkgPz8gbWFya2V0RmFtaWx5O1xuICAgIHNldFJldmlld0RhdGUobmV4dERhdGUpO1xuICAgIHNldE1hcmtldEZhbWlseShuZXh0RmFtaWx5KTtcbiAgICBzZXRTZWFyY2hQYXJhbXMoKGN1cnJlbnQpID0+IHtcbiAgICAgIGNvbnN0IHBhcmFtcyA9IG5ldyBVUkxTZWFyY2hQYXJhbXMoY3VycmVudCk7XG4gICAgICBpZiAobmV4dERhdGUpIHtcbiAgICAgICAgcGFyYW1zLnNldChcImRhdGVcIiwgbmV4dERhdGUpO1xuICAgICAgfSBlbHNlIHtcbiAgICAgICAgcGFyYW1zLmRlbGV0ZShcImRhdGVcIik7XG4gICAgICB9XG4gICAgICBpZiAobmV4dEZhbWlseSAhPT0gXCJhbGxcIikge1xuICAgICAgICBwYXJhbXMuc2V0KFwiZmFtaWx5XCIsIG5leHRGYW1pbHkpO1xuICAgICAgfSBlbHNlIHtcbiAgICAgICAgcGFyYW1zLmRlbGV0ZShcImZhbWlseVwiKTtcbiAgICAgIH1cbiAgICAgIHJldHVybiBwYXJhbXM7XG4gICAgfSk7XG4gIH1cblxuICBjb25zdCBzaWduYWxNaXNtYXRjaGVzID0gdXNlUXVlcnkoe1xuICAgIHF1ZXJ5S2V5OiBbXCJyZXNlYXJjaC1zaWduYWwtbWlzbWF0Y2hlc1wiLCByZXZpZXdEYXRlLCBzZWxlY3RlZEZhbWlseV0sXG4gICAgcXVlcnlGbjogKCkgPT5cbiAgICAgIGdldFNpZ25hbE1pc21hdGNoZXMoe1xuICAgICAgICBkYXRlOiByZXZpZXdEYXRlIHx8IHVuZGVmaW5lZCxcbiAgICAgICAgZmFtaWx5OiBzZWxlY3RlZEZhbWlseSxcbiAgICAgIH0pLFxuICB9KTtcbiAgY29uc3QgdHJhY2tlZFBsYXllclByb3BzID0gdXNlUXVlcnkoe1xuICAgIGVuYWJsZWQ6IHNlbGVjdGVkRmFtaWx5ID09PSBcInBsYXllci1wcm9wXCIsXG4gICAgcXVlcnlLZXk6IFtcInJlc2VhcmNoLWhpc3RvcnktdHJhY2tlZC1wbGF5ZXItcHJvcHNcIiwgcmV2aWV3RGF0ZV0sXG4gICAgcXVlcnlGbjogKCkgPT5cbiAgICAgIGdldERpdmVyZ2VuY2Uoe1xuICAgICAgICBkYXRlOiByZXZpZXdEYXRlIHx8IHVuZGVmaW5lZCxcbiAgICAgICAgZmFtaWx5OiBcInBsYXllci1wcm9wXCIsXG4gICAgICAgIGxpbWl0OiA1MDAsXG4gICAgICAgIHNvcnQ6IFwic2lnbmFsUHJpb3JpdHlcIixcbiAgICAgIH0pLFxuICB9KTtcbiAgY29uc3Qgc2Vjb25kYXJ5SGlzdG9yeUVuYWJsZWQgPSBCb29sZWFuKHNpZ25hbE1pc21hdGNoZXMuZGF0YSk7XG4gIGNvbnN0IGNhcHR1cmVSdW5zID0gdXNlUXVlcnkoe1xuICAgIGVuYWJsZWQ6IHNlY29uZGFyeUhpc3RvcnlFbmFibGVkLFxuICAgIHF1ZXJ5S2V5OiBbXCJhZG1pbi1jYXB0dXJlLXJ1bnNcIl0sXG4gICAgcXVlcnlGbjogZ2V0QWRtaW5DYXB0dXJlUnVucyxcbiAgfSk7XG4gIGNvbnN0IHN0b3JhZ2VDb3ZlcmFnZSA9IHVzZVF1ZXJ5KHtcbiAgICBlbmFibGVkOiBzZWNvbmRhcnlIaXN0b3J5RW5hYmxlZCxcbiAgICBxdWVyeUtleTogW1wiYWRtaW4tc3RvcmFnZS1jb3ZlcmFnZVwiXSxcbiAgICBxdWVyeUZuOiBnZXRBZG1pblN0b3JhZ2VDb3ZlcmFnZSxcbiAgfSk7XG4gIGNvbnN0IHJlc2VhcmNoQ292ZXJhZ2UgPSB1c2VRdWVyeSh7XG4gICAgZW5hYmxlZDogc2Vjb25kYXJ5SGlzdG9yeUVuYWJsZWQsXG4gICAgcXVlcnlLZXk6IFtcInJlc2VhcmNoLWNvdmVyYWdlXCJdLFxuICAgIHF1ZXJ5Rm46IGdldFJlc2VhcmNoQ292ZXJhZ2UsXG4gIH0pO1xuXG4gIGNvbnN0IGhpZ2hsaWdodGVkUm93cyA9IHNlbGVjdEhpZ2hsaWdodFJvd3MoXG4gICAgc2lnbmFsTWlzbWF0Y2hlcy5kYXRhPy5kYXRhID8/IFtdLFxuICAgIHJldmlld0RhdGVMYWJlbFxuICApO1xuICBjb25zdCBoaWdobGlnaHRUaW1lbGluZXMgPSB1c2VRdWVyaWVzKHtcbiAgICBxdWVyaWVzOiBoaWdobGlnaHRlZFJvd3Mucm93cy5tYXAoKHJvdykgPT4gKHtcbiAgICAgIHF1ZXJ5S2V5OiBbXG4gICAgICAgIFwiaW5zdHJ1bWVudC10aW1lbGluZVwiLFxuICAgICAgICByb3cuZ2FtZUlkLFxuICAgICAgICByb3cuaW5zdHJ1bWVudElkLFxuICAgICAgICBcImhpc3RvcnlcIixcbiAgICAgIF0sXG4gICAgICBxdWVyeUZuOiAoKSA9PiBnZXRJbnN0cnVtZW50VGltZWxpbmUocm93LmdhbWVJZCwgcm93Lmluc3RydW1lbnRJZCksXG4gICAgfSkpLFxuICB9KTtcblxuICBpZiAoXG4gICAgc2lnbmFsTWlzbWF0Y2hlcy5pc0xvYWRpbmcgfHxcbiAgICAoIXNpZ25hbE1pc21hdGNoZXMuZGF0YSAmJiAhc2lnbmFsTWlzbWF0Y2hlcy5pc0Vycm9yKVxuICApIHtcbiAgICByZXR1cm4gPExvYWRpbmdTdGF0ZSBtZXNzYWdlPVwiTG9hZGluZyBwZXJzaXN0ZWQgcmVzZWFyY2ggaGlzdG9yeeKAplwiIC8+O1xuICB9XG5cbiAgaWYgKHNpZ25hbE1pc21hdGNoZXMuaXNFcnJvciB8fCAhc2lnbmFsTWlzbWF0Y2hlcy5kYXRhKSB7XG4gICAgcmV0dXJuIChcbiAgICAgIDxQYWdlRnJhbWVcbiAgICAgICAgYXNpZGU9e1xuICAgICAgICAgIDxQYW5lbD5cbiAgICAgICAgICAgIDxTZWN0aW9uVGl0bGUgZXllYnJvdz1cIkZhbGxiYWNrXCIgdGl0bGU9XCJIaXN0b3J5IHVuYXZhaWxhYmxlXCIgLz5cbiAgICAgICAgICA8L1BhbmVsPlxuICAgICAgICB9XG4gICAgICA+XG4gICAgICAgIDxFcnJvclN0YXRlXG4gICAgICAgICAgZGVzY3JpcHRpb249XCJUaGUgcGVyc2lzdGVkIHNpZ25hbCBtaXNtYXRjaCBzdXJmYWNlIGNvdWxkIG5vdCBiZSBsb2FkZWQuXCJcbiAgICAgICAgICBlcnJvcj17c2lnbmFsTWlzbWF0Y2hlcy5lcnJvcn1cbiAgICAgICAgICBvbkFjdGlvbj17KCkgPT4ge1xuICAgICAgICAgICAgdm9pZCBzaWduYWxNaXNtYXRjaGVzLnJlZmV0Y2goKTtcbiAgICAgICAgICB9fVxuICAgICAgICAgIHRpdGxlPVwiSGlzdG9yeSBmYWlsZWQgdG8gbG9hZFwiXG4gICAgICAgIC8+XG4gICAgICA8L1BhZ2VGcmFtZT5cbiAgICApO1xuICB9XG5cbiAgY29uc3Qgc3RvcmFnZUNvdmVyYWdlUm93cyA9IHN0b3JhZ2VDb3ZlcmFnZS5kYXRhPy5kYXRhID8/IFtdO1xuICBjb25zdCByZXNlYXJjaENvdmVyYWdlUm93cyA9IHJlc2VhcmNoQ292ZXJhZ2UuZGF0YT8uZGF0YSA/PyBbXTtcbiAgY29uc3QgcXVvdGVUaWNrc1BlcnNpc3RlZCA9IHN0b3JhZ2VDb3ZlcmFnZVJvd3MucmVkdWNlKFxuICAgIChzdW0sIHJvdykgPT4gc3VtICsgcm93LnF1b3RlVGlja0NvdW50LFxuICAgIDBcbiAgKTtcbiAgY29uc3QgZmluaXNoZWRTaWduYWxDb3VudCA9IHNpZ25hbE1pc21hdGNoZXMuZGF0YS5kYXRhLmZpbHRlcihcbiAgICAocm93KSA9PiByb3cuZ2FtZVN0YXR1cyA9PT0gXCJmaW5hbFwiXG4gICkubGVuZ3RoO1xuICBjb25zdCBkaXJlY3Rpb25hbFNpZ25hbENvdW50ID0gc2lnbmFsTWlzbWF0Y2hlcy5kYXRhLmRhdGEuZmlsdGVyKFxuICAgIChyb3cpID0+IHJvdy5kaXJlY3Rpb25hbERpc2FncmVlbWVudFxuICApLmxlbmd0aDtcbiAgY29uc3QgdHJhY2tlZFBsYXllclByb3BSb3dzID0gdHJhY2tlZFBsYXllclByb3BzLmRhdGE/LmRhdGEgPz8gW107XG4gIGNvbnN0IGZpcnN0SGlnaGxpZ2h0ID0gaGlnaGxpZ2h0ZWRSb3dzLnJvd3NbMF0gPz8gbnVsbDtcblxuICByZXR1cm4gKFxuICAgIDxQYWdlRnJhbWVcbiAgICAgIGFzaWRlPXtcbiAgICAgICAgPFBhbmVsPlxuICAgICAgICAgIDxTZWN0aW9uVGl0bGVcbiAgICAgICAgICAgIGV5ZWJyb3c9XCJSZXZpZXcgRGF0ZVwiXG4gICAgICAgICAgICB0aXRsZT17Zmlyc3RIaWdobGlnaHQ/LmRpc3BsYXlMYWJlbCA/PyBcIk5vIGhpZ2hsaWdodGVkIGNvbXBhcmlzb25cIn1cbiAgICAgICAgICAgIGJvZHk9e1xuICAgICAgICAgICAgICBmaXJzdEhpZ2hsaWdodFxuICAgICAgICAgICAgICAgID8gYCR7cmV2aWV3RGF0ZUxhYmVsfSDCtyAke2Zvcm1hdEdhcFBvaW50cyhcbiAgICAgICAgICAgICAgICAgICAgZmlyc3RIaWdobGlnaHQuaW1wbGllZFByb2JhYmlsaXR5R2FwXG4gICAgICAgICAgICAgICAgICApfSBwZWFrIGRpdmVyZ2VuY2VgXG4gICAgICAgICAgICAgICAgOiByZXZpZXdEYXRlTGFiZWxcbiAgICAgICAgICAgIH1cbiAgICAgICAgICAvPlxuICAgICAgICA8L1BhbmVsPlxuICAgICAgfVxuICAgID5cbiAgICAgIDxzZWN0aW9uIGNsYXNzTmFtZT1cImhlcm8tc3RyaXBcIj5cbiAgICAgICAgPGRpdj5cbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImV5ZWJyb3dcIj5IaXN0b3J5PC9kaXY+XG4gICAgICAgICAgPGgxPlBlcnNpc3RlZCBtYXJrZXQgaGlzdG9yeTwvaDE+XG4gICAgICAgICAgPHA+XG4gICAgICAgICAgICB7cmV2aWV3RGF0ZUxhYmVsfVxuICAgICAgICAgICAge3NlbGVjdGVkRmFtaWx5ID8gYCDCtyAke3NlbGVjdGVkRmFtaWx5fWAgOiBcIlwifSDCtyBzb3VyY2UgY29tcGFyaXNvbnNcbiAgICAgICAgICAgIGFuZCBpbmdlc3QgZXZpZGVuY2UuXG4gICAgICAgICAgPC9wPlxuICAgICAgICA8L2Rpdj5cbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJoaXN0b3J5LXJldmlldy1hY3Rpb25zXCI+XG4gICAgICAgICAgPGxhYmVsPlxuICAgICAgICAgICAgPHNwYW4+UmV2aWV3IGRhdGU8L3NwYW4+XG4gICAgICAgICAgICA8aW5wdXRcbiAgICAgICAgICAgICAgb25DaGFuZ2U9eyhldmVudCkgPT5cbiAgICAgICAgICAgICAgICB1cGRhdGVIaXN0b3J5RmlsdGVycyh7IGRhdGU6IGV2ZW50LnRhcmdldC52YWx1ZSB9KVxuICAgICAgICAgICAgICB9XG4gICAgICAgICAgICAgIHR5cGU9XCJkYXRlXCJcbiAgICAgICAgICAgICAgdmFsdWU9e3Jldmlld0RhdGV9XG4gICAgICAgICAgICAvPlxuICAgICAgICAgIDwvbGFiZWw+XG4gICAgICAgICAgPGxhYmVsPlxuICAgICAgICAgICAgPHNwYW4+RmFtaWx5PC9zcGFuPlxuICAgICAgICAgICAgPHNlbGVjdFxuICAgICAgICAgICAgICBvbkNoYW5nZT17KGV2ZW50KSA9PlxuICAgICAgICAgICAgICAgIHVwZGF0ZUhpc3RvcnlGaWx0ZXJzKHsgZmFtaWx5OiBldmVudC50YXJnZXQudmFsdWUgfSlcbiAgICAgICAgICAgICAgfVxuICAgICAgICAgICAgICB2YWx1ZT17bWFya2V0RmFtaWx5fVxuICAgICAgICAgICAgPlxuICAgICAgICAgICAgICA8b3B0aW9uIHZhbHVlPVwiYWxsXCI+QWxsIGZhbWlsaWVzPC9vcHRpb24+XG4gICAgICAgICAgICAgIDxvcHRpb24gdmFsdWU9XCJwbGF5ZXItcHJvcFwiPlBsYXllciBwcm9wczwvb3B0aW9uPlxuICAgICAgICAgICAgICA8b3B0aW9uIHZhbHVlPVwibW9uZXlsaW5lXCI+TW9uZXlsaW5lPC9vcHRpb24+XG4gICAgICAgICAgICAgIDxvcHRpb24gdmFsdWU9XCJzcHJlYWRcIj5TcHJlYWQ8L29wdGlvbj5cbiAgICAgICAgICAgICAgPG9wdGlvbiB2YWx1ZT1cInRvdGFsXCI+VG90YWw8L29wdGlvbj5cbiAgICAgICAgICAgIDwvc2VsZWN0PlxuICAgICAgICAgIDwvbGFiZWw+XG4gICAgICAgIDwvZGl2PlxuICAgICAgPC9zZWN0aW9uPlxuXG4gICAgICB7c2VsZWN0ZWRGYW1pbHkgPT09IFwicGxheWVyLXByb3BcIiA/IChcbiAgICAgICAgPFBhbmVsPlxuICAgICAgICAgIDxTZWN0aW9uVGl0bGVcbiAgICAgICAgICAgIGV5ZWJyb3c9XCJUcmFja2VkIFBsYXllciBQcm9wc1wiXG4gICAgICAgICAgICB0aXRsZT17XG4gICAgICAgICAgICAgIHRyYWNrZWRQbGF5ZXJQcm9wcy5pc0xvYWRpbmdcbiAgICAgICAgICAgICAgICA/IFwiTG9hZGluZyB0cmFja2VkIHBsYXllciBwcm9wc1wiXG4gICAgICAgICAgICAgICAgOiBmb3JtYXRQbGF5ZXJQcm9wQ291bnQodHJhY2tlZFBsYXllclByb3BSb3dzLmxlbmd0aClcbiAgICAgICAgICAgIH1cbiAgICAgICAgICAgIGJvZHk9XCJJbmNsdWRlcyBwcm9wcyBiZWxvdyB0aGUgbm90aWZpY2F0aW9uIHRocmVzaG9sZC5cIlxuICAgICAgICAgIC8+XG4gICAgICAgICAge3RyYWNrZWRQbGF5ZXJQcm9wcy5pc0Vycm9yID8gKFxuICAgICAgICAgICAgPEVycm9yU3RhdGVcbiAgICAgICAgICAgICAgZGVzY3JpcHRpb249XCJUcmFja2VkIHBsYXllci1wcm9wIHJvd3MgY291bGQgbm90IGJlIGxvYWRlZC5cIlxuICAgICAgICAgICAgICBlcnJvcj17dHJhY2tlZFBsYXllclByb3BzLmVycm9yfVxuICAgICAgICAgICAgICBvbkFjdGlvbj17KCkgPT4gdm9pZCB0cmFja2VkUGxheWVyUHJvcHMucmVmZXRjaCgpfVxuICAgICAgICAgICAgICB0aXRsZT1cIlRyYWNrZWQgcGxheWVyIHByb3BzIGZhaWxlZCB0byBsb2FkXCJcbiAgICAgICAgICAgIC8+XG4gICAgICAgICAgKSA6IHRyYWNrZWRQbGF5ZXJQcm9wcy5pc0xvYWRpbmcgPyAoXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImxvYWRpbmctcGFuZWxcIj5Mb2FkaW5nIHRyYWNrZWQgcGxheWVyIHByb3BzLi4uPC9kaXY+XG4gICAgICAgICAgKSA6IHRyYWNrZWRQbGF5ZXJQcm9wUm93cy5sZW5ndGggPT09IDAgPyAoXG4gICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJtdXRlZFwiPlxuICAgICAgICAgICAgICBObyBwZXJzaXN0ZWQgcGxheWVyLXByb3Agcm93cyBhcmUgYXZhaWxhYmxlIGZvciB0aGlzIGRhdGUuXG4gICAgICAgICAgICA8L3A+XG4gICAgICAgICAgKSA6IChcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwidHJhY2tlZC1oaXN0b3J5LWdyaWRcIj5cbiAgICAgICAgICAgICAge3RyYWNrZWRQbGF5ZXJQcm9wUm93cy5zbGljZSgwLCAyNCkubWFwKChyb3c6IERpdmVyZ2VuY2VSb3cpID0+IChcbiAgICAgICAgICAgICAgICA8TGlua1xuICAgICAgICAgICAgICAgICAgY2xhc3NOYW1lPVwidHJhY2tlZC1oaXN0b3J5LXJvd1wiXG4gICAgICAgICAgICAgICAgICBrZXk9e2Ake3Jvdy5nYW1lSWR9OiR7cm93Lmluc3RydW1lbnRJZH1gfVxuICAgICAgICAgICAgICAgICAgdG89e2AvZ2FtZXMvJHtyb3cuZ2FtZUlkfS9tYXJrZXRzLyR7cm93Lmluc3RydW1lbnRJZH1gfVxuICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+e3Jvdy5kaXNwbGF5TGFiZWx9PC9zdHJvbmc+XG4gICAgICAgICAgICAgICAgICAgIDxzcGFuPntyb3cuZ2FtZUlkfTwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgICAgICAgPGVtPntmb3JtYXRHYXBQb2ludHMocm93LmltcGxpZWRQcm9iYWJpbGl0eUdhcCl9PC9lbT5cbiAgICAgICAgICAgICAgICAgIDxzcGFuPntmb3JtYXRNYXJrZXRNYXRjaExhYmVsKHJvdy5jb21wYXJhYmxlU3RhdGUpfTwvc3Bhbj5cbiAgICAgICAgICAgICAgICA8L0xpbms+XG4gICAgICAgICAgICAgICkpfVxuICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgKX1cbiAgICAgICAgPC9QYW5lbD5cbiAgICAgICkgOiBudWxsfVxuXG4gICAgICA8UGFuZWw+XG4gICAgICAgIDxTZWN0aW9uVGl0bGVcbiAgICAgICAgICBleWVicm93PVwiRmluaXNoZWQgR2FtZXNcIlxuICAgICAgICAgIHRpdGxlPVwiTGFyZ2VzdCBwZXJzaXN0ZWQgZGl2ZXJnZW5jZXNcIlxuICAgICAgICAgIGJvZHk9e2hpZ2hsaWdodGVkUm93cy5ib2R5fVxuICAgICAgICAvPlxuICAgICAgICB7aGlnaGxpZ2h0ZWRSb3dzLnJvd3MubGVuZ3RoID09PSAwID8gKFxuICAgICAgICAgIDxwIGNsYXNzTmFtZT1cIm11dGVkXCI+Tm8gc2lnbmFsIG1pc21hdGNoIHJvd3MgYXJlIGF2YWlsYWJsZSB5ZXQuPC9wPlxuICAgICAgICApIDogKFxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiY2FyZC1ncmlkXCI+XG4gICAgICAgICAgICB7aGlnaGxpZ2h0ZWRSb3dzLnJvd3MubWFwKChyb3csIGluZGV4KSA9PiB7XG4gICAgICAgICAgICAgIGNvbnN0IHRpbWVsaW5lUXVlcnkgPSBoaWdobGlnaHRUaW1lbGluZXNbaW5kZXhdO1xuICAgICAgICAgICAgICBjb25zdCBoaWdobGlnaHRTdW1tYXJ5ID1cbiAgICAgICAgICAgICAgICB0aW1lbGluZVF1ZXJ5Py5kYXRhPy5kYXRhICE9IG51bGxcbiAgICAgICAgICAgICAgICAgID8gYnVpbGRIaXN0b3JpY2FsR2FwU3VtbWFyeSh0aW1lbGluZVF1ZXJ5LmRhdGEuZGF0YSlcbiAgICAgICAgICAgICAgICAgIDogbnVsbDtcbiAgICAgICAgICAgICAgY29uc3QgcGVha01vbWVudExhYmVsID0gZm9ybWF0UGVha01vbWVudChcbiAgICAgICAgICAgICAgICBoaWdobGlnaHRTdW1tYXJ5Py5wZWFrR2FtZVN0YXRlXG4gICAgICAgICAgICAgICk7XG5cbiAgICAgICAgICAgICAgcmV0dXJuIChcbiAgICAgICAgICAgICAgICA8YXJ0aWNsZVxuICAgICAgICAgICAgICAgICAgY2xhc3NOYW1lPVwiaGlzdG9yeS1oaWdobGlnaHQtY2FyZFwiXG4gICAgICAgICAgICAgICAgICBrZXk9e2Ake3Jvdy5nYW1lSWR9LSR7cm93Lmluc3RydW1lbnRJZH1gfVxuICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiaGlzdG9yeS1oaWdobGlnaHQtaGVhZFwiPlxuICAgICAgICAgICAgICAgICAgICA8ZGl2PlxuICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZXllYnJvd1wiPlxuICAgICAgICAgICAgICAgICAgICAgICAge2hpZ2hsaWdodGVkUm93cy51c2VzRmFsbGJhY2tcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPyByb3cuZ2FtZVN0YXR1cy5yZXBsYWNlKFwiLVwiLCBcIiBcIilcbiAgICAgICAgICAgICAgICAgICAgICAgICAgOiBcImZpbmlzaGVkIGdhbWVcIn1cbiAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgICAgICAgICA8aDM+e3Jvdy5kaXNwbGF5TGFiZWx9PC9oMz5cbiAgICAgICAgICAgICAgICAgICAgICA8cD5cbiAgICAgICAgICAgICAgICAgICAgICAgIHtyb3cuZ2FtZUxhYmVsfSDCtyB7Zm9ybWF0R2FtZUNvbnRleHQocm93KX1cbiAgICAgICAgICAgICAgICAgICAgICA8L3A+XG4gICAgICAgICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImhpc3RvcnktaGlnaGxpZ2h0LWdhcFwiPlxuICAgICAgICAgICAgICAgICAgICAgIDxzcGFuPlBlYWsgZGl2ZXJnZW5jZTwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgICA8c3Ryb25nPlxuICAgICAgICAgICAgICAgICAgICAgICAge2hpZ2hsaWdodFN1bW1hcnlcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPyBmb3JtYXRHYXBQb2ludHMoaGlnaGxpZ2h0U3VtbWFyeS5wZWFrR2FwKVxuICAgICAgICAgICAgICAgICAgICAgICAgICA6IGZvcm1hdEdhcFBvaW50cyhyb3cuaW1wbGllZFByb2JhYmlsaXR5R2FwKX1cbiAgICAgICAgICAgICAgICAgICAgICA8L3N0cm9uZz5cbiAgICAgICAgICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICAgICAgICA8L2Rpdj5cblxuICAgICAgICAgICAgICAgICAge3RpbWVsaW5lUXVlcnk/LmlzTG9hZGluZyA/IChcbiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJsb2FkaW5nLXBhbmVsXCI+XG4gICAgICAgICAgICAgICAgICAgICAgTG9hZGluZyB0aW1lbGluZSBjb250ZXh0IGZvciB0aGlzIHNpZ25hbOKAplxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgICAgICkgOiAoXG4gICAgICAgICAgICAgICAgICAgIDw+XG4gICAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJoaXN0b3J5LWhpZ2hsaWdodC1tZXRyaWNzXCI+XG4gICAgICAgICAgICAgICAgICAgICAgICA8ZGl2PlxuICAgICAgICAgICAgICAgICAgICAgICAgICA8c3Bhbj5PcGVuZWQ8L3NwYW4+XG4gICAgICAgICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+XG4gICAgICAgICAgICAgICAgICAgICAgICAgICAge2hpZ2hsaWdodFN1bW1hcnlcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgID8gZm9ybWF0R2FwUG9pbnRzKGhpZ2hsaWdodFN1bW1hcnkub3BlbmluZ0dhcClcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDogXCJuL2FcIn1cbiAgICAgICAgICAgICAgICAgICAgICAgICAgPC9zdHJvbmc+XG4gICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICAgICAgICAgICAgICAgIDxzcGFuPlBlYWsgbW9tZW50PC9zcGFuPlxuICAgICAgICAgICAgICAgICAgICAgICAgICA8c3Ryb25nPlxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtoaWdobGlnaHRTdW1tYXJ5ID8gcGVha01vbWVudExhYmVsIDogXCJVbmF2YWlsYWJsZVwifVxuICAgICAgICAgICAgICAgICAgICAgICAgICA8L3N0cm9uZz5cbiAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgICAgICAgICAgICAgPGRpdj5cbiAgICAgICAgICAgICAgICAgICAgICAgICAgPHNwYW4+YmV0MzY1PC9zcGFuPlxuICAgICAgICAgICAgICAgICAgICAgICAgICA8c3Ryb25nPlxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtmb3JtYXRQcm9iYWJpbGl0eVBlcmNlbnQoXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICBoaWdobGlnaHRTdW1tYXJ5Py5wZWFrQmV0MzY1ID8/XG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJvdy5iZXQzNjVJbXBsaWVkUHJvYmFiaWxpdHlcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICApfVxuICAgICAgICAgICAgICAgICAgICAgICAgICA8L3N0cm9uZz5cbiAgICAgICAgICAgICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgICAgICAgICAgICAgPGRpdj5cbiAgICAgICAgICAgICAgICAgICAgICAgICAgPHNwYW4+RXhjaGFuZ2VzPC9zcGFuPlxuICAgICAgICAgICAgICAgICAgICAgICAgICA8c3Ryb25nPlxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIHtmb3JtYXRQcm9iYWJpbGl0eVBlcmNlbnQoXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICBhdmVyYWdlRGVmaW5lZE51bWJlcnMoW1xuICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBoaWdobGlnaHRTdW1tYXJ5Py5wZWFrS2Fsc2hpID8/XG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcm93LmthbHNoaUltcGxpZWRQcm9iYWJpbGl0eSxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgaGlnaGxpZ2h0U3VtbWFyeT8ucGVha1BvbHltYXJrZXQgPz9cbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICByb3cucG9seW1hcmtldEltcGxpZWRQcm9iYWJpbGl0eSxcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF0pXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgKX1cbiAgICAgICAgICAgICAgICAgICAgICAgICAgPC9zdHJvbmc+XG4gICAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cblxuICAgICAgICAgICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cImhpc3RvcnktaGlnaGxpZ2h0LXN1bW1hcnlcIj5cbiAgICAgICAgICAgICAgICAgICAgICAgIEJldDM2NSBkaWZmZXJlZCBieXtcIiBcIn1cbiAgICAgICAgICAgICAgICAgICAgICAgIHtoaWdobGlnaHRTdW1tYXJ5XG4gICAgICAgICAgICAgICAgICAgICAgICAgID8gZm9ybWF0R2FwUG9pbnRzKGhpZ2hsaWdodFN1bW1hcnkucGVha0dhcClcbiAgICAgICAgICAgICAgICAgICAgICAgICAgOiBmb3JtYXRHYXBQb2ludHMocm93LmltcGxpZWRQcm9iYWJpbGl0eUdhcCl9e1wiIFwifVxuICAgICAgICAgICAgICAgICAgICAgICAgZnJvbSB0aGUgZXhjaGFuZ2UgYXZlcmFnZSBhZnRlciBvcGVuaW5nIGF0e1wiIFwifVxuICAgICAgICAgICAgICAgICAgICAgICAge2hpZ2hsaWdodFN1bW1hcnlcbiAgICAgICAgICAgICAgICAgICAgICAgICAgPyBmb3JtYXRHYXBQb2ludHMoaGlnaGxpZ2h0U3VtbWFyeS5vcGVuaW5nR2FwKVxuICAgICAgICAgICAgICAgICAgICAgICAgICA6IFwibi9hXCJ9XG4gICAgICAgICAgICAgICAgICAgICAgICB7aGlnaGxpZ2h0U3VtbWFyeVxuICAgICAgICAgICAgICAgICAgICAgICAgICA/IHBlYWtNb21lbnRMYWJlbCA9PT0gXCJQcmVnYW1lXCJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA/IFwiLCBwZWFraW5nIGJlZm9yZSB0aXBvZmYuXCJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA6IGAsIHBlYWtpbmcgYXQgJHtwZWFrTW9tZW50TGFiZWx9LmBcbiAgICAgICAgICAgICAgICAgICAgICAgICAgOiBcIi5cIn1cbiAgICAgICAgICAgICAgICAgICAgICA8L3A+XG4gICAgICAgICAgICAgICAgICAgIDwvPlxuICAgICAgICAgICAgICAgICAgKX1cblxuICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ0YWctcm93XCI+XG4gICAgICAgICAgICAgICAgICAgIDxCYWRnZVxuICAgICAgICAgICAgICAgICAgICAgIHRvbmU9e3Jvdy5kaXJlY3Rpb25hbERpc2FncmVlbWVudCA/IFwid2FybmluZ1wiIDogXCJuZXV0cmFsXCJ9XG4gICAgICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgICAgICB7cm93LmRpcmVjdGlvbmFsRGlzYWdyZWVtZW50XG4gICAgICAgICAgICAgICAgICAgICAgICA/IFwiZGlyZWN0aW9uYWwgZGlzYWdyZWVtZW50XCJcbiAgICAgICAgICAgICAgICAgICAgICAgIDogXCJzYW1lIHNpZGVcIn1cbiAgICAgICAgICAgICAgICAgICAgPC9CYWRnZT5cbiAgICAgICAgICAgICAgICAgICAgPEJhZGdlIHRvbmU9e3Jvdy5saW5lTWlzbWF0Y2ggPyBcIndhcm5pbmdcIiA6IFwicG9zaXRpdmVcIn0+XG4gICAgICAgICAgICAgICAgICAgICAge3Jvdy5saW5lTWlzbWF0Y2ggPyBcImxpbmUgbWlzbWF0Y2hcIiA6IFwibGluZSBhbGlnbmVkXCJ9XG4gICAgICAgICAgICAgICAgICAgIDwvQmFkZ2U+XG4gICAgICAgICAgICAgICAgICAgIDxCYWRnZSB0b25lPVwibmV1dHJhbFwiPntyb3cuZmFtaWx5fTwvQmFkZ2U+XG4gICAgICAgICAgICAgICAgICAgIDxMaW5rXG4gICAgICAgICAgICAgICAgICAgICAgY2xhc3NOYW1lPVwiZ2hvc3QtYnV0dG9uXCJcbiAgICAgICAgICAgICAgICAgICAgICB0bz17YC9nYW1lcy8ke3Jvdy5nYW1lSWR9L21hcmtldHMvJHtyb3cuaW5zdHJ1bWVudElkfWB9XG4gICAgICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgICAgICBPcGVuIGluc3RydW1lbnRcbiAgICAgICAgICAgICAgICAgICAgPC9MaW5rPlxuICAgICAgICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICAgICAgPC9hcnRpY2xlPlxuICAgICAgICAgICAgICApO1xuICAgICAgICAgICAgfSl9XG4gICAgICAgICAgPC9kaXY+XG4gICAgICAgICl9XG4gICAgICA8L1BhbmVsPlxuXG4gICAgICA8ZGl2IGNsYXNzTmFtZT1cImdyaWQtbWV0cmljc1wiPlxuICAgICAgICA8TWV0cmljVGlsZVxuICAgICAgICAgIGxhYmVsPVwiU2lnbmFsIFJvd3NcIlxuICAgICAgICAgIHZhbHVlPXtTdHJpbmcoc2lnbmFsTWlzbWF0Y2hlcy5kYXRhLmRhdGEubGVuZ3RoKX1cbiAgICAgICAgICB0b25lPXtzaWduYWxNaXNtYXRjaGVzLmRhdGEuZGF0YS5sZW5ndGggPiAwID8gXCJ3YXJuaW5nXCIgOiBcInBvc2l0aXZlXCJ9XG4gICAgICAgIC8+XG4gICAgICAgIDxNZXRyaWNUaWxlXG4gICAgICAgICAgbGFiZWw9XCJGaW5pc2hlZCBTaWduYWxzXCJcbiAgICAgICAgICB2YWx1ZT17U3RyaW5nKGZpbmlzaGVkU2lnbmFsQ291bnQpfVxuICAgICAgICAgIHRvbmU9e2ZpbmlzaGVkU2lnbmFsQ291bnQgPiAwID8gXCJwb3NpdGl2ZVwiIDogXCJ3YXJuaW5nXCJ9XG4gICAgICAgIC8+XG4gICAgICAgIDxNZXRyaWNUaWxlXG4gICAgICAgICAgbGFiZWw9XCJEaXJlY3Rpb25hbCBTcGxpdHNcIlxuICAgICAgICAgIHZhbHVlPXtTdHJpbmcoZGlyZWN0aW9uYWxTaWduYWxDb3VudCl9XG4gICAgICAgICAgdG9uZT17ZGlyZWN0aW9uYWxTaWduYWxDb3VudCA+IDAgPyBcIndhcm5pbmdcIiA6IFwibmV1dHJhbFwifVxuICAgICAgICAvPlxuICAgICAgICA8TWV0cmljVGlsZVxuICAgICAgICAgIGxhYmVsPVwiUXVvdGUgVGlja3NcIlxuICAgICAgICAgIHZhbHVlPXtcbiAgICAgICAgICAgIHN0b3JhZ2VDb3ZlcmFnZS5pc0xvYWRpbmcgPyBcIi4uLlwiIDogU3RyaW5nKHF1b3RlVGlja3NQZXJzaXN0ZWQpXG4gICAgICAgICAgfVxuICAgICAgICAgIHRvbmU9e3F1b3RlVGlja3NQZXJzaXN0ZWQgPiAwID8gXCJwb3NpdGl2ZVwiIDogXCJ3YXJuaW5nXCJ9XG4gICAgICAgIC8+XG4gICAgICA8L2Rpdj5cblxuICAgICAgPFBhbmVsPlxuICAgICAgICA8U2VjdGlvblRpdGxlXG4gICAgICAgICAgZXllYnJvdz1cIkNhcHR1cmUgUnVuc1wiXG4gICAgICAgICAgdGl0bGU9XCJSZWNlbnQgYWRhcHRlciBhY3Rpdml0eVwiXG4gICAgICAgICAgYm9keT1cIlRoZXNlIHJvd3MgY29tZSBmcm9tIHBlcnNpc3RlZCBhZGFwdGVyIHJ1biBsb2dnaW5nLCBub3QgdGhlIGN1cnJlbnQgYnJvd3NlciBzZXNzaW9uLlwiXG4gICAgICAgIC8+XG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3RhY2tcIj5cbiAgICAgICAgICB7Y2FwdHVyZVJ1bnMuaXNMb2FkaW5nID8gKFxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJsb2FkaW5nLXBhbmVsXCI+TG9hZGluZyBjYXB0dXJlIHJ1bnMuLi48L2Rpdj5cbiAgICAgICAgICApIDogY2FwdHVyZVJ1bnMuaXNFcnJvciB8fCAhY2FwdHVyZVJ1bnMuZGF0YSA/IChcbiAgICAgICAgICAgIDxFcnJvclN0YXRlXG4gICAgICAgICAgICAgIGRlc2NyaXB0aW9uPVwiQ2FwdHVyZS1ydW4gaGlzdG9yeSBjb3VsZCBub3QgYmUgbG9hZGVkLlwiXG4gICAgICAgICAgICAgIGVycm9yPXtjYXB0dXJlUnVucy5lcnJvcn1cbiAgICAgICAgICAgICAgb25BY3Rpb249eygpID0+IHZvaWQgY2FwdHVyZVJ1bnMucmVmZXRjaCgpfVxuICAgICAgICAgICAgICB0aXRsZT1cIkNhcHR1cmUgcnVucyBmYWlsZWQgdG8gbG9hZFwiXG4gICAgICAgICAgICAvPlxuICAgICAgICAgICkgOiBjYXB0dXJlUnVucy5kYXRhLmRhdGEubGVuZ3RoID09PSAwID8gKFxuICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwibXV0ZWRcIj5ObyBjYXB0dXJlIHJ1bnMgaGF2ZSBiZWVuIHdyaXR0ZW4geWV0LjwvcD5cbiAgICAgICAgICApIDogKFxuICAgICAgICAgICAgY2FwdHVyZVJ1bnMuZGF0YS5kYXRhLnNsaWNlKDAsIDEwKS5tYXAoKHJ1bikgPT4gKFxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImFjdGlvbi1yb3dcIiBrZXk9e3J1bi5pZH0+XG4gICAgICAgICAgICAgICAgPGRpdj5cbiAgICAgICAgICAgICAgICAgIDxzdHJvbmc+e3J1bi5zb3VyY2V9PC9zdHJvbmc+XG4gICAgICAgICAgICAgICAgICA8cD5cbiAgICAgICAgICAgICAgICAgICAge3J1bi5yZWNvcmRzU2Vlbn0gc2VlbiDCtyB7cnVuLnJlY29yZHNXcml0dGVufSB3cml0dGVuIMK3XG4gICAgICAgICAgICAgICAgICAgIHN0YXJ0ZWQge2Zvcm1hdFRpbWVzdGFtcChydW4uc3RhcnRlZEF0KX1cbiAgICAgICAgICAgICAgICAgIDwvcD5cbiAgICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgICA8QmFkZ2UgdG9uZT17cnVuLnN0YXR1cyA9PT0gXCJva1wiID8gXCJwb3NpdGl2ZVwiIDogXCJjcml0aWNhbFwifT5cbiAgICAgICAgICAgICAgICAgIHtydW4uc3RhdHVzfVxuICAgICAgICAgICAgICAgIDwvQmFkZ2U+XG4gICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgKSlcbiAgICAgICAgICApfVxuICAgICAgICA8L2Rpdj5cbiAgICAgIDwvUGFuZWw+XG5cbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZHVhbC1ncmlkXCI+XG4gICAgICAgIDxQYW5lbD5cbiAgICAgICAgICA8U2VjdGlvblRpdGxlXG4gICAgICAgICAgICBleWVicm93PVwiU3RvcmFnZVwiXG4gICAgICAgICAgICB0aXRsZT1cIlBlcnNpc3RlZCBzb3VyY2UgY292ZXJhZ2VcIlxuICAgICAgICAgICAgYm9keT1cIlRoaXMgc2hvd3Mgd2hpY2ggc291cmNlcyBhbmQgbWFya2V0IGZhbWlsaWVzIGhhdmUgZHVyYWJsZSBwYXlsb2FkcyBiZWhpbmQgdGhlbS5cIlxuICAgICAgICAgIC8+XG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJzdGFja1wiPlxuICAgICAgICAgICAge3N0b3JhZ2VDb3ZlcmFnZS5pc0xvYWRpbmcgPyAoXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwibG9hZGluZy1wYW5lbFwiPkxvYWRpbmcgc3RvcmFnZSBjb3ZlcmFnZS4uLjwvZGl2PlxuICAgICAgICAgICAgKSA6IHN0b3JhZ2VDb3ZlcmFnZS5pc0Vycm9yIHx8ICFzdG9yYWdlQ292ZXJhZ2UuZGF0YSA/IChcbiAgICAgICAgICAgICAgPEVycm9yU3RhdGVcbiAgICAgICAgICAgICAgICBkZXNjcmlwdGlvbj1cIlBlcnNpc3RlZCBzb3VyY2UgY292ZXJhZ2UgY291bGQgbm90IGJlIGxvYWRlZC5cIlxuICAgICAgICAgICAgICAgIGVycm9yPXtzdG9yYWdlQ292ZXJhZ2UuZXJyb3J9XG4gICAgICAgICAgICAgICAgb25BY3Rpb249eygpID0+IHZvaWQgc3RvcmFnZUNvdmVyYWdlLnJlZmV0Y2goKX1cbiAgICAgICAgICAgICAgICB0aXRsZT1cIlN0b3JhZ2UgY292ZXJhZ2UgZmFpbGVkIHRvIGxvYWRcIlxuICAgICAgICAgICAgICAvPlxuICAgICAgICAgICAgKSA6IHN0b3JhZ2VDb3ZlcmFnZVJvd3MubGVuZ3RoID09PSAwID8gKFxuICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJtdXRlZFwiPk5vIHBlcnNpc3RlZCBzb3VyY2UgY292ZXJhZ2Ugcm93cyB5ZXQuPC9wPlxuICAgICAgICAgICAgKSA6IChcbiAgICAgICAgICAgICAgc3RvcmFnZUNvdmVyYWdlUm93cy5zbGljZSgwLCA4KS5tYXAoKHJvdykgPT4gKFxuICAgICAgICAgICAgICAgIDxkaXZcbiAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cInN0b3JhZ2UtY292ZXJhZ2Utcm93XCJcbiAgICAgICAgICAgICAgICAgIGtleT17YCR7cm93LmdhbWVJZH0tJHtyb3cuc291cmNlfS0ke3Jvdy5mYW1pbHkgPz8gXCJhbGxcIn1gfVxuICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+e3Jvdy5nYW1lSWR9PC9zdHJvbmc+XG4gICAgICAgICAgICAgICAgICAgIDxwPlxuICAgICAgICAgICAgICAgICAgICAgIHtyb3cuc291cmNlfSDCtyB7cm93LmZhbWlseSA/PyBcImFsbCBmYW1pbGllc1wifVxuICAgICAgICAgICAgICAgICAgICA8L3A+XG4gICAgICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3RvcmFnZS1jb3ZlcmFnZS1tZXRyaWNzXCI+XG4gICAgICAgICAgICAgICAgICAgIDxzcGFuPntyb3cuc291cmNlTWFya2V0Q291bnR9IHNvdXJjZSBtYXJrZXRzPC9zcGFuPlxuICAgICAgICAgICAgICAgICAgICA8c3Bhbj57cm93LnF1b3RlVGlja0NvdW50fSBxdW90ZSB0aWNrczwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgPHNwYW4+e3Jvdy5yYXdQYXlsb2FkQ291bnR9IHJhdyBwYXlsb2Fkczwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgICApKVxuICAgICAgICAgICAgKX1cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgPC9QYW5lbD5cblxuICAgICAgICA8UGFuZWw+XG4gICAgICAgICAgPFNlY3Rpb25UaXRsZVxuICAgICAgICAgICAgZXllYnJvdz1cIkNvdmVyYWdlXCJcbiAgICAgICAgICAgIHRpdGxlPVwiUmVzZWFyY2ggZ2FwcyBhbmQgdW5tYXBwZWQgcm93c1wiXG4gICAgICAgICAgICBib2R5PVwiVGhpcyBrZWVwcyBtaXNzaW5nIGFuZCB1bm1hcHBlZCBzb3VyY2UgdmlzaWJpbGl0eSBhbGl2ZSB3aGVuIHRoZXJlIGlzIG5vdGhpbmcgbmV3IG9uIHRoZSBjdXJyZW50IHNsYXRlLlwiXG4gICAgICAgICAgLz5cbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInN0YWNrXCI+XG4gICAgICAgICAgICB7cmVzZWFyY2hDb3ZlcmFnZS5pc0xvYWRpbmcgPyAoXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwibG9hZGluZy1wYW5lbFwiPkxvYWRpbmcgcmVzZWFyY2ggY292ZXJhZ2UuLi48L2Rpdj5cbiAgICAgICAgICAgICkgOiByZXNlYXJjaENvdmVyYWdlLmlzRXJyb3IgfHwgIXJlc2VhcmNoQ292ZXJhZ2UuZGF0YSA/IChcbiAgICAgICAgICAgICAgPEVycm9yU3RhdGVcbiAgICAgICAgICAgICAgICBkZXNjcmlwdGlvbj1cIlJlc2VhcmNoIGNvdmVyYWdlIHJvd3MgY291bGQgbm90IGJlIGxvYWRlZC5cIlxuICAgICAgICAgICAgICAgIGVycm9yPXtyZXNlYXJjaENvdmVyYWdlLmVycm9yfVxuICAgICAgICAgICAgICAgIG9uQWN0aW9uPXsoKSA9PiB2b2lkIHJlc2VhcmNoQ292ZXJhZ2UucmVmZXRjaCgpfVxuICAgICAgICAgICAgICAgIHRpdGxlPVwiUmVzZWFyY2ggY292ZXJhZ2UgZmFpbGVkIHRvIGxvYWRcIlxuICAgICAgICAgICAgICAvPlxuICAgICAgICAgICAgKSA6IHJlc2VhcmNoQ292ZXJhZ2VSb3dzLmxlbmd0aCA9PT0gMCA/IChcbiAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwibXV0ZWRcIj5cbiAgICAgICAgICAgICAgICBObyByZXNlYXJjaCBjb3ZlcmFnZSByb3dzIGFyZSBhdmFpbGFibGUgeWV0LlxuICAgICAgICAgICAgICA8L3A+XG4gICAgICAgICAgICApIDogKFxuICAgICAgICAgICAgICByZXNlYXJjaENvdmVyYWdlUm93cy5zbGljZSgwLCA4KS5tYXAoKHJvdykgPT4gKFxuICAgICAgICAgICAgICAgIDxkaXZcbiAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cInN0b3JhZ2UtY292ZXJhZ2Utcm93XCJcbiAgICAgICAgICAgICAgICAgIGtleT17YCR7cm93LmdhbWVJZH0tJHtyb3cuaW5zdHJ1bWVudElkID8/IFwiZ2FtZVwifS0ke3Jvdy5mYW1pbHkgPz8gXCJhbGxcIn1gfVxuICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+e3Jvdy5nYW1lSWR9PC9zdHJvbmc+XG4gICAgICAgICAgICAgICAgICAgIDxwPlxuICAgICAgICAgICAgICAgICAgICAgIHtyb3cuaW5zdHJ1bWVudElkID8/IFwiZ2FtZSBhZ2dyZWdhdGVcIn0gwrd7XCIgXCJ9XG4gICAgICAgICAgICAgICAgICAgICAge3Jvdy5mYW1pbHkgPz8gXCJhbGwgZmFtaWxpZXNcIn1cbiAgICAgICAgICAgICAgICAgICAgPC9wPlxuICAgICAgICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInN0b3JhZ2UtY292ZXJhZ2UtbWV0cmljc1wiPlxuICAgICAgICAgICAgICAgICAgICA8c3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgICBtYXJrZXQgZmVlZHN7XCIgXCJ9XG4gICAgICAgICAgICAgICAgICAgICAge2Zvcm1hdE1hcmtldFNvdXJjZUxpc3Qocm93LmF2YWlsYWJsZVNvdXJjZXMpfVxuICAgICAgICAgICAgICAgICAgICA8L3NwYW4+XG4gICAgICAgICAgICAgICAgICAgIDxzcGFuPlxuICAgICAgICAgICAgICAgICAgICAgIE5CQSBzdGF0ZXtcIiBcIn1cbiAgICAgICAgICAgICAgICAgICAgICB7aGFzTmJhU3RhdGVTb3VyY2Uocm93LmF2YWlsYWJsZVNvdXJjZXMpXG4gICAgICAgICAgICAgICAgICAgICAgICA/IFwiYXZhaWxhYmxlXCJcbiAgICAgICAgICAgICAgICAgICAgICAgIDogXCJtaXNzaW5nXCJ9XG4gICAgICAgICAgICAgICAgICAgIDwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgPHNwYW4+XG4gICAgICAgICAgICAgICAgICAgICAgbWlzc2luZyBtYXJrZXQgZmVlZHN7XCIgXCJ9XG4gICAgICAgICAgICAgICAgICAgICAge3Jvdy5taXNzaW5nU291cmNlcy5qb2luKFwiLCBcIikgfHwgXCJub25lXCJ9XG4gICAgICAgICAgICAgICAgICAgIDwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgPHNwYW4+XG4gICAgICAgICAgICAgICAgICAgICAgdW5tYXBwZWQge3Jvdy51bm1hcHBlZFNvdXJjZXMuam9pbihcIiwgXCIpIHx8IFwibm9uZVwifVxuICAgICAgICAgICAgICAgICAgICA8L3NwYW4+XG4gICAgICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgKSlcbiAgICAgICAgICAgICl9XG4gICAgICAgICAgPC9kaXY+XG4gICAgICAgIDwvUGFuZWw+XG4gICAgICA8L2Rpdj5cblxuICAgICAgPFBhbmVsPlxuICAgICAgICA8U2VjdGlvblRpdGxlXG4gICAgICAgICAgZXllYnJvdz1cIk1pc21hdGNoIEFyY2hpdmVcIlxuICAgICAgICAgIHRpdGxlPVwiUGFzdCBkaXNhZ3JlZW1lbnQgc25hcHNob3RcIlxuICAgICAgICAgIGJvZHk9XCJUaGlzIHN0YXlzIGF2YWlsYWJsZSBhcyB0aGUgZGVuc2VyIGFyY2hpdmUgdmlldyBhZnRlciB0aGUgY2xlYXJlciB3ZWVrbHkgaGlnaGxpZ2h0cyBhYm92ZS5cIlxuICAgICAgICAvPlxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInN0YWNrXCI+XG4gICAgICAgICAge3NpZ25hbE1pc21hdGNoZXMuZGF0YS5kYXRhLmxlbmd0aCA9PT0gMCA/IChcbiAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cIm11dGVkXCI+Tm8gc2lnbmFsIG1pc21hdGNoIHJvd3MgYXJlIGF2YWlsYWJsZSB5ZXQuPC9wPlxuICAgICAgICAgICkgOiAoXG4gICAgICAgICAgICBzaWduYWxNaXNtYXRjaGVzLmRhdGEuZGF0YS5zbGljZSgwLCAxMCkubWFwKChyb3cpID0+IChcbiAgICAgICAgICAgICAgPGRpdlxuICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cIm5vdGUtY2FyZCBjb21wYWN0XCJcbiAgICAgICAgICAgICAgICBrZXk9e2Ake3Jvdy5nYW1lSWR9LSR7cm93Lmluc3RydW1lbnRJZH1gfVxuICAgICAgICAgICAgICA+XG4gICAgICAgICAgICAgICAgPGgzPntyb3cuZGlzcGxheUxhYmVsfTwvaDM+XG4gICAgICAgICAgICAgICAgPHA+XG4gICAgICAgICAgICAgICAgICB7cm93LmdhbWVMYWJlbH0gwrcge3Jvdy5mYW1pbHl9IMK3IGRpdmVyZ2VuY2V7XCIgXCJ9XG4gICAgICAgICAgICAgICAgICB7Zm9ybWF0R2FwUG9pbnRzKHJvdy5pbXBsaWVkUHJvYmFiaWxpdHlHYXApfSDCtyBiZXQzNjV7XCIgXCJ9XG4gICAgICAgICAgICAgICAgICB7Zm9ybWF0UHJvYmFiaWxpdHlQZXJjZW50KHJvdy5iZXQzNjVJbXBsaWVkUHJvYmFiaWxpdHkpfSDCt1xuICAgICAgICAgICAgICAgICAga2Fsc2hpe1wiIFwifVxuICAgICAgICAgICAgICAgICAge2Zvcm1hdFByb2JhYmlsaXR5UGVyY2VudChyb3cua2Fsc2hpSW1wbGllZFByb2JhYmlsaXR5KX0gwrdcbiAgICAgICAgICAgICAgICAgIHBvbHltYXJrZXR7XCIgXCJ9XG4gICAgICAgICAgICAgICAgICB7Zm9ybWF0UHJvYmFiaWxpdHlQZXJjZW50KHJvdy5wb2x5bWFya2V0SW1wbGllZFByb2JhYmlsaXR5KX1cbiAgICAgICAgICAgICAgICA8L3A+XG4gICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ0YWctcm93XCI+XG4gICAgICAgICAgICAgICAgICA8QmFkZ2VcbiAgICAgICAgICAgICAgICAgICAgdG9uZT17cm93LmRpcmVjdGlvbmFsRGlzYWdyZWVtZW50ID8gXCJ3YXJuaW5nXCIgOiBcIm5ldXRyYWxcIn1cbiAgICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgICAge3Jvdy5kaXJlY3Rpb25hbERpc2FncmVlbWVudFxuICAgICAgICAgICAgICAgICAgICAgID8gXCJkaXJlY3Rpb25hbCBkaXNhZ3JlZW1lbnRcIlxuICAgICAgICAgICAgICAgICAgICAgIDogXCJzYW1lIGRpcmVjdGlvblwifVxuICAgICAgICAgICAgICAgICAgPC9CYWRnZT5cbiAgICAgICAgICAgICAgICAgIDxCYWRnZSB0b25lPXtyb3cubGluZU1pc21hdGNoID8gXCJ3YXJuaW5nXCIgOiBcInBvc2l0aXZlXCJ9PlxuICAgICAgICAgICAgICAgICAgICB7cm93LmxpbmVNaXNtYXRjaCA/IFwibGluZSBtaXNtYXRjaFwiIDogXCJsaW5lIGFsaWduZWRcIn1cbiAgICAgICAgICAgICAgICAgIDwvQmFkZ2U+XG4gICAgICAgICAgICAgICAgICA8QmFkZ2UgdG9uZT1cIm5ldXRyYWxcIj57cm93Lm1hcHBpbmdTdGF0dXN9PC9CYWRnZT5cbiAgICAgICAgICAgICAgICAgIDxCYWRnZSB0b25lPVwibmV1dHJhbFwiPntmb3JtYXRTY29yZWxpbmUocm93KX08L0JhZGdlPlxuICAgICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICkpXG4gICAgICAgICAgKX1cbiAgICAgICAgPC9kaXY+XG4gICAgICA8L1BhbmVsPlxuICAgIDwvUGFnZUZyYW1lPlxuICApO1xufVxuIl0sImZpbGUiOiIvc3JjL2ZlYXR1cmVzL2hpc3RvcnkvSGlzdG9yeVBhZ2UudHN4In0=

@@ -39,6 +39,17 @@ This repo is live-only. Do not add synthetic modes, curated scenarios, seeded hi
 - TypeScript workspace: `pnpm verify`
 - Python sidecar when touched: `cd apps/nba-sidecar && uv run pytest`
 
+## Stop Hook
+
+- Before ending any bug-fixing session, the stop hook must verify that every bug fix has behavior-level regression coverage.
+- The required test must validate the affected observable behavior, public contract, integration path, or system invariant.
+- Do not satisfy this rule with a narrowly scoped white-box test coupled to the exact function, module, or implementation detail changed during the fix.
+- Prefer black-box, contract, integration, or end-to-end coverage when appropriate.
+- The goal is regression protection for the mechanism, not test coverage theater for the edited line of code.
+- If the right behavior-level regression coverage cannot be added yet, treat the fix as incomplete and say exactly what is still blocking completion.
+- A mutating task is not complete unless the changed behavior is covered by the strongest realistic mix for that bug family: regression tests for the reported break, unit coverage for the local logic, and integration or UI/API coverage when the failure crossed boundaries.
+- Repo-local Codex hooks in `.codex/hooks.json` reinforce this policy: concrete bug-fix prompts get the regression-coverage reminder up front, and stop-time checks require a touched test file, a changed-surface test command, and a `pnpm verify` attempt before a bug-fix turn can end cleanly.
+
 ## Guardrails
 
 - Health and readiness should fail honestly when required live dependencies or persisted live data are missing.

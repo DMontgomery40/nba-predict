@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suspend-Signal Investigation — Innovation Team → Trading &amp; Analysis</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},chtml:{scale:0.95},startup:{typeset:true}};</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+:root{
+  --bg:#0a0e14; --bg2:#0d131c; --panel:#101926; --panel2:#0c141f; --line:#1d2a3a;
+  --ink:#cdd9e5; --ink2:#8b9bb0; --ink3:#5a6b81; --paper:#e8eef5;
+  --amber:#f5b942; --amber-d:#caa033; --green:#3fb950; --red:#f0564a; --cyan:#56b6c2;
+  --violet:#a98bff; --grid:#16212e;
+  --mono:'IBM Plex Mono',ui-monospace,monospace; --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --serif:'Fraunces',Georgia,serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:
+   radial-gradient(1200px 600px at 80% -10%,rgba(245,185,66,.05),transparent 60%),
+   radial-gradient(900px 500px at -10% 20%,rgba(86,182,194,.05),transparent 55%),
+   var(--bg);
+  color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.62;
+  -webkit-font-smoothing:antialiased;}
+a{color:var(--cyan);text-decoration:none;border-bottom:1px solid rgba(86,182,194,.3)}
+a:hover{border-bottom-color:var(--cyan)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 26px}
+.mono{font-family:var(--mono)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+header.mast{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0c1119,#0a0e14);position:relative;overflow:hidden}
+header.mast::before{content:"";position:absolute;inset:0;background-image:
+  linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:34px 34px;opacity:.35;mask-image:radial-gradient(800px 300px at 70% 0%,#000,transparent)}
+.mast .wrap{position:relative;padding:34px 26px 30px}
+.kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.32em;text-transform:uppercase;color:var(--amber);margin:0 0 14px}
+.kicker .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-right:9px;box-shadow:0 0 12px var(--amber);vertical-align:middle;animation:pulse 2.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+h1.title{font-family:var(--serif);font-weight:900;font-size:clamp(30px,5vw,52px);line-height:1.02;margin:0;color:var(--paper);letter-spacing:-.01em}
+h1.title em{font-style:italic;color:var(--amber);font-weight:600}
+.dek{max-width:780px;margin:16px 0 0;color:var(--ink2);font-size:16.5px}
+.routing{display:flex;flex-wrap:wrap;gap:18px;margin-top:22px;font-family:var(--mono);font-size:12px;color:var(--ink3)}
+.routing b{color:var(--ink);font-weight:500}
+.routing .tag{border:1px solid var(--line);border-radius:3px;padding:3px 9px;background:var(--panel2)}
+
+nav.toc{position:sticky;top:0;z-index:50;background:rgba(10,14,20,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav.toc .wrap{display:flex;gap:2px;overflow-x:auto;padding:0 26px;scrollbar-width:none}
+nav.toc .wrap::-webkit-scrollbar{display:none}
+nav.toc a{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:var(--ink3);padding:13px 11px;border-bottom:2px solid transparent;white-space:nowrap}
+nav.toc a:hover{color:var(--ink)}
+nav.toc a.active{color:var(--amber);border-bottom-color:var(--amber)}
+
+section{padding:54px 0;border-bottom:1px solid var(--line)}
+.snum{font-family:var(--mono);font-size:12px;color:var(--amber-d);letter-spacing:.2em}
+h2{font-family:var(--serif);font-weight:600;font-size:clamp(24px,3.4vw,34px);color:var(--paper);margin:8px 0 6px;letter-spacing:-.01em}
+.lede{color:var(--ink2);max-width:840px;font-size:16px;margin:0 0 26px}
+h3{font-family:var(--sans);font-weight:700;font-size:16px;color:var(--paper);margin:30px 0 10px}
+h3 .h3n{font-family:var(--mono);color:var(--cyan);font-size:13px;margin-right:8px}
+p{margin:0 0 14px}
+.muted{color:var(--ink2)}.dim{color:var(--ink3)}
+
+.panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:8px;padding:22px 24px;margin:18px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr}}
+.bl{border-left:3px solid var(--amber);padding-left:16px}
+.bl.green{border-color:var(--green)}.bl.red{border-color:var(--red)}.bl.cyan{border-color:var(--cyan)}
+.callout{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:6px;padding:16px 18px;margin:16px 0;font-size:14.5px}
+.callout.warn{border-left-color:var(--red)}.callout.ok{border-left-color:var(--green)}.callout.info{border-left-color:var(--cyan)}
+.tagline{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}
+@media(max-width:820px){.stats{grid-template-columns:1fr 1fr}}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:15px 16px}
+.stat .v{font-family:var(--mono);font-size:25px;font-weight:600;color:var(--paper);line-height:1}
+.stat .v .u{font-size:13px;color:var(--ink3)}
+.stat .l{font-size:12.5px;color:var(--ink2);margin-top:8px;line-height:1.4}
+.stat.amber .v{color:var(--amber)} .stat.green .v{color:var(--green)} .stat.red .v{color:var(--red)} .stat.cyan .v{color:var(--cyan)}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:16px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);font-weight:500}
+td.num,th.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+tbody tr:hover{background:rgba(86,182,194,.04)}
+.t-scroll{overflow-x:auto}
+tr.hi td{background:rgba(245,185,66,.07)}
+.pill{font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:10px;border:1px solid}
+.pill.g{color:var(--green);border-color:rgba(63,185,80,.4);background:rgba(63,185,80,.08)}
+.pill.r{color:var(--red);border-color:rgba(240,86,74,.4);background:rgba(240,86,74,.08)}
+.pill.y{color:var(--amber);border-color:rgba(245,185,66,.4);background:rgba(245,185,66,.08)}
+.pill.n{color:var(--ink3);border-color:var(--line)}
+
+.chart{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:18px 18px 8px;margin:18px 0}
+.chart .ct{font-family:var(--mono);font-size:12px;letter-spacing:.05em;color:var(--ink);margin-bottom:2px}
+.chart .cs{font-size:12px;color:var(--ink3);margin-bottom:12px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-family:var(--mono);font-size:11px;color:var(--ink2);margin-top:10px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+details{border:1px solid var(--line);border-radius:7px;margin:14px 0;background:var(--panel2);overflow:hidden}
+details>summary{cursor:pointer;list-style:none;padding:13px 18px;font-family:var(--mono);font-size:13px;color:var(--cyan);display:flex;align-items:center;gap:10px;user-select:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary .mscope{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);border:1px solid var(--line);padding:2px 7px;border-radius:3px}
+details>summary::before{content:"▸";color:var(--amber);transition:transform .2s}
+details[open]>summary::before{transform:rotate(90deg)}
+details .body{padding:4px 20px 18px;border-top:1px solid var(--line);font-size:14px}
+.eng{border-color:#33271a;background:#120d07}
+.eng>summary{color:var(--amber-d)}
+blockquote{margin:18px 0;padding:18px 22px;border-left:3px solid var(--violet);background:rgba(169,139,255,.06);border-radius:0 6px 6px 0;font-family:var(--serif);font-size:17px;font-style:italic;color:var(--paper)}
+blockquote .src{display:block;margin-top:10px;font-family:var(--mono);font-style:normal;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--violet)}
+code{font-family:var(--mono);font-size:.88em;background:var(--bg2);border:1px solid var(--line);border-radius:3px;padding:1px 5px;color:var(--amber)}
+ul.tight{margin:6px 0 14px;padding-left:20px}ul.tight li{margin:5px 0}
+.calc{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:820px){.calc{grid-template-columns:1fr}}
+.ctrl{margin:14px 0}
+.ctrl label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--ink2);margin-bottom:6px}
+.ctrl label b{color:var(--amber)}
+input[type=range]{width:100%;accent-color:var(--amber)}
+.verdict{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:20px}
+.verdict .big{font-family:var(--mono);font-size:30px;font-weight:600;line-height:1.1}
+footer{padding:40px 0 70px;color:var(--ink3);font-size:12.5px;font-family:var(--mono)}
+.eq{font-family:var(--sans);font-size:14.5px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:16px 18px;color:var(--ink);line-height:1.8}
+.eq .L{color:var(--green);font-weight:600}.eq .R{color:var(--amber);font-weight:600}.eq .u{color:var(--red)}
+hr.thin{border:0;border-top:1px solid var(--line);margin:26px 0}
+.flag{font-family:var(--mono);font-size:11px;color:var(--red);letter-spacing:.08em}
+.plain{font-size:13px;color:var(--ink3);font-style:italic}
+.eqs{margin:14px 0;padding:10px 14px;background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:6px;overflow-x:auto;color:var(--ink)}
+mjx-container[display="true"]{margin:0!important}
+mjx-container{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<header class="mast"><div class="wrap">
+  <p class="kicker"><span class="dot"></span>Project Innovation Team · Internal Decision Memo · 21 May 2026</p>
+  <h1 class="title">Can the prediction markets warn us to <em>suspend a game</em> — and how many seconds early?</h1>
+  <p class="dek">When the NBA's live stats credit a rebound, assist or block to the wrong player, the bet on that player can go bad in an instant. This memo asks a simple trading question: does the betting activity on Polymarket and Kalshi flash a warning early enough, and reliably enough, that a bet365 trader could pull the affected in-play markets before we pay out on a stat the league later overturns? <b>We tested this on NBA basketball only</b> — but bet365 trades roughly <b>92 sports</b>, the same free prediction-market feeds span most of them, and the build is shared across all of them. The basketball result is the proof of concept; the prize is the whole book.</p>
+  <div class="routing">
+    <span class="tag">FROM · Innovation Team</span>
+    <span class="tag">TO · Trading &amp; Analysis</span>
+    <span>Timed against&nbsp;<b>the NBA's official play clock</b></span>
+    <span>Sport tested&nbsp;<b>NBA (1 of ~92)</b></span>
+    <span>Games studied&nbsp;<b>64</b></span>
+    <span>Games with full bet-by-bet detail&nbsp;<b>18</b></span>
+    <span>Known real cases to check against&nbsp;<b>6</b></span>
+  </div>
+</div></header>
+
+<nav class="toc"><div class="wrap" id="toc">
+  <a href="#s1">1·The question</a><a href="#s2">2·Bottom line</a><a href="#s3">3·How we got here</a>
+  <a href="#s4">4·The data</a><a href="#s5">5·How we tested</a><a href="#s6">6·Results &amp; cases</a>
+  <a href="#spaper">7·The other study</a><a href="#s8">8·Recommendation</a><a href="#s9">9·What's missing</a><a href="#s10">10·Appendix</a>
+</div></nav>
+
+<main class="wrap">
+
+<!-- 1 -->
+<section id="s1">
+  <div class="snum">SECTION 01</div>
+  <h2>The question, in plain terms</h2>
+  <p class="lede">An NBA player-prop goes bad when the league's live stat feed gives the credit to the wrong player — a rebound logged to Reaves that was really Hayes's, an assist dropped, a board credited to "the team." When that happens, can the prediction markets tell a trader fast enough to <b>review or suspend the in-play markets on that game</b> before the desk takes a bad position?</p>
+
+  <div class="grid2">
+    <div class="panel bl">
+      <div class="tagline">Why we watch the whole board, not the one bet</div>
+      <p>One stat mistake doesn't move one market — it ripples across many. A rebound credited to the wrong player nudges that player's rebound line, his points-rebounds-assists combos, the team-rebounds market, <em>and</em> the right player's lines. The single disputed bet is usually the <b>quietest, thinnest</b> market on the board. So the loudest, earliest warning is the <b>whole board lurching at once</b> — not the one bet drifting. That is the central idea of this whole project.</p>
+    </div>
+    <div class="panel bl red">
+      <div class="tagline">The nightmare we're guarding against</div>
+      <p>People watching the live game — on TV, or in the arena ahead of the broadcast — react on the prediction markets <b>before the official data catches up</b>. The dangerous case: the bettor is wrong, the NBA's feed is <em>also</em> wrong, both wrong → we pay out against a result the league quietly corrects days later. A live warning would let a trader suspend before we take that hit.</p>
+    </div>
+  </div>
+  <p class="muted">We are not trying to name which prop or who deserves the stat — that is impossible in seconds and isn't the goal. The output we want is a simple, fast call: <b>"something is off with this game — look at it, or pull the flash bets."</b> We answer in seconds of warning, in how often it cries wolf, and in a go / no-go.</p>
+</section>
+
+<!-- 2 -->
+<section id="s2">
+  <div class="snum">SECTION 02</div>
+  <h2>Bottom line, first</h2>
+  <p class="lede">There is a real, measurable warning, and it arrives within seconds of the disputed play. The best single tool we found is a <b>whole-board alarm that weights each market by how much money is on it</b>; it confirmed our known cases <b>23 to 226 seconds after the disputed play</b>, at a cry-wolf rate the desk can dial up or down. But the one number that decides the business case — <b>how fast bet365's own desk already reacts</b> — is not in any data we hold. So: <b>conditional GO to a live trial that runs quietly alongside the desk; NO to flipping on automatic suspension today.</b></p>
+
+  <div class="stats">
+    <div class="stat green"><div class="v">5 of 6</div><div class="l">known real misallocation cases caught by the money-weighted whole-board alarm</div></div>
+    <div class="stat amber"><div class="v">23–226<span class="u">s</span></div><div class="l">how many seconds <em>after</em> the disputed play the alarm confirmed it</div></div>
+    <div class="stat cyan"><div class="v">~18<span class="u">/game</span></div><div class="l">review prompts at that sensitivity — the cry-wolf cost the desk would carry</div></div>
+    <div class="stat red"><div class="v">unknown</div><div class="l">whether it beats our own desk — we have no bet365 reaction times to compare</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="callout ok"><b>What we now know — earned from the data, not assumed:</b>
+      <ul class="tight">
+        <li><b>Watching the whole board beats watching the one bet.</b> Staring at the disputed bet alone misses the hardest case entirely; the narrow "watch the two players" idea caught <b>none</b> of the six.</li>
+        <li><b>Weighting markets by money beats treating them equally</b> — it's the only version that caught the rebound credited to "the team."</li>
+        <li><b>Different cases show up in different places.</b> Some only move the board; one only showed up as a single large bet. You need both alarms, not one.</li>
+        <li><b>The bet-by-bet tape isn't redundant:</b> about a quarter of the big tell-tale bets <em>never</em> showed up on the slower price chart at all.</li>
+      </ul>
+    </div>
+    <div class="callout warn"><b>What we do not know yet — said plainly:</b>
+      <ul class="tight">
+        <li><b>Does it beat our desk?</b> We can't say — we have none of bet365's own reaction or suspension times. This is the single most important missing piece.</li>
+        <li><b>How reliable, and what it costs in money.</b> Six known cases prove the warning exists and tend to arrive in the right order — not a calibrated hit-rate. The dollar cost of chasing false alarms is unmeasured.</li>
+        <li><b>The detailed bet-by-bet tape covers only 18 games</b> (the ones we recorded live). Older games can't be pulled back.</li>
+        <li><b>Every number here is basketball.</b> The same mechanism and the same free feeds plausibly apply to most of bet365's ~92 sports, but we have measured exactly one. The other 91 are an opportunity, not a result.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="dim">Confidence: <b>moderate</b> that the warning is real and arrives in the right order; <b>low</b> that we've measured its reliability; <b>zero</b> on whether it beats our own desk until we get bet365's internal timing.</p>
+</section>
+
+<!-- 3 -->
+<section id="s3">
+  <div class="snum">SECTION 03</div>
+  <h2>How we got here — the idea grew in five steps</h2>
+  <p class="lede">The project didn't start at "watch the whole board." It got there because each narrower idea failed against a real case. The lesson of the whole arc: the further we widened the lens, the more we caught.</p>
+
+  <div class="chart">
+    <div class="ct">From one bet → to the whole board</div>
+    <div class="cs">each step was forced by a case the previous step couldn't see</div>
+    <svg id="timelineSvg" viewBox="0 0 1100 150" role="img" aria-label="How the idea grew"></svg>
+  </div>
+
+  <div class="t-scroll"><table>
+    <thead><tr><th>Step</th><th>What we watched</th><th>The case that forced the next step</th></tr></thead>
+    <tbody>
+      <tr><td><b>1</b></td><td>The one disputed bet — compare bet365's price to the exchanges'</td><td><b>Queta assist</b>: neither Kalshi nor Polymarket even <em>offered</em> a Queta-assist market that night. If the market doesn't exist, there's nothing to compare.</td></tr>
+      <tr><td><b>2</b></td><td>The two players involved — the one wrongly credited and the rightful one</td><td><b>Reaves / Hayes</b>: the move was on the <em>other</em> player. And in a live game you don't yet know who the rightful player is, so you can't wait to look him up.</td></tr>
+      <tr><td><b>3</b></td><td>Unusual betting <em>activity</em> — one big bet at a price far from the market, a sudden surge in volume</td><td>A $105 bet placed at 99¢ while the going price was 50¢ — a quarter of that market's whole volume — was invisible on the price chart but obvious in the bet-by-bet tape.</td></tr>
+      <tr class="hi"><td><b>4</b></td><td><b>The whole board at once</b> — the earliest tripwire</td><td>No single market reliably says "this <em>game</em> is wrong now." But when many markets lurch together against the game's own calm, that's the loudest, earliest tell.</td></tr>
+      <tr><td><b>5</b></td><td>The same whole-board alarm, tuned so it doesn't constantly cry wolf</td><td>Early versions screamed "critical" on every game because the many small player markets drowned out the signal; weighting by money and comparing to each game's own baseline fixed it.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="plain">The exact code changes, dates and file references behind each step are kept in the engineering appendix (Section 10) so they don't clutter this page.</p>
+</section>
+
+<!-- 4 -->
+<section id="s4">
+  <div class="snum">SECTION 04</div>
+  <h2>The data we worked from</h2>
+  <p class="lede">Everything below is computed from prices and bets we already hold, lined up against the NBA's official play-by-play clock. Three things matter for a trader to trust the timing.</p>
+  <div class="stats">
+    <div class="stat"><div class="v">37<span class="u">M</span></div><div class="l">price quotes from bet365, Polymarket and Kalshi — across all 64 games</div></div>
+    <div class="stat"><div class="v">101<span class="u">k</span></div><div class="l">individual Polymarket bets (the bet-by-bet "tape") — but only for <b>18 games</b></div></div>
+    <div class="stat"><div class="v">64</div><div class="l">games with the NBA's play-by-play, timed to a fraction of a second — our clock</div></div>
+    <div class="stat"><div class="v">18</div><div class="l">games where we have that bet-by-bet detail; the rest can't be pulled back (below)</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel bl cyan"><div class="tagline">Three things we checked so the timing is honest</div>
+      <ul class="tight">
+        <li><b>We time everything against the NBA's live play clock</b>, not our own database timestamps — those turned out to be batch-loaded and useless for "what time did this happen."</li>
+        <li><b>We match bets to the right game by when they happened</b>, not by the stored game label. On back-to-back nights the labels get crossed (one famous case had the bet filed under the previous night's game).</li>
+        <li><b>We threw out the noise</b> — opening placeholder prices, impossible volume figures, and stale quotes — before measuring anything.</li>
+      </ul>
+    </div>
+    <div class="panel bl red"><div class="tagline">Why the bet-by-bet detail is only 18 games</div>
+      <p>We found and matched the other 46 games on Polymarket, but the detailed bet-by-bet history <b>can't be downloaded after a game ends</b> — the public feeds only give it to you live, while the game is running. The 18 games we have were all captured live. The only free way to get more is to keep recording future games live as they happen.</p>
+    </div>
+  </div>
+  <p class="muted">We also re-checked our outside sources are real and current: Polymarket's live bet feed, Kalshi's live NBA markets, the academic papers we cite, and the X.com stat-correction posts (from @nba_elise and others) that flag these misallocations all came back live. The full list with web addresses is in the appendix.</p>
+</section>
+
+<!-- 5 -->
+<section id="s5">
+  <div class="snum">SECTION 05</div>
+  <h2>How we tested it — fairly</h2>
+  <p class="lede">We judged every tool the same way: <b>how many seconds of warning it gives, at a cry-wolf rate the desk is willing to live with.</b> The desk decides how many false alarms it can tolerate; we report how much warning you get at that level.</p>
+
+  <div class="grid3">
+    <div class="panel"><div class="tagline">The moment we measure from</div><p>The disputed play itself, timed to the second from the NBA's play clock. "Warning" is how long <b>after</b> that play the alarm fired. <span class="pill g">Positive = after the play</span> — i.e. how early, post-event, the desk would have known.</p></div>
+    <div class="panel"><div class="tagline">Our six known cases — for checking only</div><p>Six real, publicly-flagged misallocations (five rebounds, one block) we can pin to the exact second. They are <b>only used to check</b> the tools, never to build them — six cases can prove the warning exists and tends to arrive in the right order, but cannot prove a reliable hit-rate.</p></div>
+    <div class="panel"><div class="tagline">The two yardsticks</div><p>(1) How many seconds of warning on each known case. (2) The <b>cry-wolf rate</b> — how often the alarm fires across all 64 games when nothing is wrong. The second is the cost of automatic suspension and is the whole reason a threshold matters.</p></div>
+  </div>
+
+  <div class="callout info"><b>No cheating, no peeking into the future.</b> Every alarm only uses what was knowable at that moment — it compares each minute to the game's own recent calm, never to anything that came later. We never blend Polymarket's second-by-second timing with Kalshi's coarser minute-by-minute data, and we never invent a bet365 reaction time we don't have.</div>
+
+  <details><summary><span class="mscope">detail</span> The six tools we put head-to-head</summary><div class="body">
+    <table><thead><tr><th>Tool</th><th>What it watches</th></tr></thead><tbody>
+      <tr><td><b>Watch the one disputed bet</b></td><td>only that bet's own price swinging to a near-certain outcome</td></tr>
+      <tr><td><b>Watch the two players</b></td><td>the biggest move across the wrongly-credited and rightful players' markets</td></tr>
+      <tr><td><b>Whole-board alarm (simple)</b></td><td>how much the whole board is moving, treating every market equally</td></tr>
+      <tr><td><b>Whole-board alarm (money-weighted)</b></td><td>same, but markets with more money on them count for more</td></tr>
+      <tr><td><b>One big off-price bet</b></td><td>a single large bet placed far from the going price (a strong tell of inside knowledge)</td></tr>
+      <tr><td><b>Both alarms combined</b></td><td>fire if either the whole-board alarm or the big-off-price-bet alarm fires</td></tr>
+    </tbody></table>
+    <p class="dim">"Money-weighted" simply means a $1,000 market counts more than a $5 market when we add up how much the board is moving. The exact formulas are in the engineering appendix.</p>
+  </div></details>
+</section>
+
+<!-- 6 -->
+<section id="s6">
+  <div class="snum">SECTION 06</div>
+  <h2>Results &amp; the real cases — what actually caught what</h2>
+  <p class="lede">This is the part the desk cares about. Six tools, judged at the same cry-wolf rate, then the real incidents played out to the second. The headline: <b>the money-weighted whole-board alarm is the best single tool</b>, and pairing it with the big-off-price-bet alarm catches what either one misses.</p>
+  <div class="callout info"><b>Said once, plainly, so we don't repeat it:</b> every "warning time" below is measured from the disputed play (NBA clock, to the second) — <b>not</b> against bet365's own desk, because we don't hold our internal line-move and suspension times. So we can say with confidence that <b>the signal is real and lands within seconds to a couple of minutes of the play</b>; the single open question — the one the live trial settles — is whether that beats the clock our traders already run. (Polymarket is second-by-second; Kalshi only minute-by-minute.)</div>
+
+  <div class="chart">
+    <div class="ct">Catches vs cry-wolf rate</div>
+    <div class="cs">left–right = how often the alarm fires when nothing's wrong (false alarms per minute of play) · up–down = how many of our 6 known cases it caught · the desk picks how far right it can live with; we show the catches you get there</div>
+    <svg id="opSvg" viewBox="0 0 1100 440" role="img" aria-label="Catches vs cry-wolf rate"></svg>
+    <div class="legend" id="opLegend"></div>
+  </div>
+
+  <div class="chart">
+    <div class="ct">Which tool caught which case — and how many seconds after the play</div>
+    <div class="cs">bright green = caught within a minute · deep green = caught later · grey "—" = missed · the number is seconds after the play · the point is the patchwork: no single tool catches everything</div>
+    <svg id="matrixSvg" viewBox="0 0 1100 360" role="img" aria-label="Which tool caught which case"></svg>
+  </div>
+
+  <div class="grid2">
+    <div class="chart">
+      <div class="ct">How often the whole-board alarm fires — across all 64 games</div>
+      <div class="cs">each game's false-alarm rate · the orange line is the typical (median) game</div>
+      <svg id="fpSvg" viewBox="0 0 540 300" role="img" aria-label="False-alarm rate per game"></svg>
+    </div>
+    <div class="chart">
+      <div class="ct">Why the bet-by-bet tape earns its place</div>
+      <div class="cs">316 markets where one big off-price bet appeared (across the 18 detailed games)</div>
+      <svg id="lagSvg" viewBox="0 0 540 300" role="img" aria-label="Tape vs price chart"></svg>
+    </div>
+  </div>
+
+  <h3><span class="h3n">6.1</span>The scoreboard</h3>
+  <div class="t-scroll"><table id="bakeoffTable"></table></div>
+  <p class="dim">Representative settings shown (the full sensitivity sweep lives in the data file). "Cry-wolf / min" is across all 64 games. The two narrow tools (watch the one bet, watch the two players) have no cry-wolf number — they need you to already know which market to watch, a built-in disadvantage, not an oversight.</p>
+
+  <div class="callout"><b>What holds no matter how you set the dial:</b>
+    <ul class="tight">
+      <li><b>Money-weighting always matches or beats equal-weighting</b>, and it's the only version that caught the rebound credited to "the team." It quiets down meaningless churn in tiny markets and listens to where real money sits.</li>
+      <li><b>Watching the one bet misses the hardest case (Reaves) entirely, and watching the two players caught none of the six</b> — the ripple is a whole-board thing, and the movers are often <em>other</em> players.</li>
+      <li><b>The bet-by-bet tape is worth keeping:</b> the slower price chart only reflected a big off-price bet a typical <b>3¾ minutes later</b>, and <b>about a quarter of the time never reflected it at all</b>.</li>
+    </ul>
+  </div>
+  <h3><span class="h3n">6.2</span>What happened to every incident the desk flagged</h3>
+  <p class="muted">Traders' first question is always "what about the ones I sent?" Here is the honest disposition of each — and the difference between <em>"we have no data"</em> and <em>"we looked and the alarm stayed silent"</em> matters, so it is spelled out:</p>
+  <div class="t-scroll"><table>
+    <thead><tr><th>Incident</th><th>Could we test it?</th><th>Result &amp; why</th></tr></thead>
+    <tbody>
+      <tr><td>Reaves / Hayes</td><td><span class="pill g">tested</span></td><td>caught by the big off-price bet, <b>+38s</b> — the board couldn't, because the ripple wasn't listed on the fast venue</td></tr>
+      <tr><td>Hartenstein / Wallace</td><td><span class="pill g">tested</span></td><td>caught by the whole-board alarm, <b>+23s</b></td></tr>
+      <tr><td>Allen / Strus</td><td><span class="pill g">tested</span></td><td>caught by the whole-board alarm, <b>+58s</b></td></tr>
+      <tr><td>Allen / Merrill</td><td><span class="pill g">tested</span></td><td>caught by the whole-board alarm, <b>+106s</b></td></tr>
+      <tr><td>Merrill / "the team"</td><td><span class="pill g">tested</span></td><td>caught by the money-weighted board only, <b>+67s</b></td></tr>
+      <tr class="hi"><td>Cunningham block</td><td><span class="pill y">tested — silent</span></td><td><b>We have the data; the alarm fired nothing.</b> A genuine miss, for two honest reasons: the public flag's game clock (Q3 11:36) doesn't match the only candidate block in the official feed (~10-minute gap), so we may be aiming at the wrong second; and at that window <b>no market on either venue moved</b> — the block market was almost certainly too thin to react. A real silent case, <em>not</em> missing data.</td></tr>
+      <tr><td>Queta assist</td><td><span class="pill r">couldn't</span></td><td><b>No data.</b> It happened 1 Apr 2026 — before our coverage even begins (21 Apr) — and neither venue listed a Queta-assist market anyway. Nothing to test.</td></tr>
+      <tr><td>Duren — box off by one</td><td><span class="pill r">couldn't</span></td><td><b>No single moment to aim at.</b> A final box-score total that disagrees by one rebound, not one disputed play — there is no second to anchor a warning to.</td></tr>
+      <tr><td>Holmgren — box off by one</td><td><span class="pill r">couldn't</span></td><td><b>No single moment to aim at.</b> Same as Duren — an end-of-game count discrepancy, not a live disputed play.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="dim">So: of the cases we could actually test, <b>five of six fired a warning</b>; the one that didn't — Cunningham — looks like a label/coverage problem, not a detector failure. The three we couldn't test aren't failures: they're either before our data window or box-score totals with no single moment to aim at. We kept them on the list because you'll ask — we just can't score them.</p>
+
+  <h3><span class="h3n">6.3</span>The real cases, to the second</h3>
+  <p class="muted">The two clearest incidents, side by side — one picture for why you want both alarms:</p>
+
+  <div class="chart">
+    <div class="ct">Two cases, opposite outcomes — where the warning shows up depends on what's listed</div>
+    <svg id="cascadeSvg" viewBox="0 0 1100 250" role="img" aria-label="Two contrasting cases"></svg>
+  </div>
+
+  <div id="caseStudies"></div>
+
+  <h3><span class="h3n">6.4</span>The pattern across the cases</h3>
+  <div class="t-scroll"><table>
+    <thead><tr><th>Type of case</th><th>What caught it</th><th class="num">Typical warning</th><th>What it tells us</th></tr></thead>
+    <tbody>
+      <tr><td>The ripple is listed and liquid</td><td><span class="pill g">money-weighted board</span></td><td class="num">+23 to +106s</td><td>You must watch the whole board; watching two players is too narrow — the movers are other players</td></tr>
+      <tr><td>The ripple isn't offered on the fast venue</td><td><span class="pill y">one big off-price bet</span></td><td class="num">+38s</td><td>You need both alarms; the board alone misses this kind entirely</td></tr>
+      <tr><td>Credited to "the team" (no player market)</td><td><span class="pill g">money-weighted board</span></td><td class="num">+67s</td><td>Money-weighting beats equal-weighting; equal-weight gets drowned out by tiny markets</td></tr>
+      <tr><td>Weak/uncertain case, little coverage</td><td><span class="pill n">nothing fired</span></td><td class="num">—</td><td>A clean miss is informative too: coverage and label quality both matter</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 8 — independent paper -->
+<section id="spaper">
+  <div class="snum">SECTION 07</div>
+  <h2>The other study — an independent paper, the same week</h2>
+  <p class="lede">While we were building this, a university team published a peer-style study of the exact same markets. <b>Our first work on this landed 21 April 2026; their paper hit arXiv 22 April 2026</b> — one day apart, with no contact between us. Two groups racing to the same corner of Polymarket within a day is itself a finding: this area is real, it's valuable, and we are not the only ones who see it.</p>
+
+  <div class="callout info"><b>The paper:</b> <a href="https://arxiv.org/abs/2605.00864">"Arbitrage Analysis in Polymarket NBA Markets"</a> — Cheng, Yang &amp; Zou, UCLA (arXiv:2605.00864, submitted 22 Apr 2026). It asks a <b>different question</b> than we do: <em>can you make guaranteed, risk-free money from price inconsistencies?</em> — not <em>can you spot a stat error early?</em> It is built on a far bigger, cleaner dataset than ours: <b>75 million order-book snapshots across 173 games</b>, with the <b>full order book</b> (every resting buy and sell offer) — depth we do not currently capture.</p></div>
+
+  <h3><span class="h3n">7.1</span>What they found</h3>
+  <p class="muted">The markets are <b>highly efficient</b> for risk-free profit. Guaranteed-profit gaps inside a single market are rare and vanish in a <b>median 3.6 seconds</b>; multi-market gaps are more common but cluster in the <b>final minutes</b> and return only about <b>1%</b>; and the books are so <b>shallow (~15 shares deep)</b> that any risk-free profit is confined to tiny, retail-sized bets. In short: there is no free money here at scale.</p>
+
+  <h3><span class="h3n">7.2</span>Honest comparison — who's better at what</h3>
+  <div class="t-scroll"><table>
+    <thead><tr><th>&nbsp;</th><th>Their paper</th><th>This work</th></tr></thead>
+    <tbody>
+      <tr><td><b>Question</b></td><td>Is there risk-free arbitrage profit?</td><td>Is there an early <em>suspend</em> warning for mis-credited stats?</td></tr>
+      <tr><td><b>Data</b></td><td class="pill-cell"><span class="pill g">stronger</span> 75M full-order-book snapshots, 173 games</td><td>sampled prices (64 games) + bet-by-bet tape (18 games); no full order book</td></tr>
+      <tr><td><b>Tied to the real game?</b></td><td>No — purely price-internal</td><td class="pill-cell"><span class="pill g">stronger</span> every signal pinned to a disputed play on the NBA clock, to the second</td></tr>
+      <tr><td><b>What it measures</b></td><td>how often / how long / how profitable arbitrage is</td><td class="pill-cell"><span class="pill g">stronger</span> seconds of warning + how often it cries wolf (what a desk needs)</td></tr>
+      <tr><td><b>Scale &amp; academic rigor</b></td><td class="pill-cell"><span class="pill g">stronger</span> larger, peer-style, full-depth</td><td>smaller, purpose-built, checked against 6 real cases</td></tr>
+      <tr><td><b>Answers our actual question</b></td><td>No — silent on stat errors entirely</td><td class="pill-cell"><span class="pill g">stronger</span> built for exactly this</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><b>The honest verdict:</b> it is <b>not</b> "ours is better" or "theirs is better" — they answer <b>different questions</b>. On <em>their</em> question (is the market efficient enough to arbitrage?) their study is larger and more rigorous than anything we attempt, and we don't try to. On <em>our</em> question (an early suspend signal for mis-credited stats) the paper is <b>silent</b> — it has no notion of a real-world stat error, no link to the game clock, and no measure of warning-time or false alarms. Ours is purpose-built for exactly that. The two are <b>complementary, not competing.</b></div>
+
+  <h3><span class="h3n">7.3</span>Why this paper matters for us</h3>
+  <div class="grid3">
+    <div class="panel bl green"><div class="tagline">1 · It backs up our design</div><p>Their finding that price gaps vanish in a <b>median 3.6 seconds</b> independently confirms the fast signal lives in the <b>raw bet-by-bet tape, not the slower price chart</b> — exactly our result that the chart lags the tape by a typical 3¾ minutes. And their finding that books are only <b>~15 shares deep</b> confirms that a <b>small, concentrated off-price bet really does move the market</b> — which is precisely why our $100 bet at 99¢ on Reaves is a credible "someone knows something" tell, not noise.</p></div>
+    <div class="panel bl"><div class="tagline">2 · It rules out the wrong play</div><p>The paper proves there is <b>essentially no risk-free arbitrage money here at scale.</b> So bet365 should <b>not</b> chase this as a profit play — the value is exactly what we study: <b>avoiding losses by suspending early.</b> The paper actually strengthens our case by closing off the obvious alternative.</p></div>
+    <div class="panel bl red"><div class="tagline">3 · The clock is ticking</div><p>A UCLA group — and the earlier work they cite — is <b>already mining these markets.</b> The data is free and others are racing, so any edge here is <b>perishable.</b> The flip side: they've handed us a rigorous, <b>full-order-book</b> baseline (the very depth we lack) to build our live capture on. Move while the edge exists.</p></div>
+  </div>
+  <p class="plain">One caveat to test in the trial: their risk-free gaps cluster in the final minutes of games — end-game noise we should make sure doesn't inflate our false-alarm count. Full notes: <code>research/09-paper-comparison.md</code>.</p>
+</section>
+
+<!-- 9 -->
+<section id="s8">
+  <div class="snum">SECTION 08</div>
+  <h2>Recommendation — go / no-go</h2>
+  <p class="lede"><b>Conditional GO to a quiet live trial. NO to automatic suspension today.</b> Run the money-weighted whole-board alarm live alongside the desk, log when it fires and when the desk acts, and finally measure the one thing that decides everything: <b>does the warning beat our own desk's clock?</b> Only with that answer — and a real dollar cost for false alarms — is automatic suspension justified.</p>
+
+  <div class="panel bl green">
+    <div class="tagline">First, the good news: the data is essentially free</div>
+    <p class="muted">We checked the actual pricing live. <b>Polymarket's market data is fully public — no account, no key, no fee</b> (you only pay if you place trades, which we don't). <b>Kalshi's market-data API is free</b> too — you generate a key from account settings; they meter throughput with rate-limit tiers, not a per-seat data bill. We do <b>not</b> need Odds-API. So there is <b>no expensive data licence to fear.</b> Crucially, those same free feeds already span most of the <b>~92 sports bet365 trades</b> — politics and econ aside, the major sports are listed — so this is not a basketball-only spend.</p>
+  </div>
+
+  <div class="panel bl">
+    <div class="tagline">So where does the money actually go?</div>
+    <div class="eq">
+      It pays off when&nbsp; <span class="L">(money saved per caught incident) × (incidents per season, across all sports) × (how often we beat our own desk)</span>
+      <br>is bigger than&nbsp; <span class="R">(one-off engineering + bet365 integration, spread over the year)</span> &nbsp;+&nbsp; <span class="R">(whatever you decide a false alarm costs a trader who's already at the desk)</span>.
+    </div>
+    <p class="muted" style="margin-top:12px">The real cost is <b>engineering, not data</b>: building the alarm, running always-on capture (the bet-by-bet tape can't be downloaded after the fact, so recorders must run live), and — the big one — <b>wiring it into bet365's internal system</b>, which the perspective in §9 rightly calls "a massive system that cannot mess up." That integration cost is a one-time build, <b>shared across every sport it serves</b>, so per-sport it shrinks the more of the 92 you turn on. We <em>can</em> measure the false-alarm rate (the dial below); we <b>cannot</b> yet measure how much an incident costs us, how many happen, or how often we'd beat our own desk — that's what the trial is for.</p>
+  </div>
+
+  <h3><span class="h3n">8.1</span>Break-even calculator — put in your own numbers</h3>
+  <p class="muted">We supply the measured false-alarm burden; you supply the trading judgement. Don't have a number? Leave the default or set it to zero — that's the point of the sliders. The result is the <b>money we'd need to save per incident</b> for the signal to pay for itself.</p>
+  <div class="panel"><div class="calc">
+    <div>
+      <div class="ctrl"><label>Alarm sensitivity <b id="vFp">money-weighted board · ~18 alarms/game</b></label>
+        <input type="range" id="iFp" min="0" max="4" step="1" value="0"></div>
+      <div class="ctrl"><label>What a glance at a false alarm is worth (soft cost — 0 if you don't count it) <b id="vRc">$5</b></label>
+        <input type="range" id="iRc" min="0" max="100" step="1" value="5"></div>
+      <div class="ctrl"><label>Misallocation incidents per season <b id="vInc">120</b></label>
+        <input type="range" id="iInc" min="10" max="600" step="10" value="120"></div>
+      <div class="ctrl"><label>How often the warning beats our desk <b id="vP">50%</b></label>
+        <input type="range" id="iP" min="5" max="100" step="5" value="50"></div>
+      <div class="ctrl"><label>Yearly engineering + bet365-integration cost (data itself is ~free) <b id="vInt">$250k</b></label>
+        <input type="range" id="iInt" min="0" max="2000" step="25" value="250"></div>
+      <p class="dim">Defaults assume ~95 minutes of in-play time per game and an 80-game NBA playoff window. Three of these are <span class="flag">honest guesses</span> for the desk to set. Traders are already at the desk, so a false alarm isn't extra payroll — the real risk it carries is <b>alert-fatigue</b> (cry wolf too often and the real ones get ignored), which is why its cost is a soft, optional dial.</p>
+    </div>
+    <div class="verdict">
+      <div class="tagline">False alarms a trader would glance at</div>
+      <div class="big" id="oBurden">—</div>
+      <div class="dim" id="oBurdenSub">—</div>
+      <hr class="thin">
+      <div class="tagline">Money we'd need to save per incident to break even</div>
+      <div class="big" style="color:var(--amber)" id="oBreak">—</div>
+      <div class="dim" id="oVerdict">—</div>
+    </div>
+  </div></div>
+  <p class="plain">Source for the pricing claims: live checks of the Polymarket and Kalshi developer docs, 21 May 2026 (details in the engineering appendix).</p>
+</section>
+
+<!-- 9 -->
+<section id="s9">
+  <div class="snum">SECTION 09</div>
+  <h2>What would make the answer certain</h2>
+  <p class="lede">Three things turn this from "moderate confidence, the warning exists" into a calibrated, dollar-justified decision.</p>
+  <div class="grid3">
+    <div class="panel bl red"><div class="tagline">1 · Our own desk's timing</div><p>When did bet365 move its line or suspend the market, to the second? This is the <b>single most important missing number.</b> Without it we cannot say whether the warning beats our desk — and that decides the whole business case. David can pull bet365's internal history; this is the highest-value next step.</p></div>
+    <div class="panel bl"><div class="tagline">2 · Many more known cases</div><p>Six cases prove the warning exists; they can't prove a reliable hit-rate. A few hundred labelled incidents — from the X.com stat-correction accounts, a colleague's customer-behaviour signals, and our own review logs — would turn this into a real reliability number with error bars.</p></div>
+    <div class="panel bl cyan"><div class="tagline">3 · Live recording of both venues</div><p>Capturing Kalshi's bet-by-bet tape and the rest of the Polymarket games live (they can't be pulled back later). Having two venues confirm each other is the single best way to cut false alarms.</p></div>
+    <div class="panel bl"><div class="tagline">4 · A second (and third) sport</div><p>Everything here is basketball. The mechanism — a live stat mis-credited, humans repricing before the official correction — should recur in any sport with live stats and a listed market. The data feeds are already free and broad, so the cheapest high-value test is to repeat this on one more sport (e.g. a football or tennis market with frequent live-stat disputes) and see if the warning holds. That is how a basketball proof-of-concept becomes a case for the whole 92-sport book.</p></div>
+  </div>
+  <blockquote>I personally think, based on what I've seen when things are dialed right, based on @nba_elise and V and nba_stats correction calls on X.com as well as various comment threads on the prediction market sites, that there is almost certainly something here. However, we need it hooked into the bet365 internal system to get exact timing of our changes. This is obviously a great deal of time and expense potentially, because it is a massive system that cannot mess up, and going on gut instinct for such a major undertaking is not okay.
+    <span class="src">One Innovation-Team view — included as a perspective, not the report's conclusion</span>
+  </blockquote>
+</section>
+
+<!-- 10 -->
+<section id="s10">
+  <div class="snum">SECTION 10</div>
+  <h2>Appendix</h2>
+  <p class="muted">The first block below is the only part written for traders. Everything after it is for the engineering team — full of code references, database names and web addresses, and safe for a trading reader to skip entirely.</p>
+
+  <details open><summary><span class="mscope">for traders</span> All flagged incidents — reference detail (dispositions are in §6.2)</summary><div class="body">
+    <div class="t-scroll"><table id="labelTable"></table></div>
+    <p class="dim">"Timed?" = can we pin it to an exact second. <b>yes</b> = tested in §6; <b>weak</b> = Cunningham, tested but the alarm stayed silent (clock mismatch + thin market — a real miss, not missing data); <b>no</b> = couldn't test (Queta predates our data; Duren/Holmgren are box-score totals with no single disputed play). Two honest caveats: in Allen/Merrill the official feed already shows the correction, so we time it from the public post; Cunningham is held out of any reliability count.</p>
+  </div></details>
+
+  <details class="eng"><summary><span class="mscope">engineering</span> Sources &amp; live-checked web references</summary><div class="body">
+    <p class="dim">All statuses are real responses observed on 21 May 2026. A 403/302 from a publisher is a bot-block or redirect that still proves the page exists.</p>
+    <div class="t-scroll"><table id="citeTable"></table></div>
+  </div></details>
+
+  <details class="eng"><summary><span class="mscope">engineering</span> How the alarms are computed (formulas &amp; scripts)</summary><div class="body">
+    <p>Whole-board alarm, per game: aggregate price quotes (<code>quote_ticks</code>) joined via <code>source_markets.game_id</code>; in-play window \([t_0,t_1]=\bigl[\min,\max\bigr]\) of NBA play-by-play <code>time_actual</code>; drop heartbeats, the \(0.500\) opening anchor, and quote gaps \(&gt;300\,\mathrm{s}\); bin into 60-second buckets. The equal- and money-weighted bucket intensities are</p>
+    <div class="eqs">\[ I^{\mathrm{eq}}_{b}=\sum_{i\in b}\bigl|\Delta p_i\bigr| \qquad\qquad I^{\mathrm{vw}}_{b}=\sum_{i\in b}\bigl|\Delta p_i\bigr|\,\ln\!\bigl(1+v_i\bigr) \]</div>
+    <p>where \(\Delta p_i\) is the change in implied probability of market \(i\) within the bucket and \(v_i\) its quote volume. A bucket <b>fires</b> when it exceeds a causal trailing baseline over the prior \(W=20\) buckets (after an \(8\)-bucket warm-up), using the median and median-absolute-deviation:</p>
+    <div class="eqs">\[ \mathrm{fire}(b)\iff I_b \;\ge\; \operatorname{median}\bigl(I_{b-W:\,b-1}\bigr)\;+\;K\cdot\operatorname{MAD}\bigl(I_{b-W:\,b-1}\bigr) \]</div>
+    <p>with confirmation time taken at the bucket end. A single big <b>off-price bet</b> fires when both a volume-share and an off-price-distance gate are met:</p>
+    <div class="eqs">\[ \mathrm{vol\_share}\;\ge\;0.10 \quad\wedge\quad \bigl|\,p_{\text{trade}}-p_{\text{prev}}\,\bigr|\;\ge\;0.35 \]</div>
+    <p>and the head-start of a tool on incident \(j\) is \(\ell_j = t^{\text{fire}}_j - t^{\,0}_j\) (positive = after the disputed play). The "worth-it" decision reduces to the inequality</p>
+    <div class="eqs">\[ \underbrace{L\cdot N\cdot \Pr\!\bigl(\ell \ge \Delta t\bigr)}_{\text{benefit (unmeasured)}} \;\;\ge\;\; \underbrace{C_{\text{int}}\;+\;f\cdot c\cdot V}_{\text{cost (mostly measured)}} \]</div>
+    <p class="dim">\(L=\) expected loss avoided per incident, \(N=\) incidents/season, \(\Pr(\ell\ge\Delta t)=\) how often we beat our own desk by the required margin \(\Delta t\); \(C_{\text{int}}=\) amortized engineering + integration cost, \(f=\) false-alarm rate (fires/min), \(c=\) review cost, \(V=\) in-play signal volume. We measure \(f\) and \(V\); \(L,N,\Pr(\ell\ge\Delta t)\) are the trial's job.</p>
+    <p class="dim">Read-only on the 52&nbsp;GB <code>signal-console.sqlite</code> store. Scripts: <code>scripts/bakeoff.py</code>, <code>scripts/board_signal_v2.py</code>, <code>scripts/lead_vs_pricehist.py</code>. Outputs: <code>research/bakeoff-results.json</code>, <code>research/board-signal-v2.json</code>.</p>
+    <p class="dim">No-future-leakage: causal trailing baseline only; last-quote-at-or-before anchoring; whole-board catch window \([-60,+300]\,\mathrm{s}\) (a bucket-start can precede the event it contains); point detectors \([0,+300]\,\mathrm{s}\).</p>
+  </div></details>
+
+  <details class="eng"><summary><span class="mscope">engineering</span> Project history — code citations behind Section 3</summary><div class="body">
+    <p class="mono" style="font-size:12.5px;line-height:1.9">Step 1 exact-line: SIG-005/009; <code>MARKET_INCIDENT_HANDOFF_PROMPT.md:222</code>. Step 2 paired-player: <code>AGENTS.md:104-115</code>; commit <code>404a874</code> (2026-05-14). Step 3 market-structure: <code>TODO.md:91-111</code>; SIG-008. Step 4 board alarm: <code>specs/06b-board-anomaly-model.md:§2</code>; commit <code>19e8220</code> (2026-05-16). Step 5 calibration + board-first gate: <code>PLAN.md:67-73</code>; commit <code>4a5d415</code>; live-tuned during game <code>nba-0042500301</code> (2026-05-19). Replay / "how many seconds earlier": FR-019.</p>
+    <p class="dim">Excluded as non-signal churn: UI redesigns; worker rate-limit isolation (<code>084cd67</code>); schema versions v1–v14; test additions; backup-vs-direct capture.</p>
+  </div></details>
+
+  <details class="eng"><summary><span class="mscope">engineering</span> Genuine dead-ends &amp; data limits</summary><div class="body">
+    <ul class="tight">
+      <li><b>Watch-the-two-players detector: 0 of 6.</b> The movers at a ripple are third parties, so a credited+rightful watch fails.</li>
+      <li><b>Historical bet tape can't be backfilled.</b> 50 games mapped, 0 trades retrievable: <code>data-api/trades</code> ignores the market filter after resolution; CLOB <code>prices-history</code> needs a key; The Graph / Strapi DNS-blocked; Dune needs a key; Polygon <code>eth_getLogs</code> capped at 50 blocks with no price data.</li>
+      <li><b>Kalshi second-level tape: absent</b> — only minute candles persist, so cross-venue confirmation isn't yet possible at seconds resolution.</li>
+      <li><b>Watch-the-one-bet caught 3 of 6 but missed the canonical thin case (Reaves)</b> and has no measurable false-alarm rate — it looks better than it is.</li>
+    </ul>
+  </div></details>
+</section>
+
+<footer class="wrap">
+  Innovation Team → Trading &amp; Analysis · suspend-signal investigation · 21 May 2026 · every figure timed against the NBA's official play clock and computed from prices and bets we already hold · bet365's own reaction timing is a stated gap, never invented.
+</footer>
+</main>
+
+<script>
+const BAKEOFF = {"incidents": ["reaves_hayes", "hartenstein_wallace", "allen_strus", "allen_merrill", "merrill_team", "cunningham_block"], "detectors": [{"detector": "board-eq", "K": 3.0, "fp_fires_per_inplay_min": 0.1291, "frac_incidents_caught": 0.667, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": 139.8, "hartenstein_wallace": 23.2, "allen_strus": 57.6, "allen_merrill": 105.7, "merrill_team": null, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "board-eq", "K": 4.0, "fp_fires_per_inplay_min": 0.0981, "frac_incidents_caught": 0.5, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": null, "hartenstein_wallace": 23.2, "allen_strus": 117.6, "allen_merrill": 105.7, "merrill_team": null, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "board-eq", "K": 5.0, "fp_fires_per_inplay_min": 0.0763, "frac_incidents_caught": 0.5, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": null, "hartenstein_wallace": 23.2, "allen_strus": 117.6, "allen_merrill": 225.7, "merrill_team": null, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "board-eq", "K": 6.0, "fp_fires_per_inplay_min": 0.061, "frac_incidents_caught": 0.5, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": null, "hartenstein_wallace": 23.2, "allen_strus": 117.6, "allen_merrill": 225.7, "merrill_team": null, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "board-eq", "K": 8.0, "fp_fires_per_inplay_min": 0.0428, "frac_incidents_caught": 0.333, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": null, "hartenstein_wallace": 23.2, "allen_strus": null, "allen_merrill": 225.7, "merrill_team": null, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "board-vw", "K": 3.0, "fp_fires_per_inplay_min": 0.1232, "frac_incidents_caught": 0.833, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": 139.8, "hartenstein_wallace": 23.2, "allen_strus": 57.6, "allen_merrill": 105.7, "merrill_team": 66.6, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "board-vw", "K": 4.0, "fp_fires_per_inplay_min": 0.0912, "frac_incidents_caught": 0.667, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": null, "hartenstein_wallace": 23.2, "allen_strus": 57.6, "allen_merrill": 105.7, "merrill_team": 66.6, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "board-vw", "K": 5.0, "fp_fires_per_inplay_min": 0.0695, "frac_incidents_caught": 0.667, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": null, "hartenstein_wallace": 23.2, "allen_strus": 117.6, "allen_merrill": 105.7, "merrill_team": 66.6, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "board-vw", "K": 6.0, "fp_fires_per_inplay_min": 0.056, "frac_incidents_caught": 0.5, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": null, "hartenstein_wallace": 23.2, "allen_strus": 117.6, "allen_merrill": 225.7, "merrill_team": null, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "board-vw", "K": 8.0, "fp_fires_per_inplay_min": 0.038, "frac_incidents_caught": 0.5, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": null, "hartenstein_wallace": 83.2, "allen_strus": 117.6, "allen_merrill": 225.7, "merrill_team": null, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "exact-prop", "K": null, "fp_fires_per_inplay_min": null, "frac_incidents_caught": 0.5, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": null, "hartenstein_wallace": 26.2, "allen_strus": 1.6, "allen_merrill": 48.7, "merrill_team": null, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "paired-player", "K": null, "fp_fires_per_inplay_min": null, "frac_incidents_caught": 0.0, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": null, "hartenstein_wallace": null, "allen_strus": null, "allen_merrill": null, "merrill_team": null, "cunningham_block": null}, "lead_vs_pricehist": null}, {"detector": "offprice-print", "K": null, "fp_fires_per_inplay_min": 0.0761, "frac_incidents_caught": 0.167, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": 37.8, "hartenstein_wallace": null, "allen_strus": null, "allen_merrill": null, "merrill_team": null, "cunningham_block": null}, "lead_vs_pricehist": {"n_instruments": 316, "n_caught_up": 229, "n_tape_only": 87, "catchup_lag_s": {"median": 224.0, "p25": 65.0, "p75": 1085.0}, "frac_tape_earlier": 0.997, "note": "per-Polymarket-instrument over 18 trade-tape games; lag = seconds until sampled price-history reflects a decisive off-price tape move; tape_only = sampled series never reflected it in the in-play window"}}, {"detector": "ensemble-OR(board-vw@3,offprice)", "K": 3.0, "fp_fires_per_inplay_min": 0.1993, "frac_incidents_caught": 0.833, "n_incidents": 6, "per_incident_lead_s": {"reaves_hayes": 37.8, "hartenstein_wallace": 23.2, "allen_strus": 57.6, "allen_merrill": 105.7, "merrill_team": 66.6, "cunningham_block": null}, "lead_vs_pricehist": {"n_instruments": 316, "n_caught_up": 229, "n_tape_only": 87, "catchup_lag_s": {"median": 224.0, "p25": 65.0, "p75": 1085.0}, "frac_tape_earlier": 0.997, "note": "per-Polymarket-instrument over 18 trade-tape games; lag = seconds until sampled price-history reflects a decisive off-price tape move; tape_only = sampled series never reflected it in the in-play window"}}], "lead_vs_pricehist": {"n_instruments": 316, "n_caught_up": 229, "n_tape_only": 87, "catchup_lag_s": {"median": 224.0, "p25": 65.0, "p75": 1085.0}, "frac_tape_earlier": 0.997, "note": "per-Polymarket-instrument over 18 trade-tape games; lag = seconds until sampled price-history reflects a decisive off-price tape move; tape_only = sampled series never reflected it in the in-play window"}};
+const FP_EQ = [0.0325, 0.141, 0.0542, 0.0197, 0.0753, 0.1449, 0.0074, 0.1328, 0.0703, 0.0504, 0.0574, 0.1034, 0.0455, 0.039, 0.2049, 0.0411, 0.1259, 0.0496, 0.1014, 0.0187, 0.0395, 0.1184, 0.0437, 0.0203, 0.1926, 0.1027, 0.0131, 0.0993, 0.028, 0.1348, 0.0581, 0.028, 0.0968, 0.06, 0.0645, 0.0397, 0.1138, 0.0667, 0.0333, 0.0845, 0.0699, 0.0537, 0.0325, 0.0204, 0.0409, 0.0133, 0.0132, 0.0526, 0.0634, 0.0327, 0.0201, 0.1143, 0.1325, 0.0657, 0.0573, 0.0473, 0.1716, 0.0063, 0.0, 0.0, 0.0, 0.0588, 0.1351, 0.0], FP_VW = [0.0195, 0.1218, 0.0542, 0.0197, 0.0342, 0.1232, 0.0074, 0.1094, 0.0469, 0.0576, 0.041, 0.1103, 0.0519, 0.026, 0.1885, 0.0342, 0.1259, 0.0284, 0.0942, 0.0063, 0.0263, 0.0724, 0.0437, 0.0203, 0.1556, 0.0959, 0.0196, 0.053, 0.028, 0.1135, 0.0516, 0.014, 0.0581, 0.08, 0.0581, 0.0397, 0.0719, 0.0533, 0.0267, 0.0845, 0.035, 0.0537, 0.026, 0.1361, 0.0409, 0.0467, 0.0199, 0.0526, 0.0493, 0.0196, 0.0537, 0.1, 0.106, 0.0438, 0.0446, 0.0405, 0.1493, 0.0125, 0.0903, 0.0068, 0.0272, 0.1176, 0.0541, 0.1395];
+const INC_LABEL = {reaves_hayes:"Reaves / Hayes",hartenstein_wallace:"Hartenstein / Wallace",
+  allen_strus:"Allen / Strus",allen_merrill:"Allen / Merrill",merrill_team:"Merrill / TEAM",cunningham_block:"Cunningham block"};
+const PLAIN={"board-vw":"Whole-board alarm (money-weighted)","board-eq":"Whole-board alarm (simple)",
+  "offprice-print":"One big off-price bet","exact-prop":"Watch the one disputed bet",
+  "paired-player":"Watch the two players","ensemble-OR(board-vw@3,offprice)":"Both alarms combined"};
+const SHORT={"board-vw":"Board $-wt","board-eq":"Board simple","offprice-print":"Big off-price bet",
+  "exact-prop":"The one bet","paired-player":"The two players","ensemble-OR(board-vw@3,offprice)":"Both combined"};
+function dname(d){return PLAIN[d]||d;} function sname(d){return SHORT[d]||d;}
+const COL={"board-vw":"#3fb950","board-eq":"#56b6c2","offprice-print":"#f5b942","ensemble-OR(board-vw@3,offprice)":"#a98bff","exact-prop":"#f0564a","paired-player":"#5a6b81"};
+
+const CITES = [
+ ["Polymarket live bet feed","200","Returns individual bets in real time — the fast, second-by-second source"],
+ ["Polymarket price-chart feed (1-min)","400","Won't return sub-minute detail — proof the price chart lags the bet tape"],
+ ["Polymarket developer docs — Overview","200","\"The Gamma API and Data API are fully public — no authentication\" → market data costs $0"],
+ ["Kalshi developer docs — API Keys & Rate Limits","200","Free API key from account settings; token-based rate-limit tiers, no per-seat data fee"],
+ ["Kalshi live NBA markets","200","Kalshi runs NBA player-prop markets through the 2026 playoffs"],
+ ["Wolfers & Zitzewitz (2004), Prediction Markets","200","Academic basis: prediction-market prices carry information"],
+ ["Kyle (1985), Continuous Auctions & Insider Trading","302","Why a small concentrated bet can signal inside knowledge"],
+ ["Croxson & Reade (2014), Goal arrivals in betting","302","Exchanges keep trading and react when books go dark"],
+ ["arXiv 2605.00864 — Cheng, Yang, Zou (UCLA), submitted 22 Apr 2026","200","Independent arbitrage study (see §8); mispricings last a median 3.6s; books ~14.8 shares deep"],
+ ["@nba_elise on X.com (via nitter)","200","The fast human stat-correction monitor we cross-check against"],
+ ["@PDemilord post — Cason Wallace rebound","200","Source for the Hartenstein/Wallace case (5/7/26, Q3 8:19)"],
+];
+const LABELS = [
+ ["Reaves / Hayes","rebound credited to wrong player","OKC at Lakers","12 May 2026","yes","game-label mix-up on a back-to-back"],
+ ["Hartenstein / Wallace","rebound credited to wrong player","OKC Thunder","8 May 2026","yes","confirmed via @PDemilord post"],
+ ["Allen / Strus","rebound credited to wrong player","Cavs–Raptors Game 7","4 May 2026","yes","@nba_elise post"],
+ ["Allen / Merrill","rebound credited to wrong player","Cavs–Raptors Game 7","4 May 2026","yes","feed shows the correction, not the error"],
+ ["Merrill / TEAM","rebound credited to 'the team'","Cavs–Pistons","18 May 2026","yes","only the money-weighted board caught it"],
+ ["Cunningham block","block credited to wrong player","Pistons","8 May 2026","weak","~10-min clock mismatch — held out"],
+ ["Queta assist","missing assist","Celtics at Heat","2 Apr 2026","no","before our coverage; market not listed either"],
+ ["Duren","box-score off by one","Pistons at Cavs","6 May 2026","no","no single disputed play to time"],
+ ["Holmgren","box-score off by one","OKC","10 May 2026","no","no single disputed play to time"],
+];
+const CASES = [{"title": "1 \u00b7 Reaves / Hayes rebound \u2014 OKC at the Lakers", "color": "#f5b942", "open": true, "lead": "only the off-price bet caught it \u00b7 38s", "arch": "The hard one: the ripple wasn't even listed, so only the bet tape saw it", "t0": "12 May 2026, late in the game. A rebound was credited live to Austin Reaves; it was really Jaxson Hayes's. It was never corrected before the final whistle.", "board": "<b>Did not fire.</b> Of the markets listed, there was a Reaves line but none for Hayes, and no team- or quarter-rebound markets \u2014 so there was nothing for the board to pick up.", "off": "<b>38 seconds after the play.</b> A single $100 bet on Reaves's rebounds went through at 99\u00a2 while the going price was about 50\u00a2 \u2014 a quarter of that market's entire volume. Nothing nearby moved like it. The price chart never showed this; it lived only in the bet-by-bet tape.", "desk": "A one-line alert 38s after the play: an unusually large bet placed far from the market price. No whole-board warning at all \u2014 watching the board alone would have missed this entirely.", "gap": "the 38 seconds is only from the play to the first visible Polymarket bet; we have no bet365 reaction time to compare.", "note": ""}, {"title": "2 \u00b7 Hartenstein / Wallace rebound \u2014 OKC Thunder", "color": "#3fb950", "open": true, "lead": "whole-board alarm \u00b7 23s", "arch": "The textbook one: the whole board lit up, even though no single market named the right player", "t0": "8 May 2026. A rebound was credited to Isaiah Hartenstein that was really Cason Wallace's (flagged publicly by @PDemilord, third quarter, 8:19 on the clock).", "board": "<b>About 23 seconds after the play.</b> A cluster of markets jumped together \u2014 Marcus Smart's rebounds (32s before), Reaves's points (28s after), Dort's props and the game moneyline. Notably, none of these were Hartenstein's or Wallace's own markets.", "off": "The big-off-price-bet alarm only flagged something before the play, which we count as noise, not a catch. This one was caught by the board, not the bet tape.", "desk": "A whole-board alert ~23s after the play: a group of markets repricing together with no obvious reason. The disputed market needn't even appear \u2014 the signal is the board moving as one. This is the clearest proof that 'watch the two players' (which caught none of the six) misses what the whole board catches.", "gap": "we have no bet365 reaction time to compare against the 23 seconds.", "note": ""}, {"title": "3 \u00b7 Allen / Strus rebound \u2014 Cavaliers vs Raptors, Game 7", "color": "#3fb950", "open": false, "lead": "whole-board alarm \u00b7 58s", "arch": "Board caught it cleanly inside a minute", "t0": "4 May 2026, Game 7. A rebound credited to Max Strus that was really Jarrett Allen's (flagged by @nba_elise). Allen finished with 22 points and 19 rebounds.", "board": "<b>About 58 seconds after the play</b> (money-weighted; the simple version matched). A high-stakes Game 7 had plenty of listed markets for the board to read.", "off": "No qualifying big off-price bet in the window. The board was the only alarm that caught it.", "desk": "A whole-board alert about a minute after the play \u2014 markets repricing in a way consistent with a stat going wrong in a tight Game 7.", "gap": "no bet365 reaction time available.", "note": ""}, {"title": "4 \u00b7 Allen / Merrill rebound \u2014 same Game 7", "color": "#3fb950", "open": false, "lead": "whole-board alarm \u00b7 106s", "arch": "A second board alert in the same six minutes", "t0": "4 May 2026, same Game 7, a few minutes later. A rebound credited to Sam Merrill that was really Jarrett Allen's (flagged by @nba_elise).", "board": "<b>About 106 seconds after the play.</b> Two whole-board alerts in six minutes of one playoff game is itself an unusual pattern worth a look.", "off": "No qualifying big off-price bet in the window. The board was the only alarm that caught it.", "desk": "A second whole-board alert \u2014 same player, same kind of stat. The pattern of two in quick succession is the tell.", "gap": "no bet365 reaction time available.", "note": "<b>Honesty note:</b> for this play the official feed already shows the corrected version (Allen), not the original error. So we time it from the public correction post and game clock, not from the feed. The feed is not always the live, uncorrected version \u2014 a model relying on it shouldn't assume so."}, {"title": "5 \u00b7 Merrill / 'the team' rebound \u2014 Cavaliers vs Pistons", "color": "#3fb950", "open": false, "lead": "only the money-weighted board \u00b7 67s", "arch": "Why weighting by money matters: the simple alarm missed this; the money-weighted one caught it", "t0": "18 May 2026, third quarter, 4:45 on the clock. A rebound credited to 'the team' that was really Sam Merrill's (flagged by @nba_elise).", "board": "<b>About 67 seconds after the play \u2014 but only the money-weighted alarm caught it.</b> The simple (equal) version was drowned out by churn in tiny markets; weighting by money listened to the markets that actually had stakes on them. This is the cleanest example of why money-weighting wins.", "off": "No qualifying big off-price bet for this one; the catch was the money-weighted board alone.", "desk": "A whole-board alert 67s after the play. Because the credit went to 'the team' and not a named player, no single player market moves \u2014 so this is invisible to the narrow tools and to the simple board. Only money-weighting finds it.", "gap": "no bet365 reaction time available.", "note": ""}, {"title": "6 \u00b7 Cunningham block \u2014 Pistons (weak case)", "color": "#5a6b81", "open": false, "lead": "nothing fired", "arch": "An honest miss \u2014 and a reminder our labels aren't perfect", "t0": "8 May 2026. A block credited to Cade Cunningham was questioned \u2014 but the public post's game clock (third quarter, 11:36) doesn't match where the feed puts the only candidate play (about a 10-minute gap). We treat this case as low-confidence.", "board": "<b>Did not fire.</b>", "off": "<b>Did not fire.</b> No alarm produced a warning.", "desk": "Nothing from the markets. We can't tell whether there was no real mistake, the market was too thin to react, or the label itself is wrong.", "gap": "no bet365 reaction time available.", "note": "<b>Why we keep it in:</b> the clock mismatch means this is a label-quality problem, not necessarily a tool failure \u2014 and we hold it out of any reliability count rather than pretend it's a clean test."}];
+
+const $=s=>document.querySelector(s), C="http://www.w3.org/2000/svg";
+function el(n,a){const e=document.createElementNS(C,n);for(const k in a)e.setAttribute(k,a[k]);return e;}
+function txt(p,x,y,s,a){const t=el("text",Object.assign({x,y},a));t.textContent=s;p.appendChild(t);return t;}
+
+/* timeline */
+(function(){const s=$("#timelineSvg");const W=1100,phs=[
+ ["1","the one bet","#5a6b81"],["2","the two players","#56b6c2"],["3","unusual activity","#f5b942"],
+ ["4","the whole board","#3fb950"],["5","tuned alarm","#a98bff"]];
+ const y=70,n=phs.length,gap=W/n;
+ s.appendChild(el("line",{x1:30,y1:y,x2:W-20,y2:y,stroke:"#1d2a3a","stroke-width":2}));
+ phs.forEach((p,i)=>{const x=30+gap*i+gap/2-30;
+  s.appendChild(el("circle",{cx:x,cy:y,r:i==3?13:9,fill:"#0d131c",stroke:p[2],"stroke-width":i==3?3:2}));
+  txt(s,x,y+5,p[0],{"text-anchor":"middle",fill:p[2],"font-family":"IBM Plex Mono","font-size":12,"font-weight":600});
+  txt(s,x,y-26,"STEP "+p[0],{"text-anchor":"middle",fill:"#5a6b81","font-family":"IBM Plex Mono","font-size":9.5,"letter-spacing":"1.5"});
+  txt(s,x,y+34,p[1],{"text-anchor":"middle",fill:i==3?"#e8eef5":"#8b9bb0","font-family":"IBM Plex Sans","font-size":12.5,"font-weight":i==3?700:400});
+  if(i<n-1)s.appendChild(el("path",{d:`M${x+18},${y-3} l10,3 l-10,3`,fill:"none",stroke:"#caa033","stroke-width":1.5}));
+ });})();
+
+/* operating curve */
+(function(){const s=$("#opSvg");const W=1100,H=440,P={l:64,r:30,t:24,b:60};
+ const xmax=0.22,ymax=6;
+ const X=v=>P.l+(v/xmax)*(W-P.l-P.r), Y=v=>H-P.b-(v/ymax)*(H-P.t-P.b);
+ for(let g=0;g<=6;g++){const yy=Y(g);s.appendChild(el("line",{x1:P.l,y1:yy,x2:W-P.r,y2:yy,stroke:"#16212e"}));
+   txt(s,P.l-10,yy+4,g+"/6",{"text-anchor":"end",fill:"#5a6b81","font-family":"IBM Plex Mono","font-size":11});}
+ for(let g=0;g<=0.22+1e-9;g+=0.03){const xx=X(g);s.appendChild(el("line",{x1:xx,y1:P.t,x2:xx,y2:H-P.b,stroke:"#16212e"}));
+   txt(s,xx,H-P.b+18,g.toFixed(2),{"text-anchor":"middle",fill:"#5a6b81","font-family":"IBM Plex Mono","font-size":11});}
+ txt(s,W/2,H-12,"false alarms per minute of play  →  more cry-wolf",{"text-anchor":"middle",fill:"#8b9bb0","font-family":"IBM Plex Mono","font-size":12});
+ txt(s,18,H/2,"known cases caught (out of 6)",{fill:"#8b9bb0","font-family":"IBM Plex Mono","font-size":12,transform:`rotate(-90 18 ${H/2})`,"text-anchor":"middle"});
+ s.appendChild(el("rect",{x:X(0.04),y:P.t,width:X(0.07)-X(0.04),height:H-P.t-P.b,fill:"rgba(245,185,66,.06)"}));
+ txt(s,X(0.055),P.t+14,"a sensible dial range",{"text-anchor":"middle",fill:"#caa033","font-family":"IBM Plex Mono","font-size":10});
+ function sweep(name){const pts=BAKEOFF.detectors.filter(d=>d.detector===name&&d.K!=null&&d.fp_fires_per_inplay_min!=null)
+   .map(d=>[d.fp_fires_per_inplay_min,d.frac_incidents_caught*6]).sort((a,b)=>a[0]-b[0]);
+   let path="";pts.forEach((p,i)=>path+=(i?"L":"M")+X(p[0])+","+Y(p[1]));
+   s.appendChild(el("path",{d:path,fill:"none",stroke:COL[name],"stroke-width":2,opacity:.55}));}
+ sweep("board-vw");sweep("board-eq");
+ BAKEOFF.detectors.forEach(d=>{if(d.fp_fires_per_inplay_min==null)return;
+   const x=X(d.fp_fires_per_inplay_min),y=Y(d.frac_incidents_caught*6),c=COL[d.detector]||"#8b9bb0";
+   const rec=(d.detector==="board-vw"&&d.K===3);
+   if(rec)s.appendChild(el("circle",{cx:x,cy:y,r:14,fill:"none",stroke:c,"stroke-width":1.5,opacity:.5}));
+   s.appendChild(el("circle",{cx:x,cy:y,r:rec?7:5,fill:c,stroke:"#0a0e14","stroke-width":1.5}));
+ });
+ const exact=BAKEOFF.detectors.find(d=>d.detector==="exact-prop");
+ s.appendChild(el("circle",{cx:P.l-2,cy:Y(exact.frac_incidents_caught*6),r:5,fill:COL["exact-prop"],stroke:"#0a0e14"}));
+ txt(s,P.l+6,Y(exact.frac_incidents_caught*6)-9,"the one bet (no cry-wolf number)",{fill:"#f0564a","font-family":"IBM Plex Mono","font-size":9.5});
+ const rx=X(0.123),ry=Y(5);
+ txt(s,rx-10,ry-16,"★ best: money-weighted whole board",{"text-anchor":"end",fill:"#3fb950","font-family":"IBM Plex Mono","font-size":11,"font-weight":600});
+ txt(s,rx-10,ry-1,"5 of 6 caught · +23 to +140s warning",{"text-anchor":"end",fill:"#8b9bb0","font-family":"IBM Plex Mono","font-size":10});
+ const L=$("#opLegend");[["Whole board (money-wt)","#3fb950"],["Whole board (simple)","#56b6c2"],["One big off-price bet","#f5b942"],["Both combined","#a98bff"],["The one bet","#f0564a"],["The two players (0/6)","#5a6b81"]]
+   .forEach(([n,c])=>{const sp=document.createElement("span");sp.innerHTML=`<i style="background:${c}"></i>${n}`;L.appendChild(sp);});
+})();
+
+/* catch matrix */
+(function(){const s=$("#matrixSvg");const W=1100,rows=["board-vw","board-eq","exact-prop","paired-player","offprice-print","ensemble-OR(board-vw@3,offprice)"];
+ const K3={"board-vw":3,"board-eq":3};
+ const incs=BAKEOFF.incidents;const P={l:250,t:64,cw:(W-250-20)/incs.length,rh:40};
+ incs.forEach((ic,j)=>{const x=P.l+P.cw*j+P.cw/2;txt(s,x,P.t-30,INC_LABEL[ic].split(" / ")[0],{"text-anchor":"middle",fill:"#cdd9e5","font-family":"IBM Plex Sans","font-size":11.5,"font-weight":600});
+   txt(s,x,P.t-16,(INC_LABEL[ic].split(" / ")[1]||""),{"text-anchor":"middle",fill:"#5a6b81","font-family":"IBM Plex Mono","font-size":10});});
+ rows.forEach((rn,i)=>{const y=P.t+P.rh*i;
+   const rec=BAKEOFF.detectors.find(d=>d.detector===rn&&(rn in K3?d.K===K3[rn]:true));
+   txt(s,P.l-14,y+P.rh/2+4,sname(rn),{"text-anchor":"end",fill:"#cdd9e5","font-family":"IBM Plex Sans","font-size":12.5});
+   incs.forEach((ic,j)=>{const x=P.l+P.cw*j+2,v=rec.per_incident_lead_s[ic];const caught=v!=null;
+     // caught = unmistakably green (two clear shades: faster = brighter); missed = plainly grey.
+     // speed is conveyed by the number, not by a murky fade-to-grey.
+     let fill="#121d2a",stroke="#28384a",tc="#54657c",lab="—";
+     if(caught){fill=(v<=60?"#3fb950":"#268a40");stroke="#5cc873";tc=(v<=60?"#06160b":"#eafff0");lab="+"+v+"s";}
+     s.appendChild(el("rect",{x,y:y+3,width:P.cw-4,height:P.rh-6,rx:4,fill:fill,stroke:stroke,"stroke-width":caught?1.6:1}));
+     txt(s,x+(P.cw-4)/2,y+P.rh/2+4,lab,{"text-anchor":"middle",fill:tc,"font-family":"IBM Plex Mono","font-size":caught?12:14,"font-weight":caught?600:500});
+   });
+   txt(s,W-12,y+P.rh/2+4,Math.round(rec.frac_incidents_caught*6)+"/6",{"text-anchor":"end",fill:"#f5b942","font-family":"IBM Plex Mono","font-size":11});
+ });
+})();
+
+/* FP histogram */
+(function(){const s=$("#fpSvg");const W=540,H=300,P={l:42,r:14,t:18,b:44};
+ const bins=10,bw=0.022;const ce=new Array(bins).fill(0),cv=new Array(bins).fill(0);
+ FP_EQ.forEach(v=>{const b=Math.min(bins-1,Math.floor(v/bw));ce[b]++;});
+ FP_VW.forEach(v=>{const b=Math.min(bins-1,Math.floor(v/bw));cv[b]++;});
+ const ymax=Math.max(...ce,...cv)+1;const X=i=>P.l+i*((W-P.l-P.r)/bins),Y=v=>H-P.b-(v/ymax)*(H-P.t-P.b);
+ for(let g=0;g<=ymax;g+=4){const yy=Y(g);s.appendChild(el("line",{x1:P.l,y1:yy,x2:W-P.r,y2:yy,stroke:"#16212e"}));txt(s,P.l-8,yy+4,g,{"text-anchor":"end",fill:"#5a6b81","font-family":"IBM Plex Mono","font-size":10});}
+ const cw=(W-P.l-P.r)/bins;
+ for(let i=0;i<bins;i++){
+   s.appendChild(el("rect",{x:X(i)+3,y:Y(ce[i]),width:cw/2-3,height:H-P.b-Y(ce[i]),fill:"#56b6c2",opacity:.8}));
+   s.appendChild(el("rect",{x:X(i)+cw/2,y:Y(cv[i]),width:cw/2-3,height:H-P.b-Y(cv[i]),fill:"#3fb950",opacity:.85}));
+   if(i%2===0)txt(s,X(i)+cw/2,H-P.b+16,(i*bw).toFixed(2),{"text-anchor":"middle",fill:"#5a6b81","font-family":"IBM Plex Mono","font-size":9.5});
+ }
+ const xm=P.l+(0.052/(bins*bw))*(W-P.l-P.r);
+ s.appendChild(el("line",{x1:xm,y1:P.t,x2:xm,y2:H-P.b,stroke:"#f5b942","stroke-dasharray":"4 3","stroke-width":1.5}));
+ txt(s,xm+5,P.t+10,"typical game ≈ 0.05/min",{fill:"#f5b942","font-family":"IBM Plex Mono","font-size":10});
+ txt(s,W/2,H-6,"false alarms per minute of play",{"text-anchor":"middle",fill:"#8b9bb0","font-family":"IBM Plex Mono","font-size":10.5});
+ txt(s,P.l,P.t-4,"games",{fill:"#5a6b81","font-family":"IBM Plex Mono","font-size":10});
+ txt(s,W-150,P.t+4,"■ simple",{fill:"#56b6c2","font-family":"IBM Plex Mono","font-size":10});txt(s,W-85,P.t+4,"■ money-wt",{fill:"#3fb950","font-family":"IBM Plex Mono","font-size":10});
+})();
+
+/* catch-up lag */
+(function(){const s=$("#lagSvg");const W=540,H=300;const lv=BAKEOFF.lead_vs_pricehist;
+ const total=lv.n_instruments,cu=lv.n_caught_up,to=lv.n_tape_only;
+ const bx=40,bw=W-80,by=60,bh=46;const w1=bw*cu/total;
+ s.appendChild(el("rect",{x:bx,y:by,width:w1,height:bh,fill:"#56b6c2",opacity:.8,rx:3}));
+ s.appendChild(el("rect",{x:bx+w1,y:by,width:bw-w1,height:bh,fill:"#f5b942",opacity:.85,rx:3}));
+ txt(s,bx+w1/2,by+bh/2+4,cu+" eventually showed on the chart",{"text-anchor":"middle",fill:"#04121a","font-family":"IBM Plex Mono","font-size":10.5,"font-weight":600});
+ txt(s,bx+w1+(bw-w1)/2,by+bh/2+4,to+" never did",{"text-anchor":"middle",fill:"#1a1304","font-family":"IBM Plex Mono","font-size":10.5,"font-weight":600});
+ txt(s,bx,by-10,"of "+total+" markets where a big off-price bet appeared…",{fill:"#8b9bb0","font-family":"IBM Plex Mono","font-size":10.5});
+ txt(s,bx+w1+(bw-w1)/2,by+bh+18,"27.5% never reached the price chart",{"text-anchor":"middle",fill:"#f5b942","font-family":"IBM Plex Mono","font-size":10});
+ const ly=180,lx0=bx,lx1=W-40;const lo=Math.log10(30),hi=Math.log10(2000);
+ const LX=v=>lx0+(Math.log10(v)-lo)/(hi-lo)*(lx1-lx0);
+ s.appendChild(el("line",{x1:lx0,y1:ly,x2:lx1,y2:ly,stroke:"#1d2a3a","stroke-width":2}));
+ [60,120,300,600,1200].forEach(t=>{const x=LX(t);s.appendChild(el("line",{x1:x,y1:ly-4,x2:x,y2:ly+4,stroke:"#5a6b81"}));txt(s,x,ly+18,(t/60)+"m",{"text-anchor":"middle",fill:"#5a6b81","font-family":"IBM Plex Mono","font-size":9.5});});
+ const p25=LX(lv.catchup_lag_s.p25),md=LX(lv.catchup_lag_s.median),p75=LX(lv.catchup_lag_s.p75);
+ s.appendChild(el("rect",{x:p25,y:ly-16,width:p75-p25,height:32,fill:"rgba(63,185,80,.18)",stroke:"#3fb950",rx:3}));
+ s.appendChild(el("line",{x1:md,y1:ly-20,x2:md,y2:ly+20,stroke:"#3fb950","stroke-width":2.5}));
+ txt(s,md,ly-26,"typically 3¾ min later",{"text-anchor":"middle",fill:"#3fb950","font-family":"IBM Plex Mono","font-size":11,"font-weight":600});
+ txt(s,W/2,ly+58,"how long the slower price chart took to catch up to the bet tape",{"text-anchor":"middle",fill:"#8b9bb0","font-family":"IBM Plex Mono","font-size":10.5});
+})();
+
+/* cascade contrast */
+(function(){const s=$("#cascadeSvg");
+ txt(s,275,26,"Hartenstein / Wallace — the board lit up",{"text-anchor":"middle",fill:"#3fb950","font-family":"IBM Plex Mono","font-size":12,"font-weight":600});
+ txt(s,825,26,"Reaves / Hayes — the board stayed quiet",{"text-anchor":"middle",fill:"#f5b942","font-family":"IBM Plex Mono","font-size":12,"font-weight":600});
+ s.appendChild(el("line",{x1:550,y1:10,x2:550,y2:240,stroke:"#1d2a3a","stroke-dasharray":"3 4"}));
+ const rowsL=[["Marcus Smart rebounds jumped","32s before"],["Reaves points jumped","28s after"],["Dort props & the moneyline moved","within ~90s"]];
+ rowsL.forEach((r,i)=>{const y=58+i*34;s.appendChild(el("rect",{x:30,y:y-16,width:490,height:28,rx:4,fill:"#0e1822",stroke:"#1d2a3a"}));
+   txt(s,42,y+3,r[0],{fill:"#cdd9e5","font-family":"IBM Plex Sans","font-size":12.5});
+   txt(s,508,y+3,r[1],{"text-anchor":"end",fill:"#3fb950","font-family":"IBM Plex Mono","font-size":10.5});});
+ txt(s,30,182,"→ Whole-board alarm fired ~23s after the play. The markets that moved",{fill:"#8b9bb0","font-family":"IBM Plex Sans","font-size":12});
+ txt(s,30,200,"   were OTHER players — so 'watch the two players' would have missed it.",{fill:"#8b9bb0","font-family":"IBM Plex Sans","font-size":12});
+ const rowsR=[["Player markets listed","Reaves yes · Hayes none"],["Team / quarter rebounds","not offered at all"],["The disputed bet's price","flat all game"]];
+ rowsR.forEach((r,i)=>{const y=58+i*34;s.appendChild(el("rect",{x:580,y:y-16,width:490,height:28,rx:4,fill:"#0e1822",stroke:"#1d2a3a"}));
+   txt(s,592,y+3,r[0],{fill:"#cdd9e5","font-family":"IBM Plex Sans","font-size":12.5});
+   txt(s,1058,y+3,r[1],{"text-anchor":"end",fill:"#f5b942","font-family":"IBM Plex Mono","font-size":10.5});});
+ txt(s,580,182,"→ Nothing for the board to pick up. Only one big off-price bet caught it:",{fill:"#8b9bb0","font-family":"IBM Plex Sans","font-size":12});
+ txt(s,580,200,"   $100 at 99¢ (a quarter of the market's volume), 38s after the play.",{fill:"#8b9bb0","font-family":"IBM Plex Sans","font-size":12});
+ txt(s,550,232,"Which warning shows up depends on what markets the venue lists — that's why you want both alarms, not one.",{"text-anchor":"middle",fill:"#caa033","font-family":"IBM Plex Mono","font-size":11.5});
+})();
+
+/* scoreboard table — representative operating points only (full threshold sweep is in the JSON / appendix) */
+(function(){const t=$("#bakeoffTable");const incs=BAKEOFF.incidents;
+ const keep=d=>(d.detector==="board-vw"&&(d.K===3||d.K===5))||(d.detector==="board-eq"&&d.K===3)||["exact-prop","paired-player","offprice-print"].includes(d.detector)||d.detector.startsWith("ensemble-OR");
+ let h="<thead><tr><th>Tool</th><th class='num'>setting</th><th class='num'>cry-wolf/min</th><th class='num'>caught</th>";
+ incs.forEach(ic=>h+="<th class='num'>"+INC_LABEL[ic].split(" / ")[0].slice(0,6)+"</th>");h+="</tr></thead><tbody>";
+ BAKEOFF.detectors.filter(keep).forEach(d=>{const rec=(d.detector==="board-vw"&&d.K===3);
+  h+="<tr"+(rec?" class='hi'":"")+"><td>"+sname(d.detector)+"</td><td class='num'>"+(d.K??"–")+"</td>"+
+   "<td class='num'>"+(d.fp_fires_per_inplay_min??"–")+"</td>"+
+   "<td class='num'>"+Math.round(d.frac_incidents_caught*6)+"/6</td>";
+  incs.forEach(ic=>{const v=d.per_incident_lead_s[ic];h+="<td class='num' style='color:"+(v!=null?"#3fb950":"#3a4757")+"'>"+(v!=null?"+"+v+"s":"·")+"</td>";});
+  h+="</tr>";});
+ t.innerHTML=h+"</tbody>";})();
+
+/* cite + label tables */
+(function(){let h="<thead><tr><th>Source</th><th class='num'>live check</th><th>What it tells us</th></tr></thead><tbody>";
+ CITES.forEach(c=>h+="<tr><td>"+c[0]+"</td><td class='num'><span class='pill "+(c[1].startsWith("2")?"g":c[1].startsWith("4")?"y":"n")+"'>"+c[1]+"</span></td><td class='muted'>"+c[2]+"</td></tr>");
+ $("#citeTable").innerHTML=h+"</tbody>";
+ let l="<thead><tr><th>Case</th><th>What happened</th><th>Game</th><th>Date</th><th class='num'>timed?</th><th>Note</th></tr></thead><tbody>";
+ LABELS.forEach(r=>{const a=r[4];l+="<tr><td><b>"+r[0]+"</b></td><td>"+r[1]+"</td><td>"+r[2]+"</td><td class='num'>"+r[3]+"</td><td class='num'><span class='pill "+(a==="yes"?"g":a==="weak"?"y":"n")+"'>"+a+"</span></td><td class='muted'>"+r[5]+"</td></tr>";});
+ $("#labelTable").innerHTML=l+"</tbody>";})();
+
+/* case studies */
+(function(){const c=$("#caseStudies");CASES.forEach(cs=>{
+  const d=document.createElement("details");if(cs.open)d.setAttribute("open","");
+  d.innerHTML=`<summary><span class="mscope">case</span>${cs.title} <span style="color:${cs.color};margin-left:auto;font-size:11px">${cs.lead}</span></summary>
+   <div class="body">
+     <p class="tagline" style="color:${cs.color}">${cs.arch}</p>
+     <table>
+       <tr><td style="width:34%"><b>The disputed play</b></td><td>${cs.t0}</td></tr>
+       <tr><td><b>First whole-board warning</b></td><td>${cs.board}</td></tr>
+       <tr><td><b>First big-off-price-bet warning</b></td><td>${cs.off}</td></tr>
+       <tr><td><b>What the trader would see</b></td><td>${cs.desk}</td></tr>
+     </table>
+     ${cs.note?`<p class="dim">${cs.note}</p>`:""}
+   </div>`;
+  c.appendChild(d);});})();
+
+/* break-even calculator */
+(function(){const FPS=[["money-weighted board · ~18 alarms/game",0.123],["money-weighted board (less sensitive) · ~10/game",0.070],["simple board (less sensitive) · ~9/game",0.061],["both alarms combined · ~19/game",0.199],["very strict · ~6/game",0.040]];
+ const GAMES=80,INPLAY=95;
+ function fmt(n){return !isFinite(n)?"—":n>=1e6?"$"+(n/1e6).toFixed(2)+"M":n>=1e3?"$"+(n/1e3).toFixed(0)+"k":"$"+n.toFixed(0);}
+ function calc(){const fpi=+$("#iFp").value,fp=FPS[fpi][1],rc=+$("#iRc").value,inc=+$("#iInc").value,p=+$("#iP").value/100,intg=+$("#iInt").value*1000;
+   $("#vFp").textContent=FPS[fpi][0];$("#vRc").textContent="$"+rc;$("#vInc").textContent=inc;$("#vP").textContent=Math.round(p*100)+"%";$("#vInt").textContent="$"+(intg/1000>=1000?(intg/1e6).toFixed(2)+"M":intg/1000+"k");
+   const alertsSeason=fp*INPLAY*GAMES;const fpCost=alertsSeason*rc;
+   $("#oBurden").textContent=Math.round(alertsSeason).toLocaleString()+" / season";
+   $("#oBurden").style.color="#f0564a";
+   $("#oBurdenSub").textContent="≈ "+(fp*INPLAY).toFixed(0)+" per game"+(rc>0?" · soft attention cost "+fmt(fpCost)+"/season":" · you've set the glance cost to $0");
+   const denom=inc*p;const breakeven=denom>0?(intg+fpCost)/denom:Infinity;
+   $("#oBreak").textContent=fmt(breakeven)+" / incident";
+   const v=breakeven<5000?"Easy to justify if a misallocation routinely costs us more than this — and remember this is one of ~92 sports the same build serves.":breakeven<50000?"Worth it for high-stakes incidents; tighten the dial, beat the desk more often, or spread the build across more of the 92 sports.":"Hard to justify at these numbers — the build cost dominates. Lower it, prove a bigger head start, or amortise it across more sports.";
+   $("#oVerdict").textContent=v;}
+ ["iFp","iRc","iInc","iP","iInt"].forEach(id=>$("#"+id).addEventListener("input",calc));calc();})();
+
+/* scrollspy */
+(function(){const links=[...document.querySelectorAll("nav.toc a")];const secs=links.map(a=>$(a.getAttribute("href")));
+ const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const i=secs.indexOf(e.target);links.forEach(l=>l.classList.remove("active"));if(links[i])links[i].classList.add("active");}});},{rootMargin:"-45% 0px -50% 0px"});
+ secs.forEach(s=>s&&io.observe(s));})();
+</script>
+</body>
+</html>

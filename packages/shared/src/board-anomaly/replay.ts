@@ -99,8 +99,10 @@ export function replayBoardAnomalies(
     const alerts = detectBoardAnomalies({
       gameId: input.gameId,
       gameLabel: input.gameLabel,
+      gameStates: input.gameStates,
       observations: observationsUpToClock,
       now: nowIso,
+      scheduledStart: input.scheduledStart,
       config: input.config,
     });
 

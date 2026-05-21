@@ -9,6 +9,7 @@ export const predictionMarketSourceIds = ["kalshi", "polymarket"] as const;
 
 export const actionableQuoteFreshnessMs = 15 * 60_000;
 export const sameTimeQuoteWindowMs = 10 * 60_000;
+export const scheduledScoreGraceMs = 5 * 60_000;
 
 type GameLifecycleInput = {
   gameState?: {
@@ -158,9 +159,9 @@ export function classifyGameLifecycle(
   }
 
   const expectedLiveWindow =
-    startsInMs != null &&
-    startsInMs <= 30 * 60_000 &&
-    startsInMs >= -4 * 60 * 60_000;
+    startedAgoMs != null &&
+    startedAgoMs >= scheduledScoreGraceMs &&
+    startedAgoMs <= 4 * 60 * 60_000;
   const finalLikelyDue = startedAgoMs != null && startedAgoMs > 4 * 60 * 60_000;
   const stateIsFresh =
     stateAgeMs != null && stateAgeMs >= 0 && stateAgeMs <= 5 * 60_000;

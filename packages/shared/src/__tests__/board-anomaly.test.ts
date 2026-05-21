@@ -364,24 +364,87 @@ function gameStateVolatilityFanout(): BoardObservation[] {
   ];
 }
 
+function trustedLiveContextRows(
+  baseIso: string,
+  overrides: Partial<BoardObservation["gameState"]> = {},
+  count = 24
+): BoardObservation[] {
+  const baseMs = Date.parse(baseIso);
+  const families = ["moneyline", "spread", "total", "team-prop"] as const;
+  const sources = ["kalshi", "polymarket"] as const;
+  const gameState: BoardObservation["gameState"] = {
+    status: "in-play",
+    period: 3,
+    clock: "08:45",
+    homeScore: 72,
+    awayScore: 67,
+    scoreMargin: 5,
+    minutesToTip: null,
+    ...overrides,
+  };
+
+  return Array.from({ length: count }, (_, index) => {
+    const family = families[index % families.length];
+    const selection =
+      family === "moneyline"
+        ? "team-a"
+        : family === "spread"
+          ? "team-a-minus"
+          : "over";
+    const line =
+      family === "spread"
+        ? -2.5
+        : family === "total"
+          ? 218.5
+          : family === "team-prop"
+            ? 110.5
+            : null;
+    const timestamp = new Date(baseMs + index * 2_000).toISOString();
+
+    return makeObservation(`trusted-fill-${index}`, {
+      source: sources[index % sources.length],
+      sourceKind: "prediction-market",
+      family,
+      selection,
+      line,
+      displayLabel: `Trusted filler ${family} ${index}`,
+      labels: {
+        rawFamily: family,
+        rawLabel: `Trusted filler ${family} ${index}`,
+        normalizedTokens: ["trusted", "filler", family],
+        participantHints: [],
+        statFamilyHints: family === "team-prop" ? ["team-total"] : [],
+      },
+      gameState,
+      eventTimestamp: timestamp,
+      capturedAt: timestamp,
+    });
+  });
+}
+
 describe("detectBoardAnomalies", () => {
   it("scores attribution-shaped residual fanout high", () => {
     const alerts = detectBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
-      observations: attributionFanout(),
+      observations: [
+        ...trustedLiveContextRows("2026-05-15T20:00:05.000Z"),
+        ...attributionFanout(),
+      ],
       now: "2026-05-15T20:01:00.000Z",
     });
 
     expect(alerts.length).toBeGreaterThan(0);
-    const top = alerts[0];
-    expect(top.shockKind).toBe("attribution-shaped");
-    expect(top.score).toBeGreaterThanOrEqual(60);
-    expect(top.primaryEntityKey).toBe("cade-cunningham");
-    expect(top.evidence.length).toBeGreaterThanOrEqual(2);
+    const attributionAlert = alerts.find(
+      (alert) => alert.shockKind === "attribution-shaped"
+    );
+    expect(attributionAlert).toBeDefined();
+    expect(attributionAlert?.score).toBeGreaterThanOrEqual(60);
+    expect(attributionAlert?.primaryEntityKey).toBe("cade-cunningham");
+    expect(attributionAlert?.evidence.length).toBeGreaterThanOrEqual(2);
     expect(
       alerts.some((alert) => alert.shockKind === "game-state-volatility")
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("promotes broad prediction-market movement to whole-game implied volatility", () => {
@@ -397,9 +460,30 @@ describe("detectBoardAnomalies", () => {
     expect(top.shockKind).toBe("game-state-volatility");
     expect(top.primaryEntityKey).toBeNull();
     expect(top.primaryFamily).toBeNull();
-    expect(top.reason).toContain("game-state implied volatility");
+    expect(top.reason).toContain("board stress across");
     expect(top.inspect.relationFamilies).toContain("game-state-volatility");
+    expect(top.evidence[0]?.family).toBe("moneyline");
     expect(top.evidence.some((row) => row.family === "player-prop")).toBe(true);
+  });
+
+  it("applies the Iter02 state gate to untrusted live windows", () => {
+    const entityAlerts = detectBoardAnomalies({
+      gameId: "game-1",
+      gameLabel: "Cavaliers @ Pistons",
+      observations: attributionFanout(),
+      now: "2026-05-15T20:01:00.000Z",
+    });
+
+    expect(entityAlerts).toHaveLength(0);
+
+    const boardAlerts = detectBoardAnomalies({
+      gameId: "game-1",
+      gameLabel: "Cavaliers @ Pistons",
+      observations: gameStateVolatilityFanout(),
+      now: "2026-05-15T20:01:00.000Z",
+    });
+
+    expect(boardAlerts[0]?.shockKind).toBe("game-state-volatility");
   });
 
   it("treats volume-share-only prediction market prints as live board signal", () => {
@@ -450,6 +534,30 @@ describe("detectBoardAnomalies", () => {
     expect(measurement?.sample.coreFamilies).toEqual(
       expect.arrayContaining(["moneyline", "spread", "total"])
     );
+    expect(measurement?.score).toBeGreaterThanOrEqual(
+      measurement?.thresholds.alertMinScore ?? 55
+    );
+    expect(measurement?.baseline.percentile).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it("marks final-game board volatility as final phase instead of live", () => {
+    const finalRows = gameStateVolatilityFanout().map((observation) => ({
+      ...observation,
+      gameState: {
+        ...observation.gameState,
+        clock: null,
+        status: "final" as const,
+      },
+    }));
+
+    const measurement = measureBoardGameStateVolatility({
+      gameId: "game-1",
+      gameLabel: "Cavaliers @ Pistons",
+      observations: finalRows,
+      now: "2026-05-15T20:01:00.000Z",
+    });
+
+    expect(measurement?.phase.kind).toBe("final");
   });
 
   it("treats calm live prediction-market coverage as a normal sample instead of no sample", () => {
@@ -510,6 +618,29 @@ describe("detectBoardAnomalies", () => {
     expect(alerts).toHaveLength(0);
   });
 
+  it("zeros the headline score when the board sample is insufficient", () => {
+    const sparseRows = [
+      makeObservation("sparse-ml", {
+        family: "moneyline",
+        source: "kalshi",
+        selection: "nyk",
+      }),
+    ];
+
+    const measurement = measureBoardGameStateVolatility({
+      gameId: "game-1",
+      gameLabel: "Cavaliers @ Pistons",
+      observations: sparseRows,
+      now: "2026-05-15T20:01:00.000Z",
+    });
+
+    expect(measurement).toMatchObject({
+      band: "insufficient-data",
+      score: 0,
+      state: "insufficient-data",
+    });
+  });
+
   it("suppresses same-window prop clusters when whole-game volatility already fired", () => {
     const propFanout = attributionFanout().map((observation, index) => ({
       ...observation,
@@ -550,7 +681,11 @@ describe("detectBoardAnomalies", () => {
     const alerts = detectBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
-      observations: [...gameStateVolatilityFanout(), ...propFanout],
+      observations: [
+        ...trustedLiveContextRows("2026-05-15T20:01:05.000Z"),
+        ...gameStateVolatilityFanout(),
+        ...propFanout,
+      ],
       now: "2026-05-15T20:02:00.000Z",
     });
 
@@ -569,7 +704,7 @@ describe("detectBoardAnomalies", () => {
     });
 
     expect(alerts[0].shockKind).toBe("game-state-volatility");
-    expect(alerts[0].reason).toContain("game-state implied volatility");
+    expect(alerts[0].reason).toContain("board stress across");
   });
 
   it("does not promote an isolated prop bucket to game-state volatility", () => {
@@ -600,7 +735,10 @@ describe("detectBoardAnomalies", () => {
     const alerts = detectBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
-      observations: attributionFanout(),
+      observations: [
+        ...trustedLiveContextRows("2026-05-15T20:00:05.000Z"),
+        ...attributionFanout(),
+      ],
       now: "2026-05-15T20:01:00.000Z",
     });
     const allObservationIds = new Set(
@@ -627,7 +765,10 @@ describe("detectBoardAnomalies", () => {
     const alerts = detectBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
-      observations,
+      observations: [
+        ...trustedLiveContextRows("2026-05-15T20:00:05.000Z"),
+        ...observations,
+      ],
       now: "2026-05-15T20:01:00.000Z",
     });
     expect(alerts.length).toBeGreaterThan(0);
@@ -918,7 +1059,16 @@ describe("detectBoardAnomalies", () => {
     const alerts = detectBoardAnomalies({
       gameId: "game-cov",
       gameLabel: "Coverage Game",
-      observations,
+      observations: [
+        ...trustedLiveContextRows("2026-05-15T21:00:05.000Z", {
+          clock: "09:10",
+          homeScore: 61,
+          awayScore: 56,
+          period: 3,
+          scoreMargin: 5,
+        }),
+        ...observations,
+      ],
       now: "2026-05-15T21:01:00.000Z",
     });
     const hasCoverageNote = alerts.some(
@@ -1012,17 +1162,34 @@ describe("H0 cap scales with base probability", () => {
 
 describe("coverage is a confidence penalty, not a positive score boost", () => {
   it("cluster with high stale/missing share has lower confidence than clean cluster", () => {
-    const clean = attributionFanout();
-    const dirty = attributionFanout().map((observation) => ({
-      ...observation,
-      mappingStatus: "unmapped" as const,
-      flags: {
-        ...observation.flags,
-        isStale: true,
-        isUnmapped: true,
-      },
-      missing: { ...observation.missing, impliedProbability: true },
-    }));
+    const trustedRows = trustedLiveContextRows("2026-05-15T20:00:05.000Z");
+    const clean = [...trustedRows, ...attributionFanout()];
+    const dirty = [...trustedRows, ...attributionFanout()].map(
+      (observation) => ({
+        ...(observation.observationId === "attribution-poly-points-over"
+          ? {
+              ...observation,
+              mappingStatus: "unmapped" as const,
+              flags: {
+                ...observation.flags,
+                isStale: true,
+                isUnmapped: true,
+              },
+              missing: { ...observation.missing, impliedProbability: true },
+            }
+          : observation.observationId.startsWith("attribution-")
+            ? {
+                ...observation,
+                mappingStatus: "unmapped" as const,
+                flags: {
+                  ...observation.flags,
+                  isUnmapped: true,
+                },
+                missing: { ...observation.missing },
+              }
+            : observation),
+      })
+    );
     const cleanAlerts = detectBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
@@ -1035,15 +1202,28 @@ describe("coverage is a confidence penalty, not a positive score boost", () => {
       observations: dirty,
       now: "2026-05-15T20:01:00.000Z",
     });
-    if (cleanAlerts.length === 0 || dirtyAlerts.length === 0) return;
-    expect(dirtyAlerts[0].confidence).toBeLessThan(cleanAlerts[0].confidence);
-    expect(dirtyAlerts[0].score).toBeLessThanOrEqual(cleanAlerts[0].score);
+    const cleanAttribution = cleanAlerts.find(
+      (alert) => alert.shockKind === "attribution-shaped"
+    );
+    const dirtyEntityAlert = dirtyAlerts.find(
+      (alert) => alert.primaryEntityKey === "cade-cunningham"
+    );
+    expect(cleanAttribution).toBeDefined();
+    expect(dirtyEntityAlert?.confidence ?? 0).toBeLessThan(
+      cleanAttribution!.confidence
+    );
+    expect(dirtyEntityAlert?.score ?? 0).toBeLessThanOrEqual(
+      cleanAttribution!.score
+    );
   });
 });
 
 describe("replayBoardAnomalies", () => {
   it("returns timestamp-ordered alerts with no future leakage", () => {
-    const observations = attributionFanout();
+    const observations = [
+      ...trustedLiveContextRows("2026-05-15T19:59:15.000Z"),
+      ...attributionFanout(),
+    ];
     const replay = replayBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
@@ -1122,7 +1302,12 @@ describe("replayBoardAnomalies", () => {
     const replay = replayBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
-      observations: [...fanout, ...second],
+      observations: [
+        ...trustedLiveContextRows("2026-05-15T19:59:15.000Z"),
+        ...trustedLiveContextRows("2026-05-15T20:04:15.000Z"),
+        ...fanout,
+        ...second,
+      ],
       windowStart: "2026-05-15T19:55:00.000Z",
       windowEnd: "2026-05-15T20:15:00.000Z",
       stepSeconds: 30,

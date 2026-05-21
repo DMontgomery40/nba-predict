@@ -1,0 +1,63 @@
+Object.defineProperty(__vite_ssr_exports__, "ErrorBoundary", { enumerable: true, configurable: true, get(){ try { return ErrorBoundary } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/index.js", {"importedNames":["Component"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/components/ErrorState.tsx", {"importedNames":["ErrorState"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/lib/client-logger.ts", {"importedNames":["clientLogger"]});
+const Component = __vite_ssr_import_1__.Component;
+class ErrorBoundary extends Component {
+  state = {
+    error: null
+  };
+  static getDerivedStateFromError(error) {
+    return {
+      error
+    };
+  }
+  componentDidCatch(error, errorInfo) {
+    __vite_ssr_import_3__.clientLogger.error("react-error-boundary", {
+      componentStack: errorInfo.componentStack,
+      error: {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      }
+    });
+  }
+  handleReload = () => {
+    window.location.reload();
+  };
+  render() {
+    if (this.state.error) {
+      return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "shell shell-fallback", children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("main", { className: "workspace", children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+        (0,__vite_ssr_import_2__.ErrorState),
+        {
+          actionLabel: "Reload console",
+          description: "A render-time exception escaped the page boundary.",
+          error: this.state.error,
+          onAction: this.handleReload,
+          title: "Console shell crashed"
+        },
+        void 0,
+        false,
+        {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/app/ErrorBoundary.tsx",
+          lineNumber: 46,
+          columnNumber: 13
+        },
+        this
+      ) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/app/ErrorBoundary.tsx",
+        lineNumber: 45,
+        columnNumber: 11
+      }, this) }, void 0, false, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/app/ErrorBoundary.tsx",
+        lineNumber: 44,
+        columnNumber: 9
+      }, this);
+    };
+    return this.props.children;
+  }
+}
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IjtBQTZDWTtBQTdDWjtBQUVBO0FBQ0E7O0FBUU8sTUFBTSxzQkFBc0IsVUFHakM7QUFBQSxFQUNTLFFBQTRCO0FBQUEsSUFDbkMsT0FBTztBQUFBLEVBQ1Q7QUFBQSxFQUVBLE9BQU8seUJBQXlCLE9BQWM7QUFDNUMsV0FBTztBQUFBLE1BQ0w7QUFBQSxJQUNGO0FBQUEsRUFDRjtBQUFBLEVBRVMsa0JBQWtCLE9BQWMsV0FBc0I7QUFDN0QsdUNBQWEsTUFBTSx3QkFBd0I7QUFBQSxNQUN6QyxnQkFBZ0IsVUFBVTtBQUFBLE1BQzFCLE9BQU87QUFBQSxRQUNMLFNBQVMsTUFBTTtBQUFBLFFBQ2YsTUFBTSxNQUFNO0FBQUEsUUFDWixPQUFPLE1BQU07QUFBQSxNQUNmO0FBQUEsSUFDRixDQUFDO0FBQUEsRUFDSDtBQUFBLEVBRVEsZUFBZSxNQUFNO0FBQzNCLFdBQU8sU0FBUyxPQUFPO0FBQUEsRUFDekI7QUFBQSxFQUVTLFNBQVM7QUFDaEIsUUFBSSxLQUFLLE1BQU0sT0FBTztBQUNwQixhQUNFLGlEQUFDLFNBQUksV0FBVSx3QkFDYiwyREFBQyxVQUFLLFdBQVUsYUFDZDtBQUFBLFdBQUM7QUFBQTtBQUFBLFVBQ0MsYUFBWTtBQUFBLFVBQ1osYUFBWTtBQUFBLFVBQ1osT0FBTyxLQUFLLE1BQU07QUFBQSxVQUNsQixVQUFVLEtBQUs7QUFBQSxVQUNmLE9BQU07QUFBQTtBQUFBLFFBTFI7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBLE1BTUEsS0FQRjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBUUEsS0FURjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBVUE7QUFBQSxJQUVKO0FBRUEsV0FBTyxLQUFLLE1BQU07QUFBQSxFQUNwQjtBQUNGIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJFcnJvckJvdW5kYXJ5LnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBDb21wb25lbnQgfSBmcm9tIFwicmVhY3RcIjtcblxuaW1wb3J0IHsgRXJyb3JTdGF0ZSB9IGZyb20gXCIuLi9jb21wb25lbnRzL0Vycm9yU3RhdGVcIjtcbmltcG9ydCB7IGNsaWVudExvZ2dlciB9IGZyb20gXCIuLi9saWIvY2xpZW50LWxvZ2dlclwiO1xuXG5pbXBvcnQgdHlwZSB7IEVycm9ySW5mbywgUmVhY3ROb2RlIH0gZnJvbSBcInJlYWN0XCI7XG5cbnR5cGUgRXJyb3JCb3VuZGFyeVN0YXRlID0ge1xuICBlcnJvcjogRXJyb3IgfCBudWxsO1xufTtcblxuZXhwb3J0IGNsYXNzIEVycm9yQm91bmRhcnkgZXh0ZW5kcyBDb21wb25lbnQ8XG4gIHsgY2hpbGRyZW46IFJlYWN0Tm9kZSB9LFxuICBFcnJvckJvdW5kYXJ5U3RhdGVcbj4ge1xuICBvdmVycmlkZSBzdGF0ZTogRXJyb3JCb3VuZGFyeVN0YXRlID0ge1xuICAgIGVycm9yOiBudWxsLFxuICB9O1xuXG4gIHN0YXRpYyBnZXREZXJpdmVkU3RhdGVGcm9tRXJyb3IoZXJyb3I6IEVycm9yKSB7XG4gICAgcmV0dXJuIHtcbiAgICAgIGVycm9yLFxuICAgIH07XG4gIH1cblxuICBvdmVycmlkZSBjb21wb25lbnREaWRDYXRjaChlcnJvcjogRXJyb3IsIGVycm9ySW5mbzogRXJyb3JJbmZvKSB7XG4gICAgY2xpZW50TG9nZ2VyLmVycm9yKFwicmVhY3QtZXJyb3ItYm91bmRhcnlcIiwge1xuICAgICAgY29tcG9uZW50U3RhY2s6IGVycm9ySW5mby5jb21wb25lbnRTdGFjayxcbiAgICAgIGVycm9yOiB7XG4gICAgICAgIG1lc3NhZ2U6IGVycm9yLm1lc3NhZ2UsXG4gICAgICAgIG5hbWU6IGVycm9yLm5hbWUsXG4gICAgICAgIHN0YWNrOiBlcnJvci5zdGFjayxcbiAgICAgIH0sXG4gICAgfSk7XG4gIH1cblxuICBwcml2YXRlIGhhbmRsZVJlbG9hZCA9ICgpID0+IHtcbiAgICB3aW5kb3cubG9jYXRpb24ucmVsb2FkKCk7XG4gIH07XG5cbiAgb3ZlcnJpZGUgcmVuZGVyKCkge1xuICAgIGlmICh0aGlzLnN0YXRlLmVycm9yKSB7XG4gICAgICByZXR1cm4gKFxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNoZWxsIHNoZWxsLWZhbGxiYWNrXCI+XG4gICAgICAgICAgPG1haW4gY2xhc3NOYW1lPVwid29ya3NwYWNlXCI+XG4gICAgICAgICAgICA8RXJyb3JTdGF0ZVxuICAgICAgICAgICAgICBhY3Rpb25MYWJlbD1cIlJlbG9hZCBjb25zb2xlXCJcbiAgICAgICAgICAgICAgZGVzY3JpcHRpb249XCJBIHJlbmRlci10aW1lIGV4Y2VwdGlvbiBlc2NhcGVkIHRoZSBwYWdlIGJvdW5kYXJ5LlwiXG4gICAgICAgICAgICAgIGVycm9yPXt0aGlzLnN0YXRlLmVycm9yfVxuICAgICAgICAgICAgICBvbkFjdGlvbj17dGhpcy5oYW5kbGVSZWxvYWR9XG4gICAgICAgICAgICAgIHRpdGxlPVwiQ29uc29sZSBzaGVsbCBjcmFzaGVkXCJcbiAgICAgICAgICAgIC8+XG4gICAgICAgICAgPC9tYWluPlxuICAgICAgICA8L2Rpdj5cbiAgICAgICk7XG4gICAgfVxuXG4gICAgcmV0dXJuIHRoaXMucHJvcHMuY2hpbGRyZW47XG4gIH1cbn1cbiJdLCJmaWxlIjoiL3NyYy9hcHAvRXJyb3JCb3VuZGFyeS50c3gifQ==

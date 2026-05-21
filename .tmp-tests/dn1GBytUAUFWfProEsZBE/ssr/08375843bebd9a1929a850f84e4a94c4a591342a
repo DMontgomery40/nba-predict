@@ -1,0 +1,129 @@
+Object.defineProperty(__vite_ssr_exports__, "LoadingState", { enumerable: true, configurable: true, get(){ try { return LoadingState } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "InlineAlert", { enumerable: true, configurable: true, get(){ try { return InlineAlert } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "ErrorState", { enumerable: true, configurable: true, get(){ try { return ErrorState } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("react/jsx-dev-runtime", {"importedNames":["jsxDEV"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/components/Primitives.tsx", {"importedNames":["Badge","Panel","SectionTitle"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/data/api.ts", {"importedNames":["isApiRequestError"]});
+function getErrorSummary(error, fallback) {
+  if ((0,__vite_ssr_import_2__.isApiRequestError)(error)) {
+    return {
+      message: error.message,
+      operatorHint: error.operatorHint,
+      requestId: error.requestId
+    };
+  };
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      operatorHint: void 0,
+      requestId: void 0
+    };
+  };
+  return {
+    message: fallback,
+    operatorHint: void 0,
+    requestId: void 0
+  };
+}
+function LoadingState({ message }) {
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "loading-panel", children: message }, void 0, false, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+    lineNumber: 29,
+    columnNumber: 10
+  }, this);
+};
+function InlineAlert({
+  message,
+  tone = "critical"
+}) {
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: `inline-alert inline-alert-${tone}`, children: [
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_1__.Badge), { tone, children: tone }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+      lineNumber: 41,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: message }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+      lineNumber: 42,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+    lineNumber: 40,
+    columnNumber: 5
+  }, this);
+};
+function ErrorState({
+  actionLabel = "Retry",
+  description,
+  error,
+  onAction,
+  title
+}) {
+  const summary = getErrorSummary(error, description);
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_1__.Panel), { className: "error-panel", children: [
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_1__.SectionTitle), { eyebrow: "Failure State", title, body: description }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+      lineNumber: 64,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "stack", children: [
+      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "note-card", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h3", { children: "What failed" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+          lineNumber: 67,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: summary.message }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+          lineNumber: 68,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+        lineNumber: 66,
+        columnNumber: 9
+      }, this),
+      summary.operatorHint ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "note-card", children: [
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h3", { children: "Operator hint" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+          lineNumber: 72,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: summary.operatorHint }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+          lineNumber: 73,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+        lineNumber: 71,
+        columnNumber: 11
+      }, this) : null,
+      summary.requestId ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "muted", children: [
+        "Request ID: ",
+        summary.requestId
+      ] }, void 0, true, {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+        lineNumber: 77,
+        columnNumber: 11
+      }, this) : null
+    ] }, void 0, true, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+      lineNumber: 65,
+      columnNumber: 7
+    }, this),
+    onAction ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("button", { className: "primary-button", onClick: onAction, children: actionLabel }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+      lineNumber: 81,
+      columnNumber: 9
+    }, this) : null
+  ] }, void 0, true, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/components/ErrorState.tsx",
+    lineNumber: 63,
+    columnNumber: 5
+  }, this);
+}
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6Ijs7O0FBNEJTO0FBNUJUO0FBQ0E7QUFFQSxTQUFTLGdCQUFnQixPQUFnQixVQUFrQjtBQUN6RCxTQUFJLHlDQUFrQixLQUFLLEdBQUc7QUFDNUIsV0FBTztBQUFBLE1BQ0wsU0FBUyxNQUFNO0FBQUEsTUFDZixjQUFjLE1BQU07QUFBQSxNQUNwQixXQUFXLE1BQU07QUFBQSxJQUNuQjtBQUFBLEVBQ0Y7QUFFQSxNQUFJLGlCQUFpQixPQUFPO0FBQzFCLFdBQU87QUFBQSxNQUNMLFNBQVMsTUFBTTtBQUFBLE1BQ2YsY0FBYztBQUFBLE1BQ2QsV0FBVztBQUFBLElBQ2I7QUFBQSxFQUNGO0FBRUEsU0FBTztBQUFBLElBQ0wsU0FBUztBQUFBLElBQ1QsY0FBYztBQUFBLElBQ2QsV0FBVztBQUFBLEVBQ2I7QUFDRjtBQUVPLFNBQVMsYUFBYSxFQUFFLFFBQVEsR0FBd0I7QUFDN0QsU0FBTyxpREFBQyxTQUFJLFdBQVUsaUJBQWlCLHFCQUFoQztBQUFBO0FBQUE7QUFBQTtBQUFBLFNBQXdDO0FBQ2pEO0FBRU8sU0FBUyxZQUFZO0FBQUEsRUFDMUI7QUFBQSxFQUNBLE9BQU87QUFDVCxHQUdHO0FBQ0QsU0FDRSxpREFBQyxTQUFJLFdBQVcsNkJBQTZCLElBQUksSUFDL0M7QUFBQSx3REFBQyxnQ0FBTSxNQUFhLGtCQUFwQjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBQXlCO0FBQUEsSUFDekIsaURBQUMsVUFBTSxxQkFBUDtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBQWU7QUFBQSxPQUZqQjtBQUFBO0FBQUE7QUFBQTtBQUFBLFNBR0E7QUFFSjtBQUVPLFNBQVMsV0FBVztBQUFBLEVBQ3pCLGNBQWM7QUFBQSxFQUNkO0FBQUEsRUFDQTtBQUFBLEVBQ0E7QUFBQSxFQUNBO0FBQ0YsR0FNRztBQUNELFFBQU0sVUFBVSxnQkFBZ0IsT0FBTyxXQUFXO0FBRWxELFNBQ0Usb0RBQUMsZ0NBQU0sV0FBVSxlQUNmO0FBQUEsd0RBQUMsdUNBQWEsU0FBUSxpQkFBZ0IsT0FBYyxNQUFNLGVBQTFEO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FBdUU7QUFBQSxJQUN2RSxpREFBQyxTQUFJLFdBQVUsU0FDYjtBQUFBLHVEQUFDLFNBQUksV0FBVSxhQUNiO0FBQUEseURBQUMsUUFBRywyQkFBSjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQWU7QUFBQSxRQUNmLGlEQUFDLE9BQUcsa0JBQVEsV0FBWjtBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQW9CO0FBQUEsV0FGdEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQUdBO0FBQUEsTUFDQyxRQUFRLGVBQ1AsaURBQUMsU0FBSSxXQUFVLGFBQ2I7QUFBQSx5REFBQyxRQUFHLDZCQUFKO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBaUI7QUFBQSxRQUNqQixpREFBQyxPQUFHLGtCQUFRLGdCQUFaO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBeUI7QUFBQSxXQUYzQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGFBR0EsSUFDRTtBQUFBLE1BQ0gsUUFBUSxZQUNQLGlEQUFDLFNBQUksV0FBVSxTQUFRO0FBQUE7QUFBQSxRQUFhLFFBQVE7QUFBQSxXQUE1QztBQUFBO0FBQUE7QUFBQTtBQUFBLGFBQXNELElBQ3BEO0FBQUEsU0FiTjtBQUFBO0FBQUE7QUFBQTtBQUFBLFdBY0E7QUFBQSxJQUNDLFdBQ0MsaURBQUMsWUFBTyxXQUFVLGtCQUFpQixTQUFTLFVBQ3pDLHlCQURIO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0FFQSxJQUNFO0FBQUEsT0FyQk47QUFBQTtBQUFBO0FBQUE7QUFBQSxTQXNCQTtBQUVKIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJFcnJvclN0YXRlLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBCYWRnZSwgUGFuZWwsIFNlY3Rpb25UaXRsZSB9IGZyb20gXCIuL1ByaW1pdGl2ZXNcIjtcbmltcG9ydCB7IGlzQXBpUmVxdWVzdEVycm9yIH0gZnJvbSBcIi4uL2RhdGEvYXBpXCI7XG5cbmZ1bmN0aW9uIGdldEVycm9yU3VtbWFyeShlcnJvcjogdW5rbm93biwgZmFsbGJhY2s6IHN0cmluZykge1xuICBpZiAoaXNBcGlSZXF1ZXN0RXJyb3IoZXJyb3IpKSB7XG4gICAgcmV0dXJuIHtcbiAgICAgIG1lc3NhZ2U6IGVycm9yLm1lc3NhZ2UsXG4gICAgICBvcGVyYXRvckhpbnQ6IGVycm9yLm9wZXJhdG9ySGludCxcbiAgICAgIHJlcXVlc3RJZDogZXJyb3IucmVxdWVzdElkLFxuICAgIH07XG4gIH1cblxuICBpZiAoZXJyb3IgaW5zdGFuY2VvZiBFcnJvcikge1xuICAgIHJldHVybiB7XG4gICAgICBtZXNzYWdlOiBlcnJvci5tZXNzYWdlLFxuICAgICAgb3BlcmF0b3JIaW50OiB1bmRlZmluZWQsXG4gICAgICByZXF1ZXN0SWQ6IHVuZGVmaW5lZCxcbiAgICB9O1xuICB9XG5cbiAgcmV0dXJuIHtcbiAgICBtZXNzYWdlOiBmYWxsYmFjayxcbiAgICBvcGVyYXRvckhpbnQ6IHVuZGVmaW5lZCxcbiAgICByZXF1ZXN0SWQ6IHVuZGVmaW5lZCxcbiAgfTtcbn1cblxuZXhwb3J0IGZ1bmN0aW9uIExvYWRpbmdTdGF0ZSh7IG1lc3NhZ2UgfTogeyBtZXNzYWdlOiBzdHJpbmcgfSkge1xuICByZXR1cm4gPGRpdiBjbGFzc05hbWU9XCJsb2FkaW5nLXBhbmVsXCI+e21lc3NhZ2V9PC9kaXY+O1xufVxuXG5leHBvcnQgZnVuY3Rpb24gSW5saW5lQWxlcnQoe1xuICBtZXNzYWdlLFxuICB0b25lID0gXCJjcml0aWNhbFwiLFxufToge1xuICBtZXNzYWdlOiBzdHJpbmc7XG4gIHRvbmU/OiBcImNyaXRpY2FsXCIgfCBcInBvc2l0aXZlXCIgfCBcIndhcm5pbmdcIjtcbn0pIHtcbiAgcmV0dXJuIChcbiAgICA8ZGl2IGNsYXNzTmFtZT17YGlubGluZS1hbGVydCBpbmxpbmUtYWxlcnQtJHt0b25lfWB9PlxuICAgICAgPEJhZGdlIHRvbmU9e3RvbmV9Pnt0b25lfTwvQmFkZ2U+XG4gICAgICA8c3Bhbj57bWVzc2FnZX08L3NwYW4+XG4gICAgPC9kaXY+XG4gICk7XG59XG5cbmV4cG9ydCBmdW5jdGlvbiBFcnJvclN0YXRlKHtcbiAgYWN0aW9uTGFiZWwgPSBcIlJldHJ5XCIsXG4gIGRlc2NyaXB0aW9uLFxuICBlcnJvcixcbiAgb25BY3Rpb24sXG4gIHRpdGxlLFxufToge1xuICBhY3Rpb25MYWJlbD86IHN0cmluZztcbiAgZGVzY3JpcHRpb246IHN0cmluZztcbiAgZXJyb3I/OiB1bmtub3duO1xuICBvbkFjdGlvbj86ICgpID0+IHZvaWQ7XG4gIHRpdGxlOiBzdHJpbmc7XG59KSB7XG4gIGNvbnN0IHN1bW1hcnkgPSBnZXRFcnJvclN1bW1hcnkoZXJyb3IsIGRlc2NyaXB0aW9uKTtcblxuICByZXR1cm4gKFxuICAgIDxQYW5lbCBjbGFzc05hbWU9XCJlcnJvci1wYW5lbFwiPlxuICAgICAgPFNlY3Rpb25UaXRsZSBleWVicm93PVwiRmFpbHVyZSBTdGF0ZVwiIHRpdGxlPXt0aXRsZX0gYm9keT17ZGVzY3JpcHRpb259IC8+XG4gICAgICA8ZGl2IGNsYXNzTmFtZT1cInN0YWNrXCI+XG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwibm90ZS1jYXJkXCI+XG4gICAgICAgICAgPGgzPldoYXQgZmFpbGVkPC9oMz5cbiAgICAgICAgICA8cD57c3VtbWFyeS5tZXNzYWdlfTwvcD5cbiAgICAgICAgPC9kaXY+XG4gICAgICAgIHtzdW1tYXJ5Lm9wZXJhdG9ySGludCA/IChcbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cIm5vdGUtY2FyZFwiPlxuICAgICAgICAgICAgPGgzPk9wZXJhdG9yIGhpbnQ8L2gzPlxuICAgICAgICAgICAgPHA+e3N1bW1hcnkub3BlcmF0b3JIaW50fTwvcD5cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgKSA6IG51bGx9XG4gICAgICAgIHtzdW1tYXJ5LnJlcXVlc3RJZCA/IChcbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cIm11dGVkXCI+UmVxdWVzdCBJRDoge3N1bW1hcnkucmVxdWVzdElkfTwvZGl2PlxuICAgICAgICApIDogbnVsbH1cbiAgICAgIDwvZGl2PlxuICAgICAge29uQWN0aW9uID8gKFxuICAgICAgICA8YnV0dG9uIGNsYXNzTmFtZT1cInByaW1hcnktYnV0dG9uXCIgb25DbGljaz17b25BY3Rpb259PlxuICAgICAgICAgIHthY3Rpb25MYWJlbH1cbiAgICAgICAgPC9idXR0b24+XG4gICAgICApIDogbnVsbH1cbiAgICA8L1BhbmVsPlxuICApO1xufVxuIl0sImZpbGUiOiIvc3JjL2NvbXBvbmVudHMvRXJyb3JTdGF0ZS50c3gifQ==

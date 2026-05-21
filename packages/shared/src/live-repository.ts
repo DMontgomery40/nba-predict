@@ -48,6 +48,7 @@ import {
   getDatabasePath,
   getDatabaseSchemaVersion,
 } from "./db-core";
+import { normalizeBoardText } from "./board-anomaly-support";
 import { DatabaseFailureError } from "./errors";
 import {
   getInstrumentDeltaSeries,
@@ -211,9 +212,8 @@ function lineValuesMatch(
 }
 
 function normalizeSelectionToken(value: string | null | undefined) {
-  return (value ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
+  return normalizeBoardText(value)
+    .replace(/[^\p{L}0-9]+/gu, " ")
     .trim();
 }
 
@@ -4181,6 +4181,12 @@ export function enqueueTimelineMaterializationRebuild(
   payload: AdminActionPayload
 ) {
   return enqueueAdminAction("timeline-materialization-rebuild", payload);
+}
+
+export function enqueueBoardVolatilityBaselineRebuild(
+  payload: AdminActionPayload
+) {
+  return enqueueAdminAction("board-volatility-baseline-rebuild", payload);
 }
 
 export function claimNextQueuedAdminAction() {

@@ -960,7 +960,33 @@ describe("api routes", () => {
     });
     expect(boardVolatilityResponse.statusCode).toBe(200);
     expect(boardVolatilityResponse.json()).toMatchObject({
-      data: expect.any(Array),
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          baseline: expect.objectContaining({
+            expectedRange: expect.objectContaining({
+              p50: expect.any(Number),
+              p90: expect.any(Number),
+            }),
+            percentile: expect.any(Number),
+            source: expect.stringMatching(/calibrated|fallback/),
+          }),
+          filter: expect.objectContaining({
+            decayRegime: expect.any(String),
+            stressLevel: expect.any(Number),
+          }),
+          gates: expect.objectContaining({
+            criticalEligible: expect.any(Boolean),
+          }),
+          headlineScore: expect.any(Number),
+          phase: expect.objectContaining({
+            kind: expect.any(String),
+          }),
+          signals: expect.objectContaining({
+            corePriceShock: expect.any(Number),
+            persistenceSeconds: expect.any(Number),
+          }),
+        }),
+      ]),
       meta: expect.objectContaining({
         now: "2026-04-21T23:56:00.000Z",
       }),
@@ -1111,6 +1137,12 @@ describe("api routes", () => {
       url: "/api/v1/admin/timeline-materializations/rebuild",
     });
     expect(materializationResponse.statusCode).toBe(202);
+
+    const baselineRebuildResponse = await app.inject({
+      method: "POST",
+      url: "/api/v1/admin/board-volatility-baselines/rebuild",
+    });
+    expect(baselineRebuildResponse.statusCode).toBe(202);
 
     await app.close();
   });

@@ -7,7 +7,10 @@ import {
   type DivergenceQuery,
 } from "../../data/api";
 import { formatGapPoints } from "../../lib/market-format";
-import { formatOperatorDateTime } from "../../lib/time-format";
+import {
+  formatOperatorDateTime,
+  formatOperatorTime,
+} from "../../lib/time-format";
 
 const severityOptions = ["", "critical", "high", "medium", "low"] as const;
 const freshnessOptions = [
@@ -113,6 +116,7 @@ function marketTimingLabel(row: {
   comparableState: string;
   gameStatus?: string;
   inPlay: boolean;
+  scheduledStart?: string;
 }) {
   if (row.gameStatus === "final") {
     return "finished game";
@@ -121,7 +125,7 @@ function marketTimingLabel(row: {
     return "game in progress";
   }
   if (row.gameStatus === "scheduled") {
-    return "scheduled game";
+    return `tip ${formatOperatorTime(row.scheduledStart)}`;
   }
   return matchLabel(row.comparableState);
 }

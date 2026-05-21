@@ -10,6 +10,8 @@ import {
 import { parseTimestampMs } from "./board-anomaly-support";
 import { executeDatabaseOperation, getDatabase } from "./db-core";
 
+import type { GameStateRow } from "./board-anomaly-observation-context";
+
 const STALE_QUOTE_AGE_MS = 10 * 60_000;
 
 export type MaterializeBoardObservationsInput = {
@@ -20,7 +22,12 @@ export type MaterializeBoardObservationsInput = {
 
 export function materializeBoardObservations(
   input: MaterializeBoardObservationsInput
-): { gameLabel: string; observations: BoardObservation[] } | null {
+): {
+  gameLabel: string;
+  observations: BoardObservation[];
+  gameStates: GameStateRow[];
+  scheduledStart: string;
+} | null {
   return executeDatabaseOperation(
     "board-anomaly.materializeBoardObservations",
     () => {
@@ -170,7 +177,12 @@ export function materializeBoardObservations(
       }
 
       const gameLabel = `${context.game.awayName} @ ${context.game.homeName}`;
-      return { gameLabel, observations };
+      return {
+        gameLabel,
+        observations,
+        gameStates: context.gameStates,
+        scheduledStart: context.game.scheduledStart,
+      };
     },
     input
   );

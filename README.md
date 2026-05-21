@@ -25,6 +25,8 @@ Signal Console is a live NBA trader-incident console for Bet365 trader inspectio
 
 The live board-alert deck now uses a board-first gate for the current `#2` math pass: if a whole-game `game-state-volatility` tripwire and player-specific fanout first pop inside the same shock window, the deck keeps the whole-game card first and leaves the player rows in the board alert evidence until a later follow-up separates itself.
 
+Whole-board volatility now runs as one shared calibrated state model across live alerts, replay, inspect, and desk surfaces: `materialized observations -> H0 residualization -> Iter02 state gate -> phase-aware abnormality features -> empirical baseline lookup -> linear Gaussian Kalman filter -> board-level gates -> board-first deck fold`. `/api/v1/research/board-volatility` exposes phase, baseline percentile/range, signals, filter state, gates, and drivers from that model rather than an inline threshold legend.
+
 It is live-only, persisted-data-only, and never substitutes synthetic runtime modes for missing live data. Sportsbooks (Bet365, FanDuel, DraftKings) and prediction markets (Kalshi, Polymarket) are five distinct source families normalized onto a common probability axis but scored with distinct microstructure feature sets. Per-instrument divergence, per-source-market microstructure anomalies, and the exact-line player-prop monitor remain as building blocks and Inspect detail surfaces; isolated props are not the whole-game headline. See [`specs/01-product-requirements.md`](specs/01-product-requirements.md) and [`specs/06b-board-anomaly-model.md`](specs/06b-board-anomaly-model.md) for the full contract and model spec, and [`docs/board-state-inventory.md`](docs/board-state-inventory.md) for what the persisted `B(t)` actually contains today.
 
 ## Repo Layout
@@ -130,6 +132,17 @@ cd apps/nba-sidecar && uv run pytest
 ```
 
 `pnpm verify` runs the repo standard format, lint, typecheck, and test path for the TypeScript workspace.
+
+## Codex Bug-Fix Guard
+
+Codex sessions in this repo now ship a repo-local hook policy in `.codex/hooks.json`.
+After trusting the hook set through `/hooks`, concrete bug-fix prompts get an up-front reminder that regression coverage must live at the observable behavior boundary rather than as a narrow white-box test. The same hook set tracks `apply_patch` edits plus Bash test/verify commands and continues the turn if a bug-fix edit tries to stop without:
+
+- a touched regression-test file
+- a changed-surface test command
+- a `pnpm verify` attempt
+
+The hook implementation lives in `packages/shared/src/codex-hooks/bugfix-regression-guard.ts`, and its own regression coverage lives in `packages/shared/src/__tests__/bugfix-regression-guard.test.ts`.
 
 Historical backfills use the live-only persistence model and never load synthetic packs:
 
@@ -286,6 +299,7 @@ is set. Useful knobs:
 - **Worker resilience** — Market-provider failures are isolated inside a cycle: a Bet365 rate-limit or upstream outage is reported in the heartbeat `providerFailures` field and adapter runs, but does not prevent Kalshi or Polymarket from refreshing. Repeated Bet365 429s trigger a provider-specific cooldown (`BET365_RATE_LIMIT_COOLDOWN_MS`) instead of hammering Odds-API every worker loop. Live Kalshi scans are bounded by `KALSHI_LIVE_MAX_EVENTS` and `KALSHI_LIVE_LOOKBACK_DAYS`.
 - **Prediction-market weirdness** — `/api/v1/research/market-anomalies` is the broad tripwire route. It scores persisted Kalshi/Polymarket/Bet365 quote ticks plus persisted microstructure events for off-price prints, volume-share anomalies, volatility shocks, liquidity/spread/depth shocks, and cross-venue disagreement. It does not require knowing the paired/rightful player at detection time. `/market-anomalies` exposes the queue and score knobs, and `pnpm market-anomaly-watch` records playback/notifications.
 - **Trader incidents / board tripwires** — `/api/v1/research/board-alerts` and `/api/v1/research/board-alerts/incidents` are the trader-facing incident routes. They should turn broad tripwires into concrete player/prop follow-up: who is likely involved, which stat families are moving, and what related markets should be reviewed or suspended first. `/api/v1/research/board-volatility` is the earliest whole-board tripwire layer, not the end of the story. `/api/v1/research/board-alerts/event-context` returns nearby market reactions and NBA play-by-play rows around an anchor timestamp so inspect can answer what the trader knew and when; when persisted NBA play-by-play is missing, the API first attempts sidecar hydration and otherwise fails honestly instead of inventing game-clock confirmation. Historical incident reads are for no-future-leakage warning-timing audit, not generic post-game noise, and inspect must label pregame / near-tip states honestly rather than dressing up a far-away NBA row as nearby context.
+- **Board-volatility calibration** — `/api/v1/research/board-volatility` and whole-board `game-state-volatility` cards in `/api/v1/research/board-alerts` now read the same shared model output. The headline score is phase-aware abnormality, not a raw count of hot rows: core game-state families (`moneyline`, `spread`, `total`, `team-prop`) drive the score, player props only support it, Iter02 state gating suppresses untrusted player/entity fanout, and a linear Kalman layer controls persistence/decay. Baselines are materialized in `board_volatility_baselines` and can be rebuilt through `POST /api/v1/admin/board-volatility-baselines/rebuild`.
 - **Player-prop attribution risk** — `/api/v1/research/player-prop-alerts` remains the strict compatibility/safety route. It compares mapped player-prop quotes from Bet365 against Kalshi/Polymarket, filters by configurable divergence threshold and quote-time window, fails closed on player/outcome or line mismatch, and returns manual-review alerts with source labels, line terms, quote ages, and a risk score. `pnpm prop-alert-watch` can run out-of-band for desktop notifications and writes persisted alert checks served by `/api/v1/research/player-prop-alert-playback`.
 - **Exports** — `/exports` is package-first for data engineering: the primary control downloads the full live SQLite snapshot (`/api/v1/exports/full-package.sqlite`) with all persisted tables, timestamps, quote volume columns, and raw payloads. The same route also exposes API-backed CSV/JSONL table exports plus filtered quote pulls for provider/family slices such as all player props or Kalshi player props.
 - **Signal-quality analytics** — `signal-quality`, `closed-games`, per-instrument `delta-series` and `lead-lag` (source-to-source Pearson cross-correlation). Closing cutoff is pregame by default (`scheduled_start`), switchable to live-final. Calibration reports Brier and log-loss per source.

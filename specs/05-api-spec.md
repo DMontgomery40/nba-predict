@@ -37,7 +37,7 @@
 - `GET /api/v1/research/board-alerts/incidents`
 - `GET /api/v1/research/board-alerts/event-context`
 - `GET /api/v1/research/board-alerts/replay`
-- `GET /api/v1/research/board-volatility` returns per-game live game-state volatility scores and normal/elevated/alert thresholds as the earliest whole-board tripwire layer, without replacing the actionable `/board-alerts` incident contract
+- `GET /api/v1/research/board-volatility` returns the shared whole-board state model for each live game: `state`, `headlineScore`, `confidence`, `phase`, `baseline` percentile/range, `signals`, `filter`, `gates`, `drivers`, `diagnostics`, and `inspect`. It is the earliest whole-board tripwire layer and must stay aligned with `shockKind === "game-state-volatility"` rows in `/api/v1/research/board-alerts`; consumers must not reconstruct the old threshold-legend view client-side.
 - `GET /api/v1/research/market-anomaly-score-config`
 - `PUT /api/v1/research/market-anomaly-score-config`
 - `GET /api/v1/research/market-anomaly-playback`
@@ -53,6 +53,7 @@
 - `GET /api/v1/admin/unmapped-markets`
 - `POST /api/v1/admin/mappings/resolve`
 - `POST /api/v1/admin/timeline-materializations/rebuild`
+- `POST /api/v1/admin/board-volatility-baselines/rebuild`
 - `GET /api/v1/admin/storage/coverage`
 
 `POST /api/v1/admin/backfill/markets` accepts historical market backfill payloads for `source = bet365 | kalshi | polymarket` over a date window. The Bet365 path uses real settled-game Odds API historical endpoints; it must not reply with a “not wired” lie when the runtime can actually execute the backfill.

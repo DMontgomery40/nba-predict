@@ -1,0 +1,1370 @@
+{
+  "anchors": [
+    {
+      "anchorAt": "2026-05-18T02:00:53.400Z",
+      "caseId": "case01_sam_merrill_team_oreb",
+      "expectedPlayer": "Sam Merrill",
+      "gameId": "nba-0042500207",
+      "inPlayObservationShare": 1,
+      "observationsTotal": 554,
+      "pairedPlayer": null,
+      "pbpMatch": {
+        "matched": true,
+        "matchType": "exact-time",
+        "deltaSeconds": 0,
+        "description": "TEAM offensive REBOUND",
+        "period": 3,
+        "clock": "PT04M45.00S",
+        "timeActual": "2026-05-18T02:00:53.4Z"
+      },
+      "scheduledObservationShare": 0,
+      "sourceNote": "Public anchor: Twstalker @nba_elise, 3Q 4:45 TEAM offensive REBOUND missing Sam Merrill rebound.",
+      "staleShare": 0,
+      "statFamily": "rebounds",
+      "trustClass": "trusted"
+    },
+    {
+      "anchorAt": "2026-05-18T01:54:46.800Z",
+      "caseId": "case02_d_jenkins_to_c_levert_3pt",
+      "expectedPlayer": "Daniss Jenkins",
+      "gameId": "nba-0042500207",
+      "inPlayObservationShare": 1,
+      "observationsTotal": 502,
+      "pairedPlayer": "Caris LeVert",
+      "pbpMatch": {
+        "matched": true,
+        "matchType": "exact-time",
+        "deltaSeconds": 0,
+        "description": "C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "period": 3,
+        "clock": "PT06M32.00S",
+        "timeActual": "2026-05-18T01:54:46.8Z"
+      },
+      "scheduledObservationShare": 0,
+      "sourceNote": "Trusted exact PBP anchor: C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST).",
+      "staleShare": 0,
+      "statFamily": "assists",
+      "trustClass": "trusted"
+    },
+    {
+      "anchorAt": "2026-05-18T02:03:12.200Z",
+      "caseId": "case03_m_sasser_rebound",
+      "expectedPlayer": "Marcus Sasser",
+      "gameId": "nba-0042500207",
+      "inPlayObservationShare": 1,
+      "observationsTotal": 611,
+      "pairedPlayer": null,
+      "pbpMatch": {
+        "matched": true,
+        "matchType": "exact-time",
+        "deltaSeconds": 0,
+        "description": "M. Sasser REBOUND (Off:1 Def:0)",
+        "period": 3,
+        "clock": "PT03M22.00S",
+        "timeActual": "2026-05-18T02:03:12.2Z"
+      },
+      "scheduledObservationShare": 0,
+      "sourceNote": "Trusted exact PBP anchor: M. Sasser REBOUND (Off:1 Def:0).",
+      "staleShare": 0,
+      "statFamily": "rebounds",
+      "trustClass": "trusted"
+    },
+    {
+      "anchorAt": "2026-05-18T02:14:58.700Z",
+      "caseId": "case04_sam_merrill_layup",
+      "expectedPlayer": "Sam Merrill",
+      "gameId": "nba-0042500207",
+      "inPlayObservationShare": 1,
+      "observationsTotal": 550,
+      "pairedPlayer": null,
+      "pbpMatch": {
+        "matched": true,
+        "matchType": "exact-time",
+        "deltaSeconds": 0,
+        "description": "S. Merrill running Layup (23 PTS)",
+        "period": 4,
+        "clock": "PT11M16.00S",
+        "timeActual": "2026-05-18T02:14:58.7Z"
+      },
+      "scheduledObservationShare": 0,
+      "sourceNote": "Trusted exact PBP anchor: S. Merrill running Layup (23 PTS).",
+      "staleShare": 0,
+      "statFamily": "points",
+      "trustClass": "trusted"
+    },
+    {
+      "anchorAt": "2026-05-14T01:42:34.934Z",
+      "caseId": "case05_bad_cade_block_public",
+      "expectedPlayer": "Cade Cunningham",
+      "gameId": "nba-0042500205",
+      "inPlayObservationShare": 0,
+      "observationsTotal": 56,
+      "pairedPlayer": null,
+      "pbpMatch": {
+        "matched": false,
+        "matchType": "no-match",
+        "deltaSeconds": null,
+        "description": null,
+        "period": null,
+        "clock": null,
+        "timeActual": null
+      },
+      "scheduledObservationShare": 1,
+      "sourceNote": "Bad-input public anchor: Twstalker @nba_elise C. Cunningham BLOCK tweet; no persisted exact PBP match within +/-5s and window classifies as scheduled.",
+      "staleShare": 0,
+      "statFamily": "blocks",
+      "trustClass": "bad-input"
+    },
+    {
+      "anchorAt": "2026-05-16T00:08:06.400Z",
+      "caseId": "case06_bad_dean_wade_three",
+      "expectedPlayer": "Dean Wade",
+      "gameId": "nba-0042500206",
+      "inPlayObservationShare": 0,
+      "observationsTotal": 394,
+      "pairedPlayer": "James Harden",
+      "pbpMatch": {
+        "matched": true,
+        "matchType": "exact-time",
+        "deltaSeconds": 0,
+        "description": "D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "period": 2,
+        "clock": "PT05M26.00S",
+        "timeActual": "2026-05-16T00:08:06.4Z"
+      },
+      "scheduledObservationShare": 1,
+      "sourceNote": "Bad-input exact PBP anchor: D. Wade 3PT (3 PTS) (J. Harden 2 AST), but observation window still classifies as scheduled.",
+      "staleShare": 0,
+      "statFamily": "points",
+      "trustClass": "bad-input"
+    },
+    {
+      "anchorAt": "2026-05-18T01:44:53.600Z",
+      "caseId": "case07_d_jenkins_floater",
+      "expectedPlayer": "Daniss Jenkins",
+      "gameId": "nba-0042500207",
+      "inPlayObservationShare": 1,
+      "observationsTotal": 595,
+      "pairedPlayer": "Jalen Duren",
+      "pbpMatch": {
+        "matched": true,
+        "matchType": "exact-time",
+        "deltaSeconds": 0,
+        "description": "D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "period": 3,
+        "clock": "PT09M46.00S",
+        "timeActual": "2026-05-18T01:44:53.6Z"
+      },
+      "scheduledObservationShare": 0,
+      "sourceNote": "Expansion trusted exact PBP anchor: D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST).",
+      "staleShare": 0,
+      "statFamily": "points",
+      "trustClass": "trusted"
+    },
+    {
+      "anchorAt": "2026-05-18T02:45:28.100Z",
+      "caseId": "case08_t_smith_layup_d_jenkins_ast",
+      "expectedPlayer": "Daniss Jenkins",
+      "gameId": "nba-0042500207",
+      "inPlayObservationShare": 1,
+      "observationsTotal": 307,
+      "pairedPlayer": "T. Smith",
+      "pbpMatch": {
+        "matched": true,
+        "matchType": "exact-time",
+        "deltaSeconds": 0,
+        "description": "T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "period": 4,
+        "clock": "PT01M38.00S",
+        "timeActual": "2026-05-18T02:45:28.1Z"
+      },
+      "scheduledObservationShare": 0,
+      "sourceNote": "Expansion trusted exact PBP anchor: T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST).",
+      "staleShare": 0,
+      "statFamily": "assists",
+      "trustClass": "trusted"
+    },
+    {
+      "anchorAt": "2026-05-14T01:15:24.962Z",
+      "caseId": "case09_bad_sasser_public",
+      "expectedPlayer": "Marcus Sasser",
+      "gameId": "nba-0042500205",
+      "inPlayObservationShare": 0,
+      "observationsTotal": 86,
+      "pairedPlayer": null,
+      "pbpMatch": {
+        "matched": true,
+        "matchType": "within-5s",
+        "deltaSeconds": 5,
+        "description": "MISS T. Harris 24' 3PT",
+        "period": 2,
+        "clock": "PT00M05.60S",
+        "timeActual": "2026-05-14T01:15:29.7Z"
+      },
+      "scheduledObservationShare": 1,
+      "sourceNote": "Expansion bad-input public anchor: Twstalker @nba_elise M. Sasser REBOUND tweet; no persisted exact PBP match within +/-5s.",
+      "staleShare": 0,
+      "statFamily": "rebounds",
+      "trustClass": "bad-input"
+    },
+    {
+      "anchorAt": "2026-05-16T01:18:26.200Z",
+      "caseId": "case10_bad_jalen_duren_turnaround",
+      "expectedPlayer": "Jalen Duren",
+      "gameId": "nba-0042500206",
+      "inPlayObservationShare": 0,
+      "observationsTotal": 479,
+      "pairedPlayer": null,
+      "pbpMatch": {
+        "matched": true,
+        "matchType": "exact-time",
+        "deltaSeconds": 0,
+        "description": "J. Duren turnaround Jump Shot (11 PTS)",
+        "period": 4,
+        "clock": "PT08M08.00S",
+        "timeActual": "2026-05-16T01:18:26.2Z"
+      },
+      "scheduledObservationShare": 1,
+      "sourceNote": "Expansion bad-input exact PBP anchor: J. Duren turnaround Jump Shot (11 PTS), but observation window still classifies as scheduled.",
+      "staleShare": 0,
+      "statFamily": "points",
+      "trustClass": "bad-input"
+    }
+  ],
+  "expanded": true,
+  "finalVerdict": "safe board-only",
+  "iterationRows": {
+    "Iter01": [
+      {
+        "boardLeadSec": 450,
+        "caseId": "case01_sam_merrill_team_oreb",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=554 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | TEAM offensive REBOUND",
+        "result": "noisy",
+        "top5": "cade-cunningham (69) | jalen-duren (65) | tobias-harris (62) | james-harden (59) | jarrett-allen (59)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 390,
+        "caseId": "case02_d_jenkins_to_c_levert_3pt",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=502 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "result": "noisy",
+        "top5": "jarrett-allen (81) | jalen-duren (72) | jarrett-allen (71) | tobias-harris (63) | donovan-mitchell (58)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case03_m_sasser_rebound",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=611 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | M. Sasser REBOUND (Off:1 Def:0)",
+        "result": "noisy",
+        "top5": "cade-cunningham (76) | evan-mobley (73) | duncan-robinson (71) | jalen-duren (70) | jarrett-allen (69)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case04_sam_merrill_layup",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=550 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | S. Merrill running Layup (23 PTS)",
+        "result": "noisy",
+        "top5": "jalen-duren (100) | dennis-schroder (100) | evan-mobley (85) | tobias-harris (76) | donovan-mitchell (73)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case05_bad_cade_block_public",
+        "entityLeadSec": 360,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=56 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=no-match",
+        "result": "bad-input-entity-fire",
+        "top5": "jarrett-allen (100) | james-harden (67) | evan-mobley (58)",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case06_bad_dean_wade_three",
+        "entityLeadSec": 210,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=394 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "result": "bad-input-entity-fire",
+        "top5": "donovan-mitchell (100) | evan-mobley (91) | jalen-duren (80) | dennis-schroder (79) | tobias-harris (73)",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case07_d_jenkins_floater",
+        "entityLeadSec": 210,
+        "expectedInTop5": true,
+        "notes": "trust=trusted | obs=595 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "result": "hit",
+        "top5": "dennis-schroder (93) | duncan-robinson (68) | jalen-duren (66) | evan-mobley (63) | james-harden (60)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case08_t_smith_layup_d_jenkins_ast",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=307 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "result": "noisy",
+        "top5": "dennis-schroder (96) | evan-mobley (93) | det (81) | jalen-duren (78) | james-harden (72)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case09_bad_sasser_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=86 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=within-5s | MISS T. Harris 24' 3PT",
+        "result": "bad-input-entity-fire",
+        "top5": "donovan-mitchell (81) | jalen-duren (76) | evan-mobley (69) | cade-cunningham (57)",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case10_bad_jalen_duren_turnaround",
+        "entityLeadSec": 0,
+        "expectedInTop5": true,
+        "notes": "trust=bad-input | obs=479 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | J. Duren turnaround Jump Shot (11 PTS)",
+        "result": "bad-input-entity-fire",
+        "top5": "jalen-duren (81) | cade-cunningham (78) | donovan-mitchell (66) | evan-mobley (64) | tobias-harris (62)",
+        "trustClass": "bad-input"
+      }
+    ],
+    "Iter02": [
+      {
+        "boardLeadSec": 450,
+        "caseId": "case01_sam_merrill_team_oreb",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=554 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | TEAM offensive REBOUND",
+        "result": "noisy",
+        "top5": "cade-cunningham (69) | jalen-duren (65) | tobias-harris (62) | james-harden (59) | jarrett-allen (59)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 390,
+        "caseId": "case02_d_jenkins_to_c_levert_3pt",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=502 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "result": "noisy",
+        "top5": "jarrett-allen (81) | jalen-duren (72) | jarrett-allen (71) | tobias-harris (63) | donovan-mitchell (58)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case03_m_sasser_rebound",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=611 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | M. Sasser REBOUND (Off:1 Def:0)",
+        "result": "noisy",
+        "top5": "cade-cunningham (76) | evan-mobley (73) | duncan-robinson (71) | jalen-duren (70) | jarrett-allen (69)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case04_sam_merrill_layup",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=550 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | S. Merrill running Layup (23 PTS)",
+        "result": "noisy",
+        "top5": "jalen-duren (100) | dennis-schroder (100) | evan-mobley (85) | tobias-harris (76) | donovan-mitchell (73)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case05_bad_cade_block_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=56 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=no-match",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case06_bad_dean_wade_three",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=394 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case07_d_jenkins_floater",
+        "entityLeadSec": 210,
+        "expectedInTop5": true,
+        "notes": "trust=trusted | obs=595 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "result": "hit",
+        "top5": "dennis-schroder (93) | duncan-robinson (68) | jalen-duren (66) | evan-mobley (63) | james-harden (60)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case08_t_smith_layup_d_jenkins_ast",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=307 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "result": "noisy",
+        "top5": "dennis-schroder (96) | evan-mobley (93) | det (81) | jalen-duren (78) | james-harden (72)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case09_bad_sasser_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=86 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=within-5s | MISS T. Harris 24' 3PT",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case10_bad_jalen_duren_turnaround",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=479 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | J. Duren turnaround Jump Shot (11 PTS)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      }
+    ],
+    "Iter03": [
+      {
+        "boardLeadSec": 450,
+        "caseId": "case01_sam_merrill_team_oreb",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=554 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | TEAM offensive REBOUND",
+        "result": "noisy",
+        "top5": "cade-cunningham (69) | jalen-duren (65) | tobias-harris (62) | james-harden (59) | jarrett-allen (59)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 390,
+        "caseId": "case02_d_jenkins_to_c_levert_3pt",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=502 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "result": "noisy",
+        "top5": "jarrett-allen (81) | jalen-duren (72) | jarrett-allen (71) | tobias-harris (63) | donovan-mitchell (58)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case03_m_sasser_rebound",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=611 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | M. Sasser REBOUND (Off:1 Def:0)",
+        "result": "noisy",
+        "top5": "cade-cunningham (76) | evan-mobley (73) | duncan-robinson (71) | jalen-duren (70) | jarrett-allen (69)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case04_sam_merrill_layup",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=550 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | S. Merrill running Layup (23 PTS)",
+        "result": "noisy",
+        "top5": "jalen-duren (100) | dennis-schroder (100) | evan-mobley (85) | tobias-harris (76) | donovan-mitchell (73)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case05_bad_cade_block_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=56 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=no-match",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case06_bad_dean_wade_three",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=394 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case07_d_jenkins_floater",
+        "entityLeadSec": 210,
+        "expectedInTop5": true,
+        "notes": "trust=trusted | obs=595 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "result": "hit",
+        "top5": "dennis-schroder (93) | duncan-robinson (68) | jalen-duren (66) | evan-mobley (63) | james-harden (60)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case08_t_smith_layup_d_jenkins_ast",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=307 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "result": "noisy",
+        "top5": "dennis-schroder (96) | evan-mobley (93) | det (81) | jalen-duren (78) | james-harden (72)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case09_bad_sasser_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=86 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=within-5s | MISS T. Harris 24' 3PT",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case10_bad_jalen_duren_turnaround",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=479 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | J. Duren turnaround Jump Shot (11 PTS)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      }
+    ],
+    "Iter04": [
+      {
+        "boardLeadSec": 450,
+        "caseId": "case01_sam_merrill_team_oreb",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=554 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | TEAM offensive REBOUND",
+        "result": "noisy",
+        "top5": "cade-cunningham (69) | jalen-duren (65) | tobias-harris (62) | james-harden (59) | jarrett-allen (59)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 390,
+        "caseId": "case02_d_jenkins_to_c_levert_3pt",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=502 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "result": "noisy",
+        "top5": "jarrett-allen (81) | jalen-duren (72) | jarrett-allen (71) | tobias-harris (63) | donovan-mitchell (58)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case03_m_sasser_rebound",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=611 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | M. Sasser REBOUND (Off:1 Def:0)",
+        "result": "noisy",
+        "top5": "cade-cunningham (76) | evan-mobley (73) | duncan-robinson (71) | jalen-duren (70) | jarrett-allen (69)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case04_sam_merrill_layup",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=550 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | S. Merrill running Layup (23 PTS)",
+        "result": "noisy",
+        "top5": "jalen-duren (100) | evan-mobley (85) | tobias-harris (76) | donovan-mitchell (73) | duncan-robinson (72)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case05_bad_cade_block_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=56 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=no-match",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case06_bad_dean_wade_three",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=394 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case07_d_jenkins_floater",
+        "entityLeadSec": 210,
+        "expectedInTop5": true,
+        "notes": "trust=trusted | obs=595 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "result": "hit",
+        "top5": "duncan-robinson (68) | jalen-duren (66) | evan-mobley (63) | james-harden (60) | donovan-mitchell (58)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case08_t_smith_layup_d_jenkins_ast",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=307 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "result": "noisy",
+        "top5": "det (81) | james-harden (72) | tobias-harris (66) | cle (64) | cle (62)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case09_bad_sasser_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=86 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=within-5s | MISS T. Harris 24' 3PT",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case10_bad_jalen_duren_turnaround",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=479 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | J. Duren turnaround Jump Shot (11 PTS)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      }
+    ],
+    "Iter05": [
+      {
+        "boardLeadSec": 450,
+        "caseId": "case01_sam_merrill_team_oreb",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=554 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | TEAM offensive REBOUND",
+        "result": "noisy",
+        "top5": "cade-cunningham (69) | jalen-duren (65) | tobias-harris (62) | james-harden (59) | jarrett-allen (59)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 390,
+        "caseId": "case02_d_jenkins_to_c_levert_3pt",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=502 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "result": "noisy",
+        "top5": "jarrett-allen (81) | jarrett-allen (71) | tobias-harris (63) | jalen-duren (62) | donovan-mitchell (58)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case03_m_sasser_rebound",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=611 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | M. Sasser REBOUND (Off:1 Def:0)",
+        "result": "noisy",
+        "top5": "cade-cunningham (76) | evan-mobley (73) | duncan-robinson (71) | jalen-duren (70) | jarrett-allen (69)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case04_sam_merrill_layup",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=550 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | S. Merrill running Layup (23 PTS)",
+        "result": "noisy",
+        "top5": "jalen-duren (90) | evan-mobley (85) | tobias-harris (76) | donovan-mitchell (73) | duncan-robinson (72)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case05_bad_cade_block_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=56 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=no-match",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case06_bad_dean_wade_three",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=394 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case07_d_jenkins_floater",
+        "entityLeadSec": 210,
+        "expectedInTop5": true,
+        "notes": "trust=trusted | obs=595 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "result": "hit",
+        "top5": "duncan-robinson (68) | jalen-duren (66) | evan-mobley (63) | james-harden (60) | donovan-mitchell (58)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case08_t_smith_layup_d_jenkins_ast",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=307 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "result": "noisy",
+        "top5": "james-harden (72) | det (71) | tobias-harris (66) | donovan-mitchell (60) | cle (54)",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case09_bad_sasser_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=86 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=within-5s | MISS T. Harris 24' 3PT",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case10_bad_jalen_duren_turnaround",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=479 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | J. Duren turnaround Jump Shot (11 PTS)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      }
+    ],
+    "Iter06": [
+      {
+        "boardLeadSec": 450,
+        "caseId": "case01_sam_merrill_team_oreb",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=554 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | TEAM offensive REBOUND",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 390,
+        "caseId": "case02_d_jenkins_to_c_levert_3pt",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=502 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case03_m_sasser_rebound",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=611 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | M. Sasser REBOUND (Off:1 Def:0)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case04_sam_merrill_layup",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=550 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | S. Merrill running Layup (23 PTS)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case05_bad_cade_block_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=56 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=no-match",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case06_bad_dean_wade_three",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=394 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case07_d_jenkins_floater",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=595 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case08_t_smith_layup_d_jenkins_ast",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=307 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case09_bad_sasser_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=86 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=within-5s | MISS T. Harris 24' 3PT",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case10_bad_jalen_duren_turnaround",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=479 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | J. Duren turnaround Jump Shot (11 PTS)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      }
+    ],
+    "Iter07": [
+      {
+        "boardLeadSec": 450,
+        "caseId": "case01_sam_merrill_team_oreb",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=554 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | TEAM offensive REBOUND",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 390,
+        "caseId": "case02_d_jenkins_to_c_levert_3pt",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=502 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case03_m_sasser_rebound",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=611 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | M. Sasser REBOUND (Off:1 Def:0)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case04_sam_merrill_layup",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=550 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | S. Merrill running Layup (23 PTS)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case05_bad_cade_block_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=56 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=no-match",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case06_bad_dean_wade_three",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=394 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case07_d_jenkins_floater",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=595 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case08_t_smith_layup_d_jenkins_ast",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=307 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case09_bad_sasser_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=86 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=within-5s | MISS T. Harris 24' 3PT",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case10_bad_jalen_duren_turnaround",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=479 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | J. Duren turnaround Jump Shot (11 PTS)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      }
+    ],
+    "Iter08": [
+      {
+        "boardLeadSec": 450,
+        "caseId": "case01_sam_merrill_team_oreb",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=554 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | TEAM offensive REBOUND",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 390,
+        "caseId": "case02_d_jenkins_to_c_levert_3pt",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=502 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case03_m_sasser_rebound",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=611 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | M. Sasser REBOUND (Off:1 Def:0)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case04_sam_merrill_layup",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=550 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | S. Merrill running Layup (23 PTS)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case05_bad_cade_block_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=56 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=no-match",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case06_bad_dean_wade_three",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=394 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case07_d_jenkins_floater",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=595 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case08_t_smith_layup_d_jenkins_ast",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=307 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case09_bad_sasser_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=86 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=within-5s | MISS T. Harris 24' 3PT",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case10_bad_jalen_duren_turnaround",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=479 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | J. Duren turnaround Jump Shot (11 PTS)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      }
+    ],
+    "Iter09": [
+      {
+        "boardLeadSec": 450,
+        "caseId": "case01_sam_merrill_team_oreb",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=554 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | TEAM offensive REBOUND",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 390,
+        "caseId": "case02_d_jenkins_to_c_levert_3pt",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=502 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case03_m_sasser_rebound",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=611 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | M. Sasser REBOUND (Off:1 Def:0)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case04_sam_merrill_layup",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=550 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | S. Merrill running Layup (23 PTS)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case05_bad_cade_block_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=56 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=no-match",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case06_bad_dean_wade_three",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=394 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case07_d_jenkins_floater",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=595 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case08_t_smith_layup_d_jenkins_ast",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=307 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case09_bad_sasser_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=86 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=within-5s | MISS T. Harris 24' 3PT",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case10_bad_jalen_duren_turnaround",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=479 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | J. Duren turnaround Jump Shot (11 PTS)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      }
+    ],
+    "Iter10": [
+      {
+        "boardLeadSec": 450,
+        "caseId": "case01_sam_merrill_team_oreb",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=554 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | TEAM offensive REBOUND",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 390,
+        "caseId": "case02_d_jenkins_to_c_levert_3pt",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=502 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | C. LeVert 26' 3PT running pullup (10 PTS) (D. Jenkins 3 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case03_m_sasser_rebound",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=611 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | M. Sasser REBOUND (Off:1 Def:0)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case04_sam_merrill_layup",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=550 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | S. Merrill running Layup (23 PTS)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case05_bad_cade_block_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=56 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=no-match",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case06_bad_dean_wade_three",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=394 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | D. Wade 3PT  (3 PTS) (J. Harden 2 AST)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 420,
+        "caseId": "case07_d_jenkins_floater",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=595 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | D. Jenkins 13' driving floating Jump Shot (8 PTS) (J. Duren 2 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case08_t_smith_layup_d_jenkins_ast",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=trusted | obs=307 | inPlay=1.00 | scheduled=0.00 | stale=0.00 | pbp=exact-time | T. Smith driving Layup (4 PTS) (D. Jenkins 5 AST)",
+        "result": "board-only",
+        "top5": "",
+        "trustClass": "trusted"
+      },
+      {
+        "boardLeadSec": null,
+        "caseId": "case09_bad_sasser_public",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=86 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=within-5s | MISS T. Harris 24' 3PT",
+        "result": "bad-input-silent",
+        "top5": "",
+        "trustClass": "bad-input"
+      },
+      {
+        "boardLeadSec": 450,
+        "caseId": "case10_bad_jalen_duren_turnaround",
+        "entityLeadSec": null,
+        "expectedInTop5": false,
+        "notes": "trust=bad-input | obs=479 | inPlay=0.00 | scheduled=1.00 | stale=0.00 | pbp=exact-time | J. Duren turnaround Jump Shot (11 PTS)",
+        "result": "bad-input-board-only",
+        "top5": "",
+        "trustClass": "bad-input"
+      }
+    ]
+  },
+  "leaderboard": [
+    {
+      "badInputEntityFires": 0,
+      "iteration": "Iter02",
+      "medianBoardLead": 420,
+      "medianEntityLead": 210,
+      "noisyCalls": 5,
+      "rank": 1,
+      "trustedBoardMisses": 0,
+      "trustedMisses": 0
+    },
+    {
+      "badInputEntityFires": 0,
+      "iteration": "Iter03",
+      "medianBoardLead": 420,
+      "medianEntityLead": 210,
+      "noisyCalls": 5,
+      "rank": 2,
+      "trustedBoardMisses": 0,
+      "trustedMisses": 0
+    },
+    {
+      "badInputEntityFires": 0,
+      "iteration": "Iter04",
+      "medianBoardLead": 420,
+      "medianEntityLead": 210,
+      "noisyCalls": 5,
+      "rank": 3,
+      "trustedBoardMisses": 0,
+      "trustedMisses": 0
+    },
+    {
+      "badInputEntityFires": 0,
+      "iteration": "Iter05",
+      "medianBoardLead": 420,
+      "medianEntityLead": 210,
+      "noisyCalls": 5,
+      "rank": 4,
+      "trustedBoardMisses": 0,
+      "trustedMisses": 0
+    },
+    {
+      "badInputEntityFires": 4,
+      "iteration": "Iter01",
+      "medianBoardLead": 420,
+      "medianEntityLead": 210,
+      "noisyCalls": 5,
+      "rank": 5,
+      "trustedBoardMisses": 0,
+      "trustedMisses": 0
+    },
+    {
+      "badInputEntityFires": 0,
+      "iteration": "Iter06",
+      "medianBoardLead": 420,
+      "medianEntityLead": null,
+      "noisyCalls": 0,
+      "rank": 6,
+      "trustedBoardMisses": 0,
+      "trustedMisses": 6
+    },
+    {
+      "badInputEntityFires": 0,
+      "iteration": "Iter07",
+      "medianBoardLead": 420,
+      "medianEntityLead": null,
+      "noisyCalls": 0,
+      "rank": 7,
+      "trustedBoardMisses": 0,
+      "trustedMisses": 6
+    },
+    {
+      "badInputEntityFires": 0,
+      "iteration": "Iter08",
+      "medianBoardLead": 420,
+      "medianEntityLead": null,
+      "noisyCalls": 0,
+      "rank": 8,
+      "trustedBoardMisses": 0,
+      "trustedMisses": 6
+    },
+    {
+      "badInputEntityFires": 0,
+      "iteration": "Iter09",
+      "medianBoardLead": 420,
+      "medianEntityLead": null,
+      "noisyCalls": 0,
+      "rank": 9,
+      "trustedBoardMisses": 0,
+      "trustedMisses": 6
+    },
+    {
+      "badInputEntityFires": 0,
+      "iteration": "Iter10",
+      "medianBoardLead": 420,
+      "medianEntityLead": null,
+      "noisyCalls": 0,
+      "rank": 10,
+      "trustedBoardMisses": 0,
+      "trustedMisses": 6
+    }
+  ],
+  "winner": {
+    "badInputEntityFires": 0,
+    "iteration": "Iter02",
+    "medianBoardLead": 420,
+    "medianEntityLead": 210,
+    "noisyCalls": 5,
+    "rank": 1,
+    "trustedBoardMisses": 0,
+    "trustedMisses": 0
+  }
+}

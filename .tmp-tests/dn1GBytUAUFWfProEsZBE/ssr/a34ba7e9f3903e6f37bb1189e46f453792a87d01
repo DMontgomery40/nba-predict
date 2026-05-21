@@ -1,0 +1,29 @@
+const __vite_ssr_import_0__ = await __vite_ssr_import__("vitest", {"importedNames":["describe","expect","it"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/lib/source-coverage.ts", {"importedNames":["formatMarketSourceList","formatMarketSourceSummary","getMarketSources","hasNbaStateSource"]});
+
+
+
+
+
+(0,__vite_ssr_import_0__.describe)("source coverage helpers", () => {
+  (0,__vite_ssr_import_0__.it)("separates NBA state from market feeds", () => {
+    (0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.getMarketSources)(["polymarket", "nba"])).toEqual(["polymarket"]);
+    (0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.hasNbaStateSource)(["polymarket", "nba"])).toBe(true);
+  });
+  (0,__vite_ssr_import_0__.it)("summarizes mixed market and nba coverage without overstating books", () => {
+    (0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.formatMarketSourceSummary)(["polymarket", "nba"])).toBe(
+      "1 market source"
+    );
+    (0,__vite_ssr_import_0__.expect)(
+      (0,__vite_ssr_import_1__.formatMarketSourceSummary)(["bet365", "kalshi", "polymarket", "nba"])
+    ).toBe("3 market sources");
+  });
+  (0,__vite_ssr_import_0__.it)("handles nba-only and empty market coverage honestly", () => {
+    (0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.formatMarketSourceSummary)(["nba"])).toBe("Scoreboard only");
+    (0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.formatMarketSourceSummary)([])).toBe("No market sources");
+    (0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.formatMarketSourceList)(["nba"])).toBe("none");
+  });
+});
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUE7QUFFQTs7Ozs7O0dBT0EsZ0NBQVMsMkJBQTJCLE1BQU07QUFDeEMsK0JBQUcseUNBQXlDLE1BQU07QUFDaEQsd0NBQU8sd0NBQWlCLENBQUMsY0FBYyxLQUFLLENBQUMsQ0FBQyxFQUFFLFFBQVEsQ0FBQyxZQUFZLENBQUM7QUFDdEUsd0NBQU8seUNBQWtCLENBQUMsY0FBYyxLQUFLLENBQUMsQ0FBQyxFQUFFLEtBQUssSUFBSTtBQUFBLEVBQzVELENBQUM7QUFFRCwrQkFBRyxzRUFBc0UsTUFBTTtBQUM3RSx3Q0FBTyxpREFBMEIsQ0FBQyxjQUFjLEtBQUssQ0FBQyxDQUFDLEVBQUU7QUFBQSxNQUN2RDtBQUFBLElBQ0Y7QUFDQTtBQUFBLFNBQ0UsaURBQTBCLENBQUMsVUFBVSxVQUFVLGNBQWMsS0FBSyxDQUFDO0FBQUEsSUFDckUsRUFBRSxLQUFLLGtCQUFrQjtBQUFBLEVBQzNCLENBQUM7QUFFRCwrQkFBRyx1REFBdUQsTUFBTTtBQUM5RCx3Q0FBTyxpREFBMEIsQ0FBQyxLQUFLLENBQUMsQ0FBQyxFQUFFLEtBQUssaUJBQWlCO0FBQ2pFLHdDQUFPLGlEQUEwQixDQUFDLENBQUMsQ0FBQyxFQUFFLEtBQUssbUJBQW1CO0FBQzlELHdDQUFPLDhDQUF1QixDQUFDLEtBQUssQ0FBQyxDQUFDLEVBQUUsS0FBSyxNQUFNO0FBQUEsRUFDckQsQ0FBQztBQUNILENBQUMiLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbInNvdXJjZS1jb3ZlcmFnZS50ZXN0LnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IGRlc2NyaWJlLCBleHBlY3QsIGl0IH0gZnJvbSBcInZpdGVzdFwiO1xuXG5pbXBvcnQge1xuICBmb3JtYXRNYXJrZXRTb3VyY2VMaXN0LFxuICBmb3JtYXRNYXJrZXRTb3VyY2VTdW1tYXJ5LFxuICBnZXRNYXJrZXRTb3VyY2VzLFxuICBoYXNOYmFTdGF0ZVNvdXJjZSxcbn0gZnJvbSBcIi4vc291cmNlLWNvdmVyYWdlXCI7XG5cbmRlc2NyaWJlKFwic291cmNlIGNvdmVyYWdlIGhlbHBlcnNcIiwgKCkgPT4ge1xuICBpdChcInNlcGFyYXRlcyBOQkEgc3RhdGUgZnJvbSBtYXJrZXQgZmVlZHNcIiwgKCkgPT4ge1xuICAgIGV4cGVjdChnZXRNYXJrZXRTb3VyY2VzKFtcInBvbHltYXJrZXRcIiwgXCJuYmFcIl0pKS50b0VxdWFsKFtcInBvbHltYXJrZXRcIl0pO1xuICAgIGV4cGVjdChoYXNOYmFTdGF0ZVNvdXJjZShbXCJwb2x5bWFya2V0XCIsIFwibmJhXCJdKSkudG9CZSh0cnVlKTtcbiAgfSk7XG5cbiAgaXQoXCJzdW1tYXJpemVzIG1peGVkIG1hcmtldCBhbmQgbmJhIGNvdmVyYWdlIHdpdGhvdXQgb3ZlcnN0YXRpbmcgYm9va3NcIiwgKCkgPT4ge1xuICAgIGV4cGVjdChmb3JtYXRNYXJrZXRTb3VyY2VTdW1tYXJ5KFtcInBvbHltYXJrZXRcIiwgXCJuYmFcIl0pKS50b0JlKFxuICAgICAgXCIxIG1hcmtldCBzb3VyY2VcIlxuICAgICk7XG4gICAgZXhwZWN0KFxuICAgICAgZm9ybWF0TWFya2V0U291cmNlU3VtbWFyeShbXCJiZXQzNjVcIiwgXCJrYWxzaGlcIiwgXCJwb2x5bWFya2V0XCIsIFwibmJhXCJdKVxuICAgICkudG9CZShcIjMgbWFya2V0IHNvdXJjZXNcIik7XG4gIH0pO1xuXG4gIGl0KFwiaGFuZGxlcyBuYmEtb25seSBhbmQgZW1wdHkgbWFya2V0IGNvdmVyYWdlIGhvbmVzdGx5XCIsICgpID0+IHtcbiAgICBleHBlY3QoZm9ybWF0TWFya2V0U291cmNlU3VtbWFyeShbXCJuYmFcIl0pKS50b0JlKFwiU2NvcmVib2FyZCBvbmx5XCIpO1xuICAgIGV4cGVjdChmb3JtYXRNYXJrZXRTb3VyY2VTdW1tYXJ5KFtdKSkudG9CZShcIk5vIG1hcmtldCBzb3VyY2VzXCIpO1xuICAgIGV4cGVjdChmb3JtYXRNYXJrZXRTb3VyY2VMaXN0KFtcIm5iYVwiXSkpLnRvQmUoXCJub25lXCIpO1xuICB9KTtcbn0pO1xuIl0sImZpbGUiOiIvVXNlcnMvZGF2aWRtb250Z29tZXJ5L25iYS1wcmVkaWN0L2FwcHMvd2ViL3NyYy9saWIvc291cmNlLWNvdmVyYWdlLnRlc3QudHMifQ==

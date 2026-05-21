@@ -253,6 +253,13 @@ export function BoardAlertsReplayPage() {
     anchorLoading &&
     predictionMarketContext.length > 0
   );
+  const fallbackContextOnly = Boolean(
+    anchorAlert == null &&
+    !anchorLoading &&
+    (effectiveReviewTargets.length > 0 ||
+      predictionSources.length > 0 ||
+      sortedPredictionMarketContext.length > 0)
+  );
 
   return (
     <PageFrame>
@@ -326,6 +333,24 @@ export function BoardAlertsReplayPage() {
                 pbpMissing={pbpMissing}
                 traderRead={traderRead}
               />
+            ) : fallbackContextOnly ? (
+              <section className="board-alert-card board-alert-card-primary">
+                <header className="board-alert-card-header">
+                  <div>
+                    <div className="board-alert-game">
+                      Fallback window context
+                    </div>
+                    <div className="board-alert-kind">
+                      No persisted alert reconstructs at this exact anchor
+                    </div>
+                  </div>
+                </header>
+                <p className="board-alert-reason">
+                  Showing persisted prediction-market context and fallback
+                  review targets from this window so the trader can still
+                  inspect the implicated markets.
+                </p>
+              </section>
             ) : (
               <div className="board-alerts-empty board-alerts-empty-error">
                 No incident reconstructs at this anchor timestamp.

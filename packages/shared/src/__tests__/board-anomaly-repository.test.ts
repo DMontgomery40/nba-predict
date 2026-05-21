@@ -300,6 +300,192 @@ describe("board anomaly repository", () => {
     ]);
   });
 
+  it("ranks ready board-volatility rows ahead of insufficient-data pregame rows", () => {
+    upsertGame({
+      awayParticipant: {
+        abbreviation: "CLE",
+        key: "cle",
+        name: "Cleveland Cavaliers",
+        shortName: "Cavaliers",
+        side: "away",
+      },
+      homeParticipant: {
+        abbreviation: "NYK",
+        key: "nyk",
+        name: "New York Knicks",
+        shortName: "Knicks",
+        side: "home",
+      },
+      id: "nba-board-live-priority-test",
+      league: "NBA",
+      scheduledStart: "2026-05-20T00:00:00.000Z",
+      sourceGameKeyNba: "0042500301",
+      sport: "basketball",
+    });
+
+    recordGameStateObservation({
+      awayScore: 50,
+      capturedAt: "2026-05-20T01:35:00.000Z",
+      clock: "PT10M27.00S",
+      finalAt: null,
+      gameId: "nba-board-live-priority-test",
+      homeScore: 49,
+      isFinal: false,
+      period: 3,
+      startedAt: "2026-05-20T00:00:00.000Z",
+      status: "in-play",
+    });
+
+    for (const instrument of [
+      {
+        displayLabel: "Cleveland moneyline",
+        family: "moneyline" as const,
+        id: "priority-moneyline",
+        line: null,
+        selection: "cle",
+      },
+      {
+        displayLabel: "Cleveland -2.5",
+        family: "spread" as const,
+        id: "priority-spread",
+        line: -2.5,
+        selection: "cle",
+      },
+      {
+        displayLabel: "Over 218.5",
+        family: "total" as const,
+        id: "priority-total",
+        line: 218.5,
+        selection: "over",
+      },
+    ]) {
+      upsertMarketInstrument({
+        displayLabel: instrument.displayLabel,
+        family: instrument.family,
+        gameId: "nba-board-live-priority-test",
+        id: instrument.id,
+        inPlay: true,
+        line: instrument.line,
+        participantKey: null,
+        selection: instrument.selection,
+      });
+      upsertSourceMarket({
+        gameId: "nba-board-live-priority-test",
+        id: `sm-${instrument.id}`,
+        instrumentId: instrument.id,
+        mappingStatus: "auto",
+        rawFamily: instrument.family,
+        rawLabel: instrument.displayLabel,
+        rawMetadata: { source: "kalshi" },
+        source: "kalshi",
+        sourceMarketKey: `kalshi-${instrument.id}`,
+        sourceSelectionKey: instrument.selection,
+      });
+      recordQuoteObservation({
+        bestAsk: 0.56,
+        bestBid: 0.54,
+        capturedAt: "2026-05-20T01:34:00.000Z",
+        depthScore: 80,
+        heartbeatAfterMs: 60_000,
+        impliedProbability: 0.55,
+        lineRaw: instrument.line,
+        oddsRaw: null,
+        priceRaw: 0.55,
+        sourceMarketId: `sm-${instrument.id}`,
+        volume: 10,
+      });
+    }
+
+    upsertGame({
+      awayParticipant: {
+        abbreviation: "OKC",
+        key: "okc",
+        name: "Oklahoma City Thunder",
+        shortName: "Thunder",
+        side: "away",
+      },
+      homeParticipant: {
+        abbreviation: "SAS",
+        key: "sas",
+        name: "San Antonio Spurs",
+        shortName: "Spurs",
+        side: "home",
+      },
+      id: "nba-board-pregame-insufficient-test",
+      league: "NBA",
+      scheduledStart: "2026-05-23T00:30:00.000Z",
+      sourceGameKeyNba: "0042500313",
+      sport: "basketball",
+    });
+    recordGameStateObservation({
+      awayScore: 0,
+      capturedAt: "2026-05-20T01:35:00.000Z",
+      clock: null,
+      finalAt: null,
+      gameId: "nba-board-pregame-insufficient-test",
+      homeScore: 0,
+      isFinal: false,
+      period: 0,
+      startedAt: null,
+      status: "scheduled",
+    });
+    upsertMarketInstrument({
+      displayLabel: "Spurs moneyline",
+      family: "moneyline",
+      gameId: "nba-board-pregame-insufficient-test",
+      id: "pregame-moneyline",
+      inPlay: false,
+      line: null,
+      participantKey: "sas",
+      selection: "sas",
+    });
+    upsertSourceMarket({
+      gameId: "nba-board-pregame-insufficient-test",
+      id: "sm-pregame-moneyline",
+      instrumentId: "pregame-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Spurs win",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-pregame-moneyline",
+      sourceSelectionKey: "sas",
+    });
+    recordQuoteObservation({
+      bestAsk: 0.99,
+      bestBid: 0.01,
+      capturedAt: "2026-05-20T01:34:30.000Z",
+      depthScore: 5,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.99,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.99,
+      sourceMarketId: "sm-pregame-moneyline",
+      volume: 25,
+    });
+
+    const measurements = listGameStateVolatilityAcrossGames({
+      contextWindowMinutes: 60,
+      gameIds: [
+        "nba-board-pregame-insufficient-test",
+        "nba-board-live-priority-test",
+      ],
+      limit: 5,
+      now: "2026-05-20T01:35:38.000Z",
+    });
+
+    expect(measurements[0]).toMatchObject({
+      gameId: "nba-board-live-priority-test",
+      sample: { ready: true },
+    });
+    expect(measurements[1]).toMatchObject({
+      gameId: "nba-board-pregame-insufficient-test",
+      score: 0,
+      state: "insufficient-data",
+    });
+  });
+
   it("returns play-by-play context nearest to the anchor first", () => {
     seedBoardReplayGame();
     recordNbaPlayByPlayActions({

@@ -1,0 +1,20 @@
+Object.defineProperty(__vite_ssr_exports__, "operatingModes", { enumerable: true, configurable: true, get(){ try { return operatingModes } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "sourceIds", { enumerable: true, configurable: true, get(){ try { return sourceIds } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "freshnessStatuses", { enumerable: true, configurable: true, get(){ try { return freshnessStatuses } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "healthStatuses", { enumerable: true, configurable: true, get(){ try { return healthStatuses } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "severityBands", { enumerable: true, configurable: true, get(){ try { return severityBands } catch {} }});
+Object.defineProperty(__vite_ssr_exports__, "confidenceBands", { enumerable: true, configurable: true, get(){ try { return confidenceBands } catch {} }});
+const operatingModes = ["live"];
+const sourceIds = ["bet365", "kalshi", "polymarket", "model"];
+const freshnessStatuses = [
+  "fresh",
+  "aging",
+  "stale",
+  "offline"
+];
+const healthStatuses = ["healthy", "degraded", "offline"];
+const severityBands = ["low", "medium", "high", "critical"];
+const confidenceBands = ["low", "moderate", "high"];
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6Ijs7Ozs7O0FBQU8sTUFBTSxpQkFBaUIsQ0FBQyxNQUFNO0FBSTlCLE1BQU0sWUFBWSxDQUFDLFVBQVUsVUFBVSxjQUFjLE9BQU87QUFJNUQsTUFBTSxvQkFBb0I7QUFBQSxFQUMvQjtBQUFBLEVBQ0E7QUFBQSxFQUNBO0FBQUEsRUFDQTtBQUNGO0FBSU8sTUFBTSxpQkFBaUIsQ0FBQyxXQUFXLFlBQVksU0FBUztBQUl4RCxNQUFNLGdCQUFnQixDQUFDLE9BQU8sVUFBVSxRQUFRLFVBQVU7QUFJMUQsTUFBTSxrQkFBa0IsQ0FBQyxPQUFPLFlBQVksTUFBTSIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsibW9kZXMudHMiXSwic291cmNlc0NvbnRlbnQiOlsiZXhwb3J0IGNvbnN0IG9wZXJhdGluZ01vZGVzID0gW1wibGl2ZVwiXSBhcyBjb25zdDtcblxuZXhwb3J0IHR5cGUgT3BlcmF0aW5nTW9kZSA9ICh0eXBlb2Ygb3BlcmF0aW5nTW9kZXMpW251bWJlcl07XG5cbmV4cG9ydCBjb25zdCBzb3VyY2VJZHMgPSBbXCJiZXQzNjVcIiwgXCJrYWxzaGlcIiwgXCJwb2x5bWFya2V0XCIsIFwibW9kZWxcIl0gYXMgY29uc3Q7XG5cbmV4cG9ydCB0eXBlIFNvdXJjZUlkID0gKHR5cGVvZiBzb3VyY2VJZHMpW251bWJlcl07XG5cbmV4cG9ydCBjb25zdCBmcmVzaG5lc3NTdGF0dXNlcyA9IFtcbiAgXCJmcmVzaFwiLFxuICBcImFnaW5nXCIsXG4gIFwic3RhbGVcIixcbiAgXCJvZmZsaW5lXCIsXG5dIGFzIGNvbnN0O1xuXG5leHBvcnQgdHlwZSBGcmVzaG5lc3NTdGF0dXMgPSAodHlwZW9mIGZyZXNobmVzc1N0YXR1c2VzKVtudW1iZXJdO1xuXG5leHBvcnQgY29uc3QgaGVhbHRoU3RhdHVzZXMgPSBbXCJoZWFsdGh5XCIsIFwiZGVncmFkZWRcIiwgXCJvZmZsaW5lXCJdIGFzIGNvbnN0O1xuXG5leHBvcnQgdHlwZSBIZWFsdGhTdGF0dXMgPSAodHlwZW9mIGhlYWx0aFN0YXR1c2VzKVtudW1iZXJdO1xuXG5leHBvcnQgY29uc3Qgc2V2ZXJpdHlCYW5kcyA9IFtcImxvd1wiLCBcIm1lZGl1bVwiLCBcImhpZ2hcIiwgXCJjcml0aWNhbFwiXSBhcyBjb25zdDtcblxuZXhwb3J0IHR5cGUgU2V2ZXJpdHlCYW5kID0gKHR5cGVvZiBzZXZlcml0eUJhbmRzKVtudW1iZXJdO1xuXG5leHBvcnQgY29uc3QgY29uZmlkZW5jZUJhbmRzID0gW1wibG93XCIsIFwibW9kZXJhdGVcIiwgXCJoaWdoXCJdIGFzIGNvbnN0O1xuXG5leHBvcnQgdHlwZSBDb25maWRlbmNlQmFuZCA9ICh0eXBlb2YgY29uZmlkZW5jZUJhbmRzKVtudW1iZXJdO1xuIl0sImZpbGUiOiIvVXNlcnMvZGF2aWRtb250Z29tZXJ5L25iYS1wcmVkaWN0L3BhY2thZ2VzL2RvbWFpbi9zcmMvbW9kZXMudHMifQ==

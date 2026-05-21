@@ -1,6 +1,6 @@
 # Board-State Inventory (B(t))
 
-This note documents what the persisted live data store actually contains today, so the board-anomaly detector can be honest about what `B(t)` can hold and what it cannot. All claims here are verified against `packages/shared/src/migrations.ts` (schema version 9) and the `live-repository.ts` reads in `packages/shared/src/`.
+This note documents what the persisted live data store actually contains today, so the board-anomaly detector can be honest about what `B(t)` can hold and what it cannot. All claims here are verified against `packages/shared/src/migrations.ts` (schema version 14) and the `live-repository.ts` reads in `packages/shared/src/`.
 
 ## Tables Available For Board-State Reconstruction
 
@@ -17,6 +17,7 @@ This note documents what the persisted live data store actually contains today, 
 | `adapter_runs`                 | append-only                                                        | per-adapter run telemetry with `capture_mode` (`discovery` / `historical` / `live`). Used to gauge coverage gaps.                                                                                                                                                                                                                           |
 | `mapping_resolutions`          | append-only                                                        | manual mapping decisions. Lets the fanout graph promote previously unmapped labels into mapped instruments.                                                                                                                                                                                                                                 |
 | `market_anomaly_score_configs` | per-profile                                                        | tunable thresholds/weights/toggles. The board detector reads its own profile but reuses this storage shape.                                                                                                                                                                                                                                 |
+| `board_volatility_baselines`   | materialized cohort rows by baseline version                       | phase-aware empirical ranges (`p50`, `p75`, `p90`, `p99`) for whole-board abnormality. The shared whole-board model uses these baselines for live alerts, replay, inspect, and desk surfaces.                                                                                                                                               |
 
 ## Fields Available Per Source
 
@@ -70,6 +71,19 @@ A completed game is replayed by:
 5. cutting the replay at `final_at` plus the configured ingestion-latency buffer; later rows are visible only as Inspect-time annotations.
 
 This guarantees the replay sees what the live trader would have seen at the same wall-clock instant, and current divergence measured hours after the buzzer is not the primary signal.
+
+## Whole-Board Calibration Layer
+
+Whole-board `game-state-volatility` no longer treats “many hot rows” as the score by itself. The persisted store now also supports a calibration layer:
+
+- board observations are residualized against H0 first,
+- the runtime derives a phase (`pregame`, `near-tip`, `tip-burst`, `settled-live`, `restart-burst`, `crunch-time`, `final-minute`),
+- core families (`moneyline`, `spread`, `total`, `team-prop`) define the board headline while player props only support it,
+- the runtime looks up the empirical cohort range in `board_volatility_baselines`,
+- a linear Kalman filter smooths persistence/decay over those normalized features,
+- the same output feeds `/board-volatility`, whole-board cards in `/board-alerts`, replay, and desk/inspect surfaces.
+
+If no calibrated cohort is available yet, the runtime marks the board-volatility payload as `baseline.source = "fallback"` instead of pretending the percentile is fully calibrated.
 
 ## What `B(t)` Actually Contains
 

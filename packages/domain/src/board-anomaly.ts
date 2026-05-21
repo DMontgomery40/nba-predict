@@ -183,13 +183,75 @@ export type BoardGameStateVolatilityBand =
   | "alert"
   | "critical";
 
+export type BoardVolatilityPhaseKind =
+  | "pregame"
+  | "near-tip"
+  | "tip-burst"
+  | "settled-live"
+  | "restart-burst"
+  | "crunch-time"
+  | "final-minute"
+  | "final";
+
+export type BoardVolatilityBaselineSource = "calibrated" | "fallback";
+
 export type BoardGameStateVolatility = {
   gameId: string;
   gameLabel: string;
   measuredAt: string;
+  headlineScore: number;
+  state: BoardGameStateVolatilityBand;
   score: number;
   band: BoardGameStateVolatilityBand;
   confidence: number;
+  phase: {
+    kind: BoardVolatilityPhaseKind;
+    period: number | null;
+    clock: string | null;
+    secondsFromTip: number | null;
+    secondsSinceLastScoreChange: number | null;
+  };
+  baseline: {
+    cohortKey: string;
+    source: BoardVolatilityBaselineSource;
+    sampleSize: number;
+    percentile: number;
+    expectedRange: {
+      p50: number;
+      p75: number;
+      p90: number;
+      p99: number;
+    };
+  };
+  signals: {
+    corePriceShock: number;
+    coreLiquidityStress: number;
+    coreBreadth: number;
+    crossSourceConfirmation: number;
+    persistenceSeconds: number;
+    supportPropShock: number;
+    coveragePenalty: number;
+    phaseTransitionBonus: number;
+    calibratedAbnormality: number;
+  };
+  filter: {
+    stressLevel: number;
+    stressVelocity: number;
+    innovation: number;
+    observationCount: number;
+    bucketSeconds: number;
+    decayRegime: BoardVolatilityPhaseKind;
+  };
+  gates: {
+    hasCoreBreadth: boolean;
+    hasSourceConfirmation: boolean;
+    hasPersistence: boolean;
+    criticalEligible: boolean;
+  };
+  drivers: {
+    coreMarkets: BoardShockEvidence[];
+    supportingMarkets: BoardShockEvidence[];
+  };
   thresholds: {
     normalMaxScore: number;
     elevatedMinScore: number;
@@ -216,6 +278,21 @@ export type BoardGameStateVolatility = {
   h0Adjustments: {
     appliedSuppression: number;
     drivers: string[];
+  };
+  diagnostics: {
+    predictionMarketRows: number;
+    sourceMarketCount: number;
+    shockRows: number;
+    families: MarketFamily[];
+    coreFamilies: MarketFamily[];
+    sources: ResearchSourceId[];
+    ready: boolean;
+  };
+  inspect: {
+    payloadVersion: 1;
+    instrumentIds: string[];
+    sourceMarketIds: string[];
+    relationFamilies: string[];
   };
   alertId: string | null;
 };
@@ -323,15 +400,28 @@ export const defaultBoardAnomalyDetectorConfig: BoardAnomalyDetectorConfig = {
 export type BoardAnomalyDetectorInput = {
   gameId: string;
   gameLabel: string;
+  gameStates?: Array<{
+    awayScore?: number | null;
+    capturedAt: string;
+    capturedAtMs?: number | null;
+    clock?: string | null;
+    gameId: string;
+    homeScore?: number | null;
+    period?: number | null;
+    status: ResearchGameStatus;
+  }>;
   observations: BoardObservation[];
   now: string;
+  scheduledStart?: string;
   config?: Partial<BoardAnomalyDetectorConfig>;
 };
 
 export type BoardAnomalyReplayInput = {
   gameId: string;
   gameLabel: string;
+  gameStates?: BoardAnomalyDetectorInput["gameStates"];
   observations: BoardObservation[];
+  scheduledStart?: string;
   windowStart: string;
   windowEnd: string;
   stepSeconds?: number;

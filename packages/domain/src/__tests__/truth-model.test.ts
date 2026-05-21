@@ -4,6 +4,7 @@ import {
   classifyGameLifecycle,
   classifyMarketSignal,
   hasBet365PlusPredictionMarket,
+  scheduledScoreGraceMs,
 } from "../truth-model";
 
 const now = new Date("2026-05-12T14:00:00.000Z");
@@ -83,6 +84,47 @@ describe("truth model", () => {
       label: "Final confirmation missing",
       tone: "warning",
     });
+  });
+
+  it("keeps scheduled games neutral until the post-tip grace window expires", () => {
+    const cases = [
+      {
+        expected: { kind: "scheduled", label: "Scheduled", tone: "neutral" },
+        scheduledStart: "2026-05-12T14:15:00.000Z",
+      },
+      {
+        expected: { kind: "scheduled", label: "Scheduled", tone: "neutral" },
+        scheduledStart: new Date(
+          now.getTime() - scheduledScoreGraceMs + 60_000
+        ).toISOString(),
+      },
+      {
+        expected: {
+          kind: "missing-fresh-score-state",
+          label: "Score update missing",
+          tone: "critical",
+        },
+        scheduledStart: new Date(
+          now.getTime() - scheduledScoreGraceMs - 60_000
+        ).toISOString(),
+      },
+    ];
+
+    for (const testCase of cases) {
+      expect(
+        classifyGameLifecycle(
+          {
+            gameState: {
+              capturedAt: "2026-05-12T13:00:00.000Z",
+              isFinal: false,
+              status: "scheduled",
+            },
+            scheduledStart: testCase.scheduledStart,
+          },
+          now
+        )
+      ).toMatchObject(testCase.expected);
+    }
   });
 
   it("keeps fresh in-play state live even when the scheduled start is old", () => {

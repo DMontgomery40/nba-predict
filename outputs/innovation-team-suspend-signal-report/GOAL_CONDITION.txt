@@ -1,0 +1,30 @@
+SUSPEND-SIGNAL REPORT. New sessions begin with ZERO context (~1/10 done; heavy math/research/testing remain). BOOTSTRAP — read IN ORDER before working (all paths under outputs/innovation-team-suspend-signal-report/ unless noted):
+1 GOAL_SPEC.md — full spec: question, 2 phases, cascade mental model, deliverable, env, the verbatim personal-view paragraph.
+2 ~/.claude/projects/-Users-davidmontgomery-nba-predict/memory/project_board_signal_v2_2026_05_21.md — current state, findings, done vs missing.
+3 SUSPEND_SIGNAL_HANDOFF_PROMPT.md (repo root) — original directive: data ground-truth, gotchas, resolved design Qs.
+4 research/01-history-archaeology.md — Phase-1 forensic history (repo-cited).
+5 research/02-memory-recovery.md — incidents recovered; no raw emails exist.
+6 research/03b-external-research-verified.md — codemode-verified web research + URLs + 6 new incidents.
+7 research/04-data-expansion.md — historical PM trade backfill infeasible.
+8 research/05-cascade-experiment.md — cascade/domino computed evidence (coverage decides the lane).
+9 research/06-bakeoff-findings.md — bake-off results, best signal, 3 FIXES to apply.
+10 research/labels.json (validation incidents) + research/BAKEOFF_SHAPE.md (locked output shape + metric).
+11 scripts/board_signal_v2.py, scripts/bakeoff.py; research/*.json; TODO.md.
+
+USE AGENT TEAMS (required). Team 'suspend-signal' exists. Spawn teammates via the Agent tool with team_name:"suspend-signal", a name, model:"sonnet" (MANDATORY — others 400 on effort param), run_in_background:true; coordinate via SendMessage inbox. Agents do REAL work, never prompt other agents. LEAD owns all heavy data/signal-console.sqlite compute (52GB — avoid lock contention) + HTML build; AGENTS do codemode web/label research, codemode pulls to a SIDE db, case-study drafting.
+
+ENV: DB data/signal-console.sqlite (52GB, PRAGMA busy_timeout; time_actual=event anchor, captured_at=garbage; join trades by PBP window NOT game_id). Internet ONLY via codemode MCP execute_code (WebSearch/WebFetch broken).
+
+DELIVERABLE = report.html — rich INTERACTIVE HTML via frontend-design skill (SVG charts, collapsible microscope detail, dense color-coded tables; NOT markdown, NOT consumer cards), Innovation Team -> Trading+Analysis.
+
+MET only when ALL hold AND surfaced in transcript:
+1) report.html exists + interactive + all 10 sections per GOAL_SPEC.md (Exec question; Bottom-line w/ confidence+unknowns; Project history single-prop->paired/cascade->market-structure->whole-board, repo-cited no bug-churn; Evidence; Backtest framework defs/labels/metrics/no-leakage; Results; MANY seconds-first case studies; Recommendation+Dt; Unambiguous; Appendix).
+2) Phase-2 PROVEN solution: bakeoff.py compares >=4 detectors on computed per-incident lead + FP density (64 games); best signal NAMED+PROVEN with numbers; Dt worth-the-expense sensitivity derived; 3 fixes in 06-bakeoff-findings.md applied (offprice distance-gate; point-detector window [0,+300]; ensemble FP=sum); broad lead_vs_pricehist distribution (median/IQR/N) added. To the second.
+3) Cascade shown empirically (>=1 incident: cluster vs thin prop; coverage decides lane).
+4) labels.json used VALIDATION-only + codemode public incidents cited w/ URLs.
+5) Agent teams ran (sonnet+inbox) doing real work; honest negatives integrated.
+6) codemode internet research cited w/ URLs; unreachable stated.
+7) Case studies seconds-first (PBP T0; first PM/player/board signal; exact T+/-s; Polymarket second-level, Kalshi minute-candle, bet365 timing=explicit gap never fabricated).
+8) Verbatim personal-view paragraph (GOAL_SPEC.md) included as one marked perspective; honest "we do not know yet"; n=6 labels = existence/ordering not recall.
+
+NOT MET if: markdown not HTML; no named+proven best signal; 3 fixes not applied; no broad lead distribution; cascade not empirical; case studies lack seconds; no agent-team or codemode work; or mere synthesis of repo .md docs. Stop after <=40 turns if blocked, stating what is blocked.

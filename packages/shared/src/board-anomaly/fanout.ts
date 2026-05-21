@@ -3,6 +3,8 @@ import type {
   BoardObservationScored,
 } from "@signal-console/domain";
 
+import { tokenizeBoardText } from "../board-anomaly-support";
+
 const SCORING_STAT_FAMILIES = new Set([
   "points",
   "threes",
@@ -43,12 +45,7 @@ export type RelationKey =
   | { kind: "label-token"; key: string };
 
 function tokenize(label: string | null | undefined): string[] {
-  if (!label) return [];
-  return label
-    .toLowerCase()
-    .replace(/[^a-z0-9. ]+/g, " ")
-    .split(/\s+/)
-    .filter((token) => token.length >= 3 && !/^\d+(\.\d+)?$/.test(token));
+  return tokenizeBoardText(label);
 }
 
 function statFamilyFromTokens(tokens: string[]): string | null {

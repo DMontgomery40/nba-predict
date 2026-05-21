@@ -4,20 +4,11 @@ import type {
   ResearchGameStatus,
 } from "@signal-console/domain";
 
-import { parseTimestampMs } from "./board-anomaly-support";
+import { parseTimestampMs, tokenizeBoardText } from "./board-anomaly-support";
 import { getDatabase } from "./db-core";
 
-const NUMERIC_LABEL_TOKEN_RE = /^\d+(\.\d+)?$/;
-
 function tokenize(value: string | null | undefined): string[] {
-  if (!value) return [];
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9. ]+/g, " ")
-    .split(/\s+/)
-    .filter(
-      (token) => token.length >= 3 && !NUMERIC_LABEL_TOKEN_RE.test(token)
-    );
+  return tokenizeBoardText(value);
 }
 
 function statFamilyHintFromTokens(tokens: string[]): string[] {

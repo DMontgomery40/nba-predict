@@ -17,6 +17,7 @@ import {
   closeDatabase,
   createAppLogger,
   listResearchGames,
+  rebuildBoardVolatilityBaselines,
   getDatabasePath,
   loadRuntimeEnv,
   markAdminActionCompleted,
@@ -293,6 +294,8 @@ async function drainQueuedAdminActions(options: {
           syncKalshiHistorical: options.syncKalshiHistorical,
           syncPolymarketHistorical: options.syncPolymarketHistorical,
         });
+      } else if (action.actionType === "board-volatility-baseline-rebuild") {
+        rebuildBoardVolatilityBaselines();
       } else {
         throw new Error(`Unsupported admin action type: ${action.actionType}.`);
       }

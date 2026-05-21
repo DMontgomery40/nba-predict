@@ -770,6 +770,18 @@ export type BoardAnomalyAlertDto = {
 export type BoardGameStateVolatilityDto = {
   alertId: string | null;
   band: "insufficient-data" | "normal" | "elevated" | "alert" | "critical";
+  baseline?: {
+    cohortKey: string;
+    expectedRange: {
+      p50: number;
+      p75: number;
+      p90: number;
+      p99: number;
+    };
+    percentile: number;
+    sampleSize: number;
+    source: "calibrated" | "fallback";
+  };
   components: {
     coherence: number;
     coverage: number;
@@ -777,12 +789,64 @@ export type BoardGameStateVolatilityDto = {
     residual: number;
   };
   confidence: number;
+  diagnostics?: {
+    coreFamilies: string[];
+    families: string[];
+    predictionMarketRows: number;
+    ready: boolean;
+    shockRows: number;
+    sourceMarketCount: number;
+    sources: string[];
+  };
+  drivers?: {
+    coreMarkets: BoardAnomalyAlertDto["evidence"];
+    supportingMarkets: BoardAnomalyAlertDto["evidence"];
+  };
   evidence: BoardAnomalyAlertDto["evidence"];
+  filter?: {
+    bucketSeconds: number;
+    decayRegime:
+      | "pregame"
+      | "near-tip"
+      | "tip-burst"
+      | "settled-live"
+      | "restart-burst"
+      | "crunch-time"
+      | "final-minute"
+      | "final";
+    innovation: number;
+    observationCount: number;
+    stressLevel: number;
+    stressVelocity: number;
+  };
+  gates: {
+    criticalEligible: boolean;
+    hasCoreBreadth: boolean;
+    hasPersistence: boolean;
+    hasSourceConfirmation: boolean;
+  };
   gameId: string;
   gameLabel: string;
+  headlineScore?: number;
   h0Adjustments: BoardAnomalyAlertDto["h0Adjustments"];
+  inspect?: BoardAnomalyAlertDto["inspect"];
   measuredAt: string;
   missingDataNotes: BoardAnomalyAlertDto["missingDataNotes"];
+  phase?: {
+    clock: string | null;
+    kind:
+      | "pregame"
+      | "near-tip"
+      | "tip-burst"
+      | "settled-live"
+      | "restart-burst"
+      | "crunch-time"
+      | "final-minute"
+      | "final";
+    period: number | null;
+    secondsFromTip: number | null;
+    secondsSinceLastScoreChange: number | null;
+  };
   sample: {
     coreFamilies: string[];
     families: string[];
@@ -793,6 +857,18 @@ export type BoardGameStateVolatilityDto = {
     sources: string[];
   };
   score: number;
+  signals?: {
+    calibratedAbnormality: number;
+    coreBreadth: number;
+    coreLiquidityStress: number;
+    corePriceShock: number;
+    coveragePenalty: number;
+    crossSourceConfirmation: number;
+    persistenceSeconds: number;
+    phaseTransitionBonus: number;
+    supportPropShock: number;
+  };
+  state?: "insufficient-data" | "normal" | "elevated" | "alert" | "critical";
   thresholds: {
     alertMinScore: number;
     criticalMinScore: number;

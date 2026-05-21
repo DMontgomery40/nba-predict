@@ -2322,6 +2322,37 @@ input {
   font-size: 0.64rem;
 }
 
+.ops-trust-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.42rem;
+  margin-bottom: 0.5rem;
+}
+
+.ops-trust-card {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.46rem 0.5rem;
+  border: 1px solid rgba(123, 151, 143, 0.18);
+  background: rgba(8, 15, 11, 0.82);
+}
+
+.ops-trust-card span,
+.ops-trust-card em {
+  color: #8ca09a;
+  font-size: 0.58rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ops-trust-card strong {
+  color: #f0f8f4;
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+}
+
 .ops-table th,
 .ops-table td {
   padding: 0.28rem 0.36rem;
@@ -2332,6 +2363,31 @@ input {
   background: #050907;
   color: #8ca09a;
   font-size: 0.58rem;
+}
+
+.ops-table-metric-head {
+  display: grid;
+  gap: 0.14rem;
+}
+
+.ops-table-metric-head strong,
+.ops-table-metric-head span {
+  display: block;
+}
+
+.ops-table-metric-head strong {
+  color: #dbe9e3;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ops-table-metric-head span {
+  color: #70837c;
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  text-transform: none;
 }
 
 .ops-table td strong {
@@ -2355,6 +2411,42 @@ input {
   display: inline;
   margin-right: 0.34rem;
   white-space: nowrap;
+}
+
+.ops-trust-source {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.42rem;
+  align-items: start;
+}
+
+.ops-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0.16rem 0.32rem;
+  border: 1px solid rgba(255, 210, 46, 0.28);
+  color: #ffd56e;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.62rem;
+}
+
+.ops-trust-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin-top: 0.16rem;
+}
+
+.ops-trust-flags em {
+  padding: 0.1rem 0.28rem;
+  border: 1px solid rgba(105, 215, 165, 0.2);
+  color: #9fd6b9;
+  font-size: 0.52rem;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .ops-rank-cell strong {
@@ -3327,6 +3419,7 @@ input {
   .ops-volatility-body,
   .prop-risk-row,
   .ops-source-row,
+  .ops-trust-summary,
   .ops-thesis,
   .ops-thesis-copy,
   .ops-thesis-metrics,

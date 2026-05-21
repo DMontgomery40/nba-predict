@@ -45,7 +45,10 @@ import {
   formatMarketSourceList,
   hasNbaStateSource,
 } from "../../lib/source-coverage";
-import { formatOperatorDateTime } from "../../lib/time-format";
+import {
+  formatOperatorDateTime,
+  formatOperatorTime,
+} from "../../lib/time-format";
 
 type DivergenceRow = DivergencePayload["data"][number];
 type GameRow = GamesPayload["data"][number];
@@ -53,6 +56,13 @@ type SourceHealthRow = AdminSourcesPayload["data"][number];
 type CaptureRunRow = AdminCaptureRunsPayload["data"][number];
 type StorageCoverageRow = AdminStorageCoveragePayload["data"][number];
 type ClosedGameSummary = ClosedGamesPayload["data"][number];
+type SignalQualityRow = {
+  source: string;
+  sampleCount: number;
+  brier: number | null;
+  logLoss: number | null;
+  closingWinnerAccuracy: number | null;
+};
 
 const ACTIONABLE_BET365_RECENCY_MS = 15 * 60_000;
 
@@ -68,6 +78,20 @@ function retryTransientDeskQuery(failureCount: number, error: Error) {
 
 function deskRetryDelay(attemptIndex: number) {
   return Math.min(100 * 2 ** attemptIndex, 500);
+}
+
+function isDeskBootstrapPending(query: {
+  data?: unknown;
+  error?: unknown;
+  failureCount: number;
+  fetchStatus: string;
+}) {
+  return (
+    query.data == null &&
+    query.error == null &&
+    query.failureCount === 0 &&
+    query.fetchStatus === "fetching"
+  );
 }
 
 function formatDeskQueryError(error: unknown) {
@@ -169,6 +193,30 @@ function volatilityTone(band?: string) {
 function formatVolatilityBand(band?: string) {
   if (!band) return "No data";
   return band.replace(/-/g, " ");
+}
+
+function formatVolatilityPhase(phase?: string | null) {
+  if (!phase) return "n/a";
+  return phase.replace(/-/g, " ");
+}
+
+function formatVolatilityPercentile(value?: number | null) {
+  if (value == null || !Number.isFinite(value)) return "n/a";
+  return `p${Math.round(value * 100)}`;
+}
+
+function formatVolatilityRange(
+  range?: {
+    p50: number;
+    p75: number;
+    p90: number;
+    p99: number;
+  } | null
+) {
+  if (!range) return "n/a";
+  return `p50 ${Math.round(range.p50 * 100)} · p90 ${Math.round(
+    range.p90 * 100
+  )} · p99 ${Math.round(range.p99 * 100)}`;
 }
 
 function boardVolatilityAnchorAt(alertId?: string | null, measuredAt?: string) {
@@ -329,6 +377,38 @@ function formatSourceLabel(source: string) {
   return source;
 }
 
+function sortableAscendingMetric(value?: number | null) {
+  return value == null || !Number.isFinite(value)
+    ? Number.POSITIVE_INFINITY
+    : value;
+}
+
+function sortableDescendingMetric(value?: number | null) {
+  return value == null || !Number.isFinite(value)
+    ? Number.NEGATIVE_INFINITY
+    : value;
+}
+
+function rankSignalQualityRows(rows: SignalQualityRow[]) {
+  return [...rows].sort((left, right) => {
+    const brierDelta =
+      sortableAscendingMetric(left.brier) -
+      sortableAscendingMetric(right.brier);
+    if (brierDelta !== 0) {
+      return brierDelta;
+    }
+
+    const accuracyDelta =
+      sortableDescendingMetric(right.closingWinnerAccuracy) -
+      sortableDescendingMetric(left.closingWinnerAccuracy);
+    if (accuracyDelta !== 0) {
+      return accuracyDelta;
+    }
+
+    return right.sampleCount - left.sampleCount;
+  });
+}
+
 function formatGameLabel(game: GameRow) {
   return `${game.game.awayParticipant.shortName} at ${game.game.homeParticipant.shortName}`;
 }
@@ -341,7 +421,7 @@ function marketTimingLabel(row: DivergenceRow) {
     return "game in progress";
   }
   if (row.gameStatus === "scheduled") {
-    return "scheduled game";
+    return `tip ${formatOperatorTime(row.scheduledStart)}`;
   }
   return formatMarketMatchLabel(row.comparableState);
 }
@@ -503,9 +583,9 @@ export function TraderDeskPage() {
   });
 
   const primaryLoadError =
-    games.isError && !games.data
+    !games.data && games.error
       ? games.error
-      : divergence.isError && !divergence.data
+      : !divergence.data && divergence.error
         ? divergence.error
         : null;
 
@@ -525,11 +605,12 @@ export function TraderDeskPage() {
     );
   }
 
+  const bootstrappingPrimaryDesk =
+    isDeskBootstrapPending(games) || isDeskBootstrapPending(divergence);
+
   if (
-    games.isLoading ||
-    divergence.isLoading ||
-    !games.data ||
-    !divergence.data
+    bootstrappingPrimaryDesk ||
+    (games.data == null && divergence.data == null && primaryLoadError == null)
   ) {
     return <LoadingState message="Building trader desk..." />;
   }
@@ -560,6 +641,41 @@ export function TraderDeskPage() {
   const liveFinalBySource = new Map(
     liveFinalQualityRows.map((row) => [row.source, row])
   );
+  const rankedQualityRows = rankSignalQualityRows(pregameQualityRows);
+  const closeLeader = rankedQualityRows[0] ?? null;
+  const finalLeader = rankedQualityRows.reduce<SignalQualityRow | null>(
+    (best, row) => {
+      const rowFinalBrier = liveFinalBySource.get(row.source)?.brier;
+      if (rowFinalBrier == null || !Number.isFinite(rowFinalBrier)) {
+        return best;
+      }
+
+      if (best == null) {
+        return row;
+      }
+
+      const bestFinalBrier = liveFinalBySource.get(best.source)?.brier;
+      if (
+        bestFinalBrier == null ||
+        !Number.isFinite(bestFinalBrier) ||
+        rowFinalBrier < bestFinalBrier
+      ) {
+        return row;
+      }
+
+      return best;
+    },
+    null
+  );
+  const coverageLeader = rankedQualityRows.reduce<SignalQualityRow | null>(
+    (best, row) => {
+      if (best == null || row.sampleCount > best.sampleCount) {
+        return row;
+      }
+      return best;
+    },
+    null
+  );
   const topLeadLagPair = topLeadLag.data?.data.pairs[0];
   const trustedLeadLagPair =
     topLeadLagPair && topLeadLagPair.bestCorrelation >= 0.2
@@ -568,7 +684,10 @@ export function TraderDeskPage() {
   const anomalyRows = marketAnomalies.data?.data ?? [];
   const topAnomaly = anomalyRows[0] ?? null;
   const volatilityRows = boardVolatility.data?.data ?? [];
-  const topVolatility = volatilityRows[0] ?? null;
+  const topVolatility =
+    volatilityRows.find((row) => row.state !== "insufficient-data") ??
+    volatilityRows[0] ??
+    null;
   const gameById = new Map(gameRows.map((game) => [game.game.id, game]));
   const topVolatilityGame = topVolatility
     ? gameById.get(topVolatility.gameId)
@@ -577,13 +696,19 @@ export function TraderDeskPage() {
     ? formatGameScoreClock(topVolatilityGame)
     : null;
   const topVolatilityPeriodClock = formatGamePeriodClock(
-    topVolatilityGame?.gameState
+    topVolatility?.phase?.kind === "final" ||
+      topVolatilityGame?.gameState?.status === "final"
+      ? null
+      : topVolatilityGame?.gameState
   );
   const topVolatilityAnchorAt = boardVolatilityAnchorAt(
     topVolatility?.alertId,
     topVolatility?.measuredAt
   );
-  const volatilityEvidence = topVolatility?.evidence.slice(0, 4) ?? [];
+  const volatilityEvidence =
+    topVolatility?.drivers?.coreMarkets.slice(0, 4) ??
+    topVolatility?.evidence.slice(0, 4) ??
+    [];
   const showAnomalyPopup =
     topAnomaly != null && topAnomaly.id !== dismissedAnomalyAlertId;
   const liveTrackedRows = gameRows.filter(
@@ -683,7 +808,7 @@ export function TraderDeskPage() {
               Ranking
             </a>
             <a className="ops-tab" href="#calibration">
-              Calibration
+              Trust
             </a>
             <a className="ops-tab" href="#feed-health">
               Feeds
@@ -697,7 +822,7 @@ export function TraderDeskPage() {
         <BoardAlertsBanner />
         <section
           className={`ops-thesis ops-volatility-${volatilityTone(
-            topVolatility?.band
+            topVolatility?.state ?? topVolatility?.band
           )}`}
           aria-labelledby="desk-thesis-title"
         >
@@ -712,8 +837,10 @@ export function TraderDeskPage() {
                         ? `${topVolatilityScoreClock} · `
                         : ""
                     }${formatVolatilityBand(
-                      topVolatility.band
-                    )} · ${topVolatility.score}/100`
+                      topVolatility.state ?? topVolatility.band
+                    )} · ${topVolatility.headlineScore ?? topVolatility.score}/100 · ${formatVolatilityPercentile(
+                      topVolatility.baseline?.percentile
+                    )}`
                   : boardVolatility.isLoading
                     ? "Measuring live prediction-market game state..."
                     : "No live prediction-market game-state sample."}
@@ -725,11 +852,13 @@ export function TraderDeskPage() {
               <span>{topVolatilityPeriodClock ? "Clock" : "Current"}</span>
               <strong
                 className={`ops-volatility-number ops-${volatilityTone(
-                  topVolatility?.band
+                  topVolatility?.state ?? topVolatility?.band
                 )}`}
               >
                 {topVolatilityPeriodClock ??
-                  (topVolatility ? topVolatility.score : "n/a")}
+                  (topVolatility
+                    ? (topVolatility.headlineScore ?? topVolatility.score)
+                    : "n/a")}
               </strong>
             </div>
             {topVolatilityPeriodClock ? (
@@ -737,28 +866,34 @@ export function TraderDeskPage() {
                 <span>Vol</span>
                 <strong
                   className={`ops-volatility-number ops-${volatilityTone(
-                    topVolatility?.band
+                    topVolatility?.state ?? topVolatility?.band
                   )}`}
                 >
-                  {topVolatility ? topVolatility.score : "n/a"}
+                  {topVolatility
+                    ? (topVolatility.headlineScore ?? topVolatility.score)
+                    : "n/a"}
                 </strong>
               </div>
             ) : null}
             <div>
-              <span>Normal</span>
+              <span>Phase</span>
               <strong>
-                &lt;{topVolatility?.thresholds.elevatedMinScore ?? 40}
+                {formatVolatilityPhase(topVolatility?.phase?.kind)}
               </strong>
             </div>
             <div>
-              <span>Elevated</span>
+              <span>Baseline</span>
               <strong>
-                {topVolatility?.thresholds.elevatedMinScore ?? 40}+
+                {formatVolatilityRange(topVolatility?.baseline?.expectedRange)}
               </strong>
             </div>
             <div>
-              <span>Alert</span>
-              <strong>{topVolatility?.thresholds.alertMinScore ?? 55}+</strong>
+              <span>Persist</span>
+              <strong>
+                {formatDuration(
+                  (topVolatility?.signals?.persistenceSeconds ?? 0) * 1000
+                )}
+              </strong>
             </div>
           </div>
         </section>
@@ -857,7 +992,7 @@ export function TraderDeskPage() {
                 <span>Prediction-market weirdness</span>
                 <h2>
                   {topVolatility
-                    ? `${formatVolatilityBand(topVolatility.band)} · ${topVolatility.score}/100`
+                    ? `${formatVolatilityBand(topVolatility.state ?? topVolatility.band)} · ${topVolatility.headlineScore ?? topVolatility.score}/100`
                     : "No live score"}
                 </h2>
               </div>
@@ -878,7 +1013,7 @@ export function TraderDeskPage() {
               <div className="ops-volatility-body">
                 <div
                   className={`ops-volatility-score ops-volatility-${volatilityTone(
-                    topVolatility.band
+                    topVolatility.state ?? topVolatility.band
                   )}`}
                 >
                   <span>
@@ -887,20 +1022,38 @@ export function TraderDeskPage() {
                       ? ` · ${topVolatilityScoreClock}`
                       : ""}
                   </span>
-                  <strong>{topVolatility.score}</strong>
-                  <em>{formatVolatilityBand(topVolatility.band)}</em>
+                  <strong>
+                    {topVolatility.headlineScore ?? topVolatility.score}
+                  </strong>
+                  <em>
+                    {formatVolatilityBand(
+                      topVolatility.state ?? topVolatility.band
+                    )}
+                  </em>
                 </div>
                 <div className="ops-volatility-thresholds">
                   <span>
-                    normal &lt;{topVolatility.thresholds.elevatedMinScore}
+                    {formatVolatilityPhase(topVolatility.phase?.kind)}
                   </span>
                   <span>
-                    elevated {topVolatility.thresholds.elevatedMinScore}+
+                    {formatVolatilityPercentile(
+                      topVolatility.baseline?.percentile
+                    )}
                   </span>
-                  <span>alert {topVolatility.thresholds.alertMinScore}+</span>
                   <span>
-                    {topVolatility.sample.sourceMarketCount} markets ·{" "}
-                    {topVolatility.sample.families.join(", ") || "no families"}
+                    {topVolatility.diagnostics?.sourceMarketCount ??
+                      topVolatility.sample?.sourceMarketCount ??
+                      0}{" "}
+                    markets ·{" "}
+                    {topVolatility.diagnostics?.families.join(", ") ??
+                      topVolatility.sample?.families.join(", ") ??
+                      "no families"}
+                  </span>
+                  <span>
+                    range{" "}
+                    {formatVolatilityRange(
+                      topVolatility.baseline?.expectedRange
+                    )}
                   </span>
                 </div>
                 {volatilityEvidence.length > 0 ? (
@@ -1158,44 +1311,130 @@ export function TraderDeskPage() {
             <header className="ops-panel-head">
               <span className="ops-panel-index">3</span>
               <div>
-                <span>Calibration leaderboard</span>
-                <h2>Closed-game source error</h2>
+                <span>Finished-game trust check</span>
+                <h2>Which source has been safest at close</h2>
               </div>
             </header>
+            {rankedQualityRows.length > 0 ? (
+              <div
+                className="ops-trust-summary"
+                aria-label="Source trust summary"
+              >
+                <div className="ops-trust-card">
+                  <span>Best at close</span>
+                  <strong>{closeLeader?.source ?? "n/a"}</strong>
+                  <em>miss {formatDecimal(closeLeader?.brier, 4)}</em>
+                </div>
+                <div className="ops-trust-card">
+                  <span>Best to final horn</span>
+                  <strong>{finalLeader?.source ?? "n/a"}</strong>
+                  <em>
+                    miss{" "}
+                    {formatDecimal(
+                      finalLeader
+                        ? liveFinalBySource.get(finalLeader.source)?.brier
+                        : null,
+                      4
+                    )}
+                  </em>
+                </div>
+                <div className="ops-trust-card">
+                  <span>Deepest sample</span>
+                  <strong>{coverageLeader?.source ?? "n/a"}</strong>
+                  <em>
+                    {coverageLeader
+                      ? `${formatCount(coverageLeader.sampleCount)} graded closes`
+                      : "n/a"}
+                  </em>
+                </div>
+              </div>
+            ) : null}
             <div className="table-shell ops-table-shell ops-table-short">
               <table className="desk-table compact ops-table">
                 <thead>
                   <tr>
-                    <th>Source</th>
-                    <th>Brier</th>
-                    <th>Log loss</th>
-                    <th>Win acc</th>
-                    <th>Through final</th>
-                    <th>N</th>
+                    <th>Feed</th>
+                    <th>
+                      <div className="ops-table-metric-head">
+                        <strong>Close miss</strong>
+                        <span>lower better</span>
+                      </div>
+                    </th>
+                    <th>
+                      <div className="ops-table-metric-head">
+                        <strong>Big miss penalty</strong>
+                        <span>lower better</span>
+                      </div>
+                    </th>
+                    <th>
+                      <div className="ops-table-metric-head">
+                        <strong>Winner right</strong>
+                        <span>higher better</span>
+                      </div>
+                    </th>
+                    <th>
+                      <div className="ops-table-metric-head">
+                        <strong>Final-horn miss</strong>
+                        <span>lower better</span>
+                      </div>
+                    </th>
+                    <th>
+                      <div className="ops-table-metric-head">
+                        <strong>Graded closes</strong>
+                        <span>sample depth</span>
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {!deskReviewAnalyticsEnabled ? (
                     <tr>
                       <td colSpan={6}>
-                        Open Research for closed-game calibration.
+                        Open Research for deeper finished-game grading.
                       </td>
                     </tr>
                   ) : pregameSignalQuality.isLoading ? (
                     <tr>
-                      <td colSpan={6}>Loading closed-game quality rows...</td>
+                      <td colSpan={6}>Loading finished-game trust check...</td>
                     </tr>
-                  ) : pregameQualityRows.length === 0 ? (
+                  ) : rankedQualityRows.length === 0 ? (
                     <tr>
-                      <td colSpan={6}>No closed-game quality rows yet.</td>
+                      <td colSpan={6}>No finished-game trust rows yet.</td>
                     </tr>
                   ) : (
-                    pregameQualityRows.map((row) => {
+                    rankedQualityRows.map((row, index) => {
                       const liveFinal = liveFinalBySource.get(row.source);
+                      const rowFlags = [
+                        closeLeader?.source === row.source
+                          ? "best at close"
+                          : null,
+                        finalLeader?.source === row.source
+                          ? "best to final"
+                          : null,
+                        coverageLeader?.source === row.source
+                          ? "deepest sample"
+                          : null,
+                      ].filter((flag): flag is string => flag != null);
                       return (
                         <tr key={row.source}>
                           <td>
-                            <strong>{row.source}</strong>
+                            <div className="ops-trust-source">
+                              <span className="ops-rank-badge">
+                                #{index + 1}
+                              </span>
+                              <div>
+                                <strong>{row.source}</strong>
+                                {rowFlags.length > 0 ? (
+                                  <div className="ops-trust-flags">
+                                    {rowFlags.map((flag) => (
+                                      <em key={`${row.source}:${flag}`}>
+                                        {flag}
+                                      </em>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
                           </td>
                           <td className="desk-number">
                             {formatDecimal(row.brier, 4)}

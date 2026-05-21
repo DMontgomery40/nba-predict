@@ -6,6 +6,7 @@ import {
 } from "@signal-console/domain";
 import {
   enqueueCaptureRestart,
+  enqueueBoardVolatilityBaselineRebuild,
   enqueueGameBackfill,
   enqueueMarketBackfill,
   enqueueTimelineMaterializationRebuild,
@@ -1275,6 +1276,24 @@ export function postTimelineMaterializationRebuildPayload(
     scope: "live-timeline-materialization",
   });
   logger.info({ action }, "Queued timeline materialization rebuild action.");
+  return {
+    data: action,
+    meta: generatedMeta(),
+  };
+}
+
+export function postBoardVolatilityBaselineRebuildPayload(
+  context?: ServiceContext
+) {
+  const logger = getLogger(
+    context,
+    "postBoardVolatilityBaselineRebuildPayload"
+  );
+  const action = enqueueBoardVolatilityBaselineRebuild({
+    payloadJson: {},
+    scope: "board-volatility-baselines",
+  });
+  logger.info({ action }, "Queued board-volatility baseline rebuild action.");
   return {
     data: action,
     meta: generatedMeta(),

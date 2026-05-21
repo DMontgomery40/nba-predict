@@ -1275,6 +1275,154 @@ describe("live repository", () => {
     });
   });
 
+  it("treats accented and punctuation-bearing player labels as the same canonical player in live comparisons", () => {
+    seedLiveRepositoryGame();
+
+    upsertMarketInstrument({
+      displayLabel: "Nikola Jokic over 9.5 assists",
+      family: "player-prop",
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "jokic-assists-over",
+      inPlay: true,
+      line: 9.5,
+      participantKey: "nikola-jokic",
+      selection: "over",
+    });
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-bet365-jokic-assists",
+      instrumentId: "jokic-assists-over",
+      mappingStatus: "auto",
+      rawFamily: "assists",
+      rawLabel: "Nikola Jokić: Assists O/U 9.5",
+      rawMetadata: { source: "bet365" },
+      source: "bet365",
+      sourceMarketKey: "bet365-jokic-assists",
+      sourceSelectionKey: "nikola-jokic-over",
+    });
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-polymarket-jokic-assists",
+      instrumentId: "jokic-assists-over",
+      mappingStatus: "auto",
+      rawFamily: "assists",
+      rawLabel: "Nikola Jokic over 9.5 assists",
+      rawMetadata: { source: "polymarket" },
+      source: "polymarket",
+      sourceMarketKey: "poly-jokic-assists",
+      sourceSelectionKey: "over",
+    });
+
+    recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-04-21T23:41:00.000Z",
+      depthScore: 90,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.68,
+      lineRaw: 9.5,
+      oddsRaw: "1.47",
+      priceRaw: 1.47,
+      sourceMarketId: "sm-bet365-jokic-assists",
+      volume: 100,
+    });
+    recordQuoteObservation({
+      bestAsk: 0.71,
+      bestBid: 0.7,
+      capturedAt: "2026-04-21T23:41:05.000Z",
+      depthScore: 70,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.71,
+      lineRaw: 9.5,
+      oddsRaw: null,
+      priceRaw: 0.71,
+      sourceMarketId: "sm-polymarket-jokic-assists",
+      volume: 40,
+    });
+
+    expect(
+      listGameMarkets("nba-bos-nyk-2026-04-21").find(
+        (market) => market.instrument.id === "jokic-assists-over"
+      )
+    ).toMatchObject({
+      comparableState: "comparable",
+      impliedProbabilityGap: expect.closeTo(0.03, 5),
+    });
+
+    upsertMarketInstrument({
+      displayLabel: "Royce ONeale over 3.5 rebounds",
+      family: "player-prop",
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "oneale-rebounds-over",
+      inPlay: true,
+      line: 3.5,
+      participantKey: "royce-oneale",
+      selection: "over",
+    });
+
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-bet365-oneale-rebounds",
+      instrumentId: "oneale-rebounds-over",
+      mappingStatus: "auto",
+      rawFamily: "rebounds",
+      rawLabel: "Royce O'Neale: Rebounds O/U 3.5",
+      rawMetadata: { source: "bet365" },
+      source: "bet365",
+      sourceMarketKey: "bet365-oneale-rebounds",
+      sourceSelectionKey: "royce-oneale-over",
+    });
+    upsertSourceMarket({
+      gameId: "nba-bos-nyk-2026-04-21",
+      id: "sm-kalshi-oneale-rebounds",
+      instrumentId: "oneale-rebounds-over",
+      mappingStatus: "auto",
+      rawFamily: "rebounds",
+      rawLabel: "Royce ONeale: 4+ rebounds",
+      rawMetadata: { source: "kalshi" },
+      source: "kalshi",
+      sourceMarketKey: "kalshi-oneale-rebounds",
+      sourceSelectionKey: "over",
+    });
+
+    recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-04-21T23:42:00.000Z",
+      depthScore: 90,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.55,
+      lineRaw: 3.5,
+      oddsRaw: "1.82",
+      priceRaw: 1.82,
+      sourceMarketId: "sm-bet365-oneale-rebounds",
+      volume: 100,
+    });
+    recordQuoteObservation({
+      bestAsk: 0.58,
+      bestBid: 0.57,
+      capturedAt: "2026-04-21T23:42:05.000Z",
+      depthScore: 70,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.58,
+      lineRaw: 3.5,
+      oddsRaw: null,
+      priceRaw: 0.58,
+      sourceMarketId: "sm-kalshi-oneale-rebounds",
+      volume: 40,
+    });
+
+    expect(
+      listGameMarkets("nba-bos-nyk-2026-04-21").find(
+        (market) => market.instrument.id === "oneale-rebounds-over"
+      )
+    ).toMatchObject({
+      comparableState: "comparable",
+      impliedProbabilityGap: expect.closeTo(0.03, 5),
+    });
+  });
+
   it("dedupes duplicate source markets down to one latest source view and raw source selection", () => {
     seedLiveRepositoryGame();
 

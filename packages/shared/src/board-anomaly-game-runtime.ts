@@ -41,8 +41,10 @@ export function detectBoardAnomaliesForGame(
   return detectBoardAnomaliesPure({
     gameId: input.gameId,
     gameLabel: materialized.gameLabel,
+    gameStates: materialized.gameStates,
     observations: materialized.observations,
     now: input.now,
+    scheduledStart: materialized.scheduledStart,
     config: input.config,
   });
 }
@@ -63,8 +65,10 @@ export function measureGameStateVolatilityForGame(
   return measureBoardGameStateVolatilityPure({
     gameId: input.gameId,
     gameLabel: materialized.gameLabel,
+    gameStates: materialized.gameStates,
     observations: materialized.observations,
     now: input.now,
+    scheduledStart: materialized.scheduledStart,
     config: input.config,
   });
 }
@@ -90,7 +94,9 @@ export function replayBoardAnomaliesForGame(
   return replayBoardAnomaliesPure({
     gameId: input.gameId,
     gameLabel: materialized.gameLabel,
+    gameStates: materialized.gameStates,
     observations: materialized.observations,
+    scheduledStart: materialized.scheduledStart,
     windowStart: input.windowStart,
     windowEnd: input.windowEnd,
     stepSeconds: input.stepSeconds,

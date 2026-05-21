@@ -1,0 +1,13 @@
+const __vite_ssr_import_0__ = await __vite_ssr_import__("@testing-library/jest-dom/vitest");
+class ResizeObserverMock {
+  observe() {
+  }
+  unobserve() {
+  }
+  disconnect() {
+  }
+}
+globalThis.ResizeObserver = ResizeObserverMock;
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUE7QUFFQSxNQUFNLG1CQUFtQjtBQUFBLEVBQ3ZCLFVBQVU7QUFBQSxFQUFDO0FBQUEsRUFFWCxZQUFZO0FBQUEsRUFBQztBQUFBLEVBRWIsYUFBYTtBQUFBLEVBQUM7QUFDaEI7QUFFQSxXQUFXLGlCQUFpQiIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsidml0ZXN0LnNldHVwLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCBcIkB0ZXN0aW5nLWxpYnJhcnkvamVzdC1kb20vdml0ZXN0XCI7XG5cbmNsYXNzIFJlc2l6ZU9ic2VydmVyTW9jayB7XG4gIG9ic2VydmUoKSB7fVxuXG4gIHVub2JzZXJ2ZSgpIHt9XG5cbiAgZGlzY29ubmVjdCgpIHt9XG59XG5cbmdsb2JhbFRoaXMuUmVzaXplT2JzZXJ2ZXIgPSBSZXNpemVPYnNlcnZlck1vY2sgYXMgdHlwZW9mIFJlc2l6ZU9ic2VydmVyO1xuIl0sImZpbGUiOiIvVXNlcnMvZGF2aWRtb250Z29tZXJ5L25iYS1wcmVkaWN0L3ZpdGVzdC5zZXR1cC50cyJ9

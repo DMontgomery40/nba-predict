@@ -1,0 +1,1090 @@
+Object.defineProperty(__vite_ssr_exports__, "EventWorkspacePage", { enumerable: true, configurable: true, get(){ try { return EventWorkspacePage } catch {} }});
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/jsx-dev-runtime.js", {"importedNames":["Fragment","jsxDEV"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/@tanstack+react-query@5.99.2_react@19.2.5/node_modules/@tanstack/react-query/build/modern/index.js", {"importedNames":["useQuery"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react@19.2.5/node_modules/react/index.js", {"importedNames":["useMemo","useState"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/react-router-dom@7.14.2_react-dom@19.2.5_react@19.2.5__react@19.2.5/node_modules/react-router-dom/dist/index.js", {"importedNames":["useParams"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/node_modules/.pnpm/recharts@2.15.4_react-dom@19.2.5_react@19.2.5__react@19.2.5/node_modules/recharts/lib/index.js", {"importedNames":["CartesianGrid","Legend","Line","LineChart","ReferenceArea","ResponsiveContainer","Tooltip","XAxis","YAxis"]});
+
+
+
+
+
+
+
+
+
+
+const __vite_ssr_import_5__ = await __vite_ssr_import__("/@fs/Users/davidmontgomery/nba-predict/packages/domain/src/index.ts", {"importedNames":["classifyMarketSignal"]});
+const __vite_ssr_import_6__ = await __vite_ssr_import__("/src/features/event/RawSourceDrawer.tsx", {"importedNames":["RawSourceDrawer"]});
+const __vite_ssr_import_7__ = await __vite_ssr_import__("/src/features/event/SignalQualityStrip.tsx", {"importedNames":["SignalQualityStrip"]});
+const __vite_ssr_import_8__ = await __vite_ssr_import__("/src/features/event/timeline-chart.ts", {"importedNames":["formatDivergenceChartData","formatTimelineTimestamp"]});
+
+
+
+const __vite_ssr_import_9__ = await __vite_ssr_import__("/src/components/DivergenceMiniChart.tsx", {"importedNames":["DivergenceMiniChart"]});
+const __vite_ssr_import_10__ = await __vite_ssr_import__("/src/components/ErrorState.tsx", {"importedNames":["ErrorState","LoadingState"]});
+const __vite_ssr_import_11__ = await __vite_ssr_import__("/src/components/PageFrame.tsx", {"importedNames":["PageFrame"]});
+const __vite_ssr_import_12__ = await __vite_ssr_import__("/src/components/Primitives.tsx", {"importedNames":["Badge","Panel","SectionTitle"]});
+const __vite_ssr_import_13__ = await __vite_ssr_import__("/src/data/api.ts", {"importedNames":["getGame","getInstrument","getInstrumentSources","getInstrumentTimeline","getInstrumentTimelineExportUrl"]});
+
+
+
+
+
+
+const __vite_ssr_import_14__ = await __vite_ssr_import__("/src/lib/chart-theme.ts", {"importedNames":["chartAxisColor","chartGridColor","chartLegendStyle","chartTooltipStyle"]});
+
+
+
+
+
+const __vite_ssr_import_15__ = await __vite_ssr_import__("/src/lib/divergence-history.ts", {"importedNames":["buildDivergenceTraceSummary","buildLatestComparison"]});
+
+
+
+const __vite_ssr_import_16__ = await __vite_ssr_import__("/src/lib/game-state.ts", {"importedNames":["getGameOperationalState"]});
+const __vite_ssr_import_17__ = await __vite_ssr_import__("/src/lib/market-format.ts", {"importedNames":["formatGapPoints"]});
+const __vite_ssr_import_18__ = await __vite_ssr_import__("/src/lib/time-format.ts", {"importedNames":["formatOperatorDateTime"]});
+const marketResearchSources = ["bet365", "kalshi", "polymarket"];
+function toneForMappingStatus(status) {
+  if (status === "auto") {
+    return "positive";
+  };
+  if (status === "manual") {
+    return "warning";
+  };
+  return "critical";
+}
+function formatMinutes(value) {
+  if (value == null) {
+    return "n/a";
+  };
+  return `${(value / 6e4).toFixed(1)} min`;
+}
+function formatDuration(value) {
+  if (value < 6e4) {
+    return `${Math.round(value / 1e3)}s`;
+  };
+  if (value < 60 * 6e4) {
+    return `${Math.round(value / 6e4)}m`;
+  };
+  return `${(value / (60 * 6e4)).toFixed(1)}h`;
+}
+function formatProbability(value) {
+  if (value == null) {
+    return "n/a";
+  };
+  return `${(value * 100).toFixed(1)}%`;
+}
+function formatLine(value) {
+  if (value == null) {
+    return "n/a";
+  };
+  return value > 0 ? `+${value}` : `${value}`;
+}
+function formatCapturedAt(value) {
+  return (0,__vite_ssr_import_18__.formatOperatorDateTime)(value);
+}
+function formatGameStateSummary(game, gameState) {
+  const scheduledLabel = (0,__vite_ssr_import_18__.formatOperatorDateTime)(game.scheduledStart);
+  if (!gameState) {
+    return `Scheduled ${scheduledLabel}`;
+  };
+  if (gameState.status === "scheduled") {
+    return `Scheduled ${scheduledLabel}`;
+  };
+  const scoreline = `${gameState.awayScore ?? "-"} - ${gameState.homeScore ?? "-"}`;
+  const periodLabel = gameState.period ? ` · P${gameState.period}` : "";
+  const clockLabel = gameState.clock && gameState.clock !== "None" ? ` · ${gameState.clock}` : "";
+  return `${scoreline} · ${gameState.status}${periodLabel}${clockLabel}`;
+}
+function describeInstrumentQuestion(game, instrument) {
+  const participantLabel = game.homeParticipant.key === instrument.selection ? game.homeParticipant.shortName : game.awayParticipant.key === instrument.selection ? game.awayParticipant.shortName : instrument.selection;
+  if (instrument.family === "moneyline") {
+    return `${participantLabel} to win outright`;
+  };
+  if (instrument.family === "spread") {
+    return `${participantLabel} to cover ${formatLine(instrument.line)}`;
+  };
+  if (instrument.family === "total") {
+    const direction = instrument.selection === "over" ? "Game total over" : instrument.selection === "under" ? "Game total under" : "Game total";
+    return `${direction} ${instrument.line ?? "n/a"}`;
+  };
+  return instrument.displayLabel ?? instrument.selection;
+}
+function EventWorkspacePage() {
+  const { gameId = "", instrumentId = "" } = (0,__vite_ssr_import_3__.useParams)();
+  const [rawDrawerOpen, setRawDrawerOpen] = (0,__vite_ssr_import_2__.useState)(false);
+  const [selectedSourceId] = (0,__vite_ssr_import_2__.useState)(null);
+  const [showDiagnostics, setShowDiagnostics] = (0,__vite_ssr_import_2__.useState)(false);
+  const game = (0,__vite_ssr_import_1__.useQuery)({
+    enabled: Boolean(gameId),
+    queryKey: ["game", gameId],
+    queryFn: () => (0,__vite_ssr_import_13__.getGame)(gameId)
+  });
+  const instrument = (0,__vite_ssr_import_1__.useQuery)({
+    enabled: Boolean(gameId && instrumentId),
+    queryKey: ["instrument", gameId, instrumentId],
+    queryFn: () => (0,__vite_ssr_import_13__.getInstrument)(gameId, instrumentId)
+  });
+  const timeline = (0,__vite_ssr_import_1__.useQuery)({
+    enabled: Boolean(gameId && instrumentId),
+    queryKey: ["instrument-timeline", gameId, instrumentId],
+    queryFn: () => (0,__vite_ssr_import_13__.getInstrumentTimeline)(gameId, instrumentId)
+  });
+  const sourceDiagnostics = (0,__vite_ssr_import_1__.useQuery)({
+    enabled: Boolean(gameId && instrumentId && showDiagnostics),
+    queryKey: ["instrument-sources", gameId, instrumentId],
+    queryFn: () => (0,__vite_ssr_import_13__.getInstrumentSources)(gameId, instrumentId)
+  });
+  const divergenceTrace = (0,__vite_ssr_import_2__.useMemo)(
+    () => (0,__vite_ssr_import_15__.buildDivergenceTraceSummary)(timeline.data?.data),
+    [timeline.data?.data]
+  );
+  const latestComparison = (0,__vite_ssr_import_2__.useMemo)(
+    () => (0,__vite_ssr_import_15__.buildLatestComparison)(timeline.data?.data),
+    [timeline.data?.data]
+  );
+  if (!gameId || !instrumentId) {
+    return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+      (0,__vite_ssr_import_11__.PageFrame),
+      {
+        aside: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_12__.Panel), { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_12__.SectionTitle), { eyebrow: "Route Guard", title: "Missing route params" }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+          lineNumber: 212,
+          columnNumber: 13
+        }, this) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+          lineNumber: 211,
+          columnNumber: 11
+        }, this),
+        children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          (0,__vite_ssr_import_10__.ErrorState),
+          {
+            actionLabel: "Back to games",
+            description: "Instrument workspace needs both a game id and an instrument id.",
+            onAction: () => {
+              window.location.assign("/");
+            },
+            title: "No instrument selected"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+            lineNumber: 216,
+            columnNumber: 9
+          },
+          this
+        )
+      },
+      void 0,
+      false,
+      {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+        lineNumber: 209,
+        columnNumber: 7
+      },
+      this
+    );
+  };
+  if (game.isLoading || instrument.isLoading || timeline.isLoading || !game.data && !game.isError || !instrument.data && !instrument.isError || !timeline.data && !timeline.isError) {
+    return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_10__.LoadingState), { message: "Loading instrument workspace…" }, void 0, false, {
+      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+      lineNumber: 236,
+      columnNumber: 12
+    }, this);
+  };
+  if (game.isError || instrument.isError || timeline.isError || !game.data || !instrument.data || !timeline.data) {
+    return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+      (0,__vite_ssr_import_11__.PageFrame),
+      {
+        aside: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_12__.Panel), { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          (0,__vite_ssr_import_12__.SectionTitle),
+          {
+            eyebrow: "Failure State",
+            title: "Instrument workspace unavailable"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+            lineNumber: 251,
+            columnNumber: 13
+          },
+          this
+        ) }, void 0, false, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+          lineNumber: 250,
+          columnNumber: 11
+        }, this),
+        children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+          (0,__vite_ssr_import_10__.ErrorState),
+          {
+            description: "The instrument workspace query failed.",
+            error: game.error ?? instrument.error ?? timeline.error,
+            onAction: () => {
+              void game.refetch();
+              void instrument.refetch();
+              void timeline.refetch();
+            },
+            title: "Instrument detail failed to load"
+          },
+          void 0,
+          false,
+          {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+            lineNumber: 258,
+            columnNumber: 9
+          },
+          this
+        )
+      },
+      void 0,
+      false,
+      {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+        lineNumber: 248,
+        columnNumber: 7
+      },
+      this
+    );
+  };
+  const gameData = game.data.data;
+  const instrumentData = instrument.data.data;
+  const apiDivergenceSummary = instrumentData.derivedComparison.comparisonSummary;
+  const divergenceSummary = apiDivergenceSummary ? {
+    aboveThresholdDurationMs: apiDivergenceSummary.aboveThresholdDurationMs,
+    currentGap: apiDivergenceSummary.latestGap ?? null,
+    firstAboveThresholdAt: apiDivergenceSummary.firstAboveThresholdAt ?? null,
+    latestAt: apiDivergenceSummary.latestComparisonAt ?? null,
+    maxGap: apiDivergenceSummary.maxGap ?? null,
+    maxGapAt: apiDivergenceSummary.maxGapAt ?? null,
+    minGap: apiDivergenceSummary.minGap ?? null,
+    points: divergenceTrace?.points ?? [],
+    threshold: apiDivergenceSummary.threshold
+  } : divergenceTrace;
+  const divergenceChartData = (0,__vite_ssr_import_8__.formatDivergenceChartData)(
+    divergenceSummary?.points ?? []
+  );
+  const divergencePointCount = divergenceChartData.filter(
+    (row) => typeof row.divergence === "number"
+  ).length;
+  const diagnosticsData = sourceDiagnostics.data?.data ?? [];
+  const exportUrl = (0,__vite_ssr_import_13__.getInstrumentTimelineExportUrl)(gameId, instrumentId);
+  const hasSourceQuotes = instrumentData.latestQuotesBySource.length > 0;
+  const hasSourceDiagnostics = diagnosticsData.length > 0;
+  const pricedQuotes = instrumentData.latestQuotesBySource.filter(
+    (quote) => quote.impliedProbability != null
+  );
+  const gameStateSummary = formatGameStateSummary(
+    gameData.game,
+    gameData.gameState
+  );
+  const gameLifecycle = (0,__vite_ssr_import_16__.getGameOperationalState)(gameData);
+  const marketQuestion = describeInstrumentQuestion(
+    gameData.game,
+    instrumentData.instrument
+  );
+  const missingMarketSources = marketResearchSources.filter(
+    (source) => !pricedQuotes.some((quote) => quote.source === source)
+  );
+  const signalSummary = latestComparison && latestComparison.rows.length >= 2 ? `${latestComparison.rows.map(
+    (row) => `${row.source} ${formatProbability(row.impliedProbability)}`
+  ).join(" · ")} · divergence ${(0,__vite_ssr_import_17__.formatGapPoints)(
+    latestComparison.gap
+  )} · ${formatCapturedAt(latestComparison.capturedAt)}` : pricedQuotes.length < 2 ? `No comparison yet. Only ${pricedQuotes[0]?.source ?? "zero sources"} has a quote on this exact market.${missingMarketSources.length > 0 ? ` Missing ${missingMarketSources.join(", ")}.` : ""}` : "Bet365 and exchange quotes have not overlapped closely enough to measure this market.";
+  const signalState = (0,__vite_ssr_import_5__.classifyMarketSignal)({
+    comparableState: instrumentData.derivedComparison.comparableState,
+    gameLifecycle,
+    latestSources: instrumentData.latestQuotesBySource,
+    requireBet365PlusPredictionMarket: instrumentData.instrument.family === "player-prop",
+    sourceCount: pricedQuotes.length
+  });
+  const displaySignalState = signalState.state === "invalid" && signalState.label === "No comparison yet" && divergenceSummary?.maxGap != null ? {
+    label: gameLifecycle.kind === "final" ? "Review comparison" : "Earlier comparison",
+    reason: "Latest quotes are not from the same time. Showing the most recent Bet365-vs-exchange comparison.",
+    state: signalState.state
+  } : signalState;
+  const showSignalSummary = instrumentData.derivedComparison.comparableState === "comparable" && latestComparison != null;
+  const signalBadge = (() => {
+    if (signalState.state === "historical") {
+      return { label: displaySignalState.label, tone: "neutral" };
+    };
+    if (signalState.state === "invalid" || signalState.state === "stale" || instrumentData.derivedComparison.lineMismatch) {
+      return {
+        label: instrumentData.derivedComparison.lineMismatch && signalState.state === "actionable-now" ? "line mismatch" : displaySignalState.label,
+        tone: "warning"
+      };
+    };
+    return { label: displaySignalState.label, tone: "positive" };
+  })();
+  const comparisonRows = latestComparison?.rows.map((row) => ({
+    capturedAt: row.capturedAt,
+    impliedProbability: row.impliedProbability,
+    line: row.line,
+    marketLabel: instrumentData.instrument.displayLabel,
+    source: row.source
+  })) ?? [];
+  const comparisonSummary = latestComparison && latestComparison.rows.length >= 2 ? `${latestComparison.rows.map(
+    (row) => `${row.source} ${formatProbability(row.impliedProbability)}`
+  ).join(
+    " · "
+  )} · divergence ${(0,__vite_ssr_import_17__.formatGapPoints)(latestComparison.gap)} · ${formatCapturedAt(
+    latestComparison.capturedAt
+  )}` : displaySignalState.reason;
+  const divergenceHeadline = divergenceSummary?.maxGap != null ? `${(0,__vite_ssr_import_17__.formatGapPoints)(divergenceSummary.maxGap)} peak divergence` : displaySignalState.label;
+  const divergenceDetail = divergenceSummary?.maxGapAt != null ? `Peak at ${formatCapturedAt(
+    divergenceSummary.maxGapAt
+  )}. Latest measured divergence ${(0,__vite_ssr_import_17__.formatGapPoints)(
+    divergenceSummary.currentGap
+  )} at ${formatCapturedAt(divergenceSummary.latestAt)}.` : comparisonSummary;
+  return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_0__.Fragment), { children: [
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+      (0,__vite_ssr_import_11__.PageFrame),
+      {
+        aside: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_0__.Fragment), { children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_12__.Panel), { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              (0,__vite_ssr_import_12__.SectionTitle),
+              {
+                eyebrow: "Comparison",
+                title: instrumentData.instrument.displayLabel
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 417,
+                columnNumber: 15
+              },
+              this
+            ),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "tag-row", children: [
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_12__.Badge), { tone: signalBadge.tone, children: signalBadge.label }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 422,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                (0,__vite_ssr_import_12__.Badge),
+                {
+                  tone: instrumentData.derivedComparison.lineMismatch ? "warning" : "neutral",
+                  children: instrumentData.instrument.family
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 423,
+                  columnNumber: 17
+                },
+                this
+              )
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 421,
+              columnNumber: 15
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+            lineNumber: 416,
+            columnNumber: 13
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_12__.Panel), { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              (0,__vite_ssr_import_12__.SectionTitle),
+              {
+                eyebrow: "Game State",
+                title: `${gameData.game.awayParticipant.shortName} at ${gameData.game.homeParticipant.shortName}`
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 436,
+                columnNumber: 15
+              },
+              this
+            ),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: gameStateSummary }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 440,
+              columnNumber: 15
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+            lineNumber: 435,
+            columnNumber: 13
+          }, this)
+        ] }, void 0, true, {
+          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+          lineNumber: 415,
+          columnNumber: 11
+        }, this),
+        children: [
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("section", { className: "hero-strip", children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "eyebrow", children: "Market" }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 447,
+                columnNumber: 13
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("h1", { children: instrumentData.instrument.displayLabel }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 448,
+                columnNumber: 13
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { children: "Bet365 and exchange prices are shown on the same probability scale." }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 449,
+                columnNumber: 13
+              }, this)
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 446,
+              columnNumber: 11
+            }, this),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "hero-actions", children: [
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("a", { className: "primary-button", href: exportUrl, children: "Export timeline CSV" }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 455,
+                columnNumber: 13
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                "button",
+                {
+                  className: "ghost-button",
+                  disabled: !hasSourceQuotes,
+                  onClick: () => setRawDrawerOpen(true),
+                  type: "button",
+                  children: "Source records"
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 458,
+                  columnNumber: 13
+                },
+                this
+              )
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 454,
+              columnNumber: 11
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+            lineNumber: 445,
+            columnNumber: 9
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+            (0,__vite_ssr_import_7__.SignalQualityStrip),
+            {
+              comparisonSummary: apiDivergenceSummary,
+              gameId,
+              instrumentId
+            },
+            void 0,
+            false,
+            {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 469,
+              columnNumber: 9
+            },
+            this
+          ),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_12__.Panel), { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              (0,__vite_ssr_import_12__.SectionTitle),
+              {
+                eyebrow: "Comparison",
+                title: marketQuestion,
+                body: `${instrumentData.instrument.displayLabel} · ${gameStateSummary}`
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 476,
+                columnNumber: 11
+              },
+              this
+            ),
+            hasSourceQuotes ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "stack", children: [
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                "div",
+                {
+                  className: `inline-alert ${displaySignalState.state === "actionable-now" ? "inline-alert-positive" : "inline-alert-warning"}`,
+                  children: [
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: divergenceHeadline }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                      lineNumber: 490,
+                      columnNumber: 17
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: showSignalSummary ? signalSummary : divergenceDetail }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                      lineNumber: 491,
+                      columnNumber: 17
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_9__.DivergenceMiniChart), { summary: divergenceSummary }, void 0, false, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                      lineNumber: 494,
+                      columnNumber: 17
+                    }, this)
+                  ]
+                },
+                void 0,
+                true,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 483,
+                  columnNumber: 15
+                },
+                this
+              ),
+              divergenceSummary?.maxGap != null ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "divergence-summary-grid", children: [
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Peak divergence" }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 499,
+                    columnNumber: 21
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: (0,__vite_ssr_import_17__.formatGapPoints)(divergenceSummary.maxGap) }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 500,
+                    columnNumber: 21
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("em", { children: formatCapturedAt(divergenceSummary.maxGapAt) }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 501,
+                    columnNumber: 21
+                  }, this)
+                ] }, void 0, true, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 498,
+                  columnNumber: 19
+                }, this),
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: "Latest measured" }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 504,
+                    columnNumber: 21
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: (0,__vite_ssr_import_17__.formatGapPoints)(divergenceSummary.currentGap) }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 505,
+                    columnNumber: 21
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("em", { children: formatCapturedAt(divergenceSummary.latestAt) }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 508,
+                    columnNumber: 21
+                  }, this)
+                ] }, void 0, true, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 503,
+                  columnNumber: 19
+                }, this),
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { children: [
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                    "Above ",
+                    (0,__vite_ssr_import_17__.formatGapPoints)(divergenceSummary.threshold)
+                  ] }, void 0, true, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 511,
+                    columnNumber: 21
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: formatDuration(
+                    divergenceSummary.aboveThresholdDurationMs
+                  ) }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 514,
+                    columnNumber: 21
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("em", { children: divergenceSummary.firstAboveThresholdAt ? `from ${formatCapturedAt(
+                    divergenceSummary.firstAboveThresholdAt
+                  )}` : "not reached" }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 519,
+                    columnNumber: 21
+                  }, this)
+                ] }, void 0, true, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 510,
+                  columnNumber: 19
+                }, this)
+              ] }, void 0, true, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 497,
+                columnNumber: 17
+              }, this) : null,
+              comparisonRows.length > 0 ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("table", { className: "data-table", children: [
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("thead", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { children: [
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Source" }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 533,
+                    columnNumber: 23
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Market" }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 534,
+                    columnNumber: 23
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Probability" }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 535,
+                    columnNumber: 23
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Line" }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 536,
+                    columnNumber: 23
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("th", { children: "Captured" }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 537,
+                    columnNumber: 23
+                  }, this)
+                ] }, void 0, true, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 532,
+                  columnNumber: 21
+                }, this) }, void 0, false, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 531,
+                  columnNumber: 19
+                }, this),
+                /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tbody", { children: comparisonRows.map((row) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("tr", { children: [
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: row.source }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 544,
+                    columnNumber: 27
+                  }, this) }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 543,
+                    columnNumber: 25
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: row.marketLabel }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 546,
+                    columnNumber: 25
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { className: "table-metric", children: formatProbability(row.impliedProbability) }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 547,
+                    columnNumber: 25
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: formatLine(row.line) }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 550,
+                    columnNumber: 25
+                  }, this),
+                  /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("td", { children: formatCapturedAt(row.capturedAt) }, void 0, false, {
+                    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                    lineNumber: 551,
+                    columnNumber: 25
+                  }, this)
+                ] }, `${row.source}:${row.capturedAt ?? "missing"}`, true, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 542,
+                  columnNumber: 23
+                }, this)) }, void 0, false, {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 540,
+                  columnNumber: 19
+                }, this)
+              ] }, void 0, true, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 530,
+                columnNumber: 17
+              }, this) : /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "No Bet365-vs-exchange comparison was measured in the same quote window." }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 557,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 482,
+              columnNumber: 13
+            }, this) : /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "No source quotes have been captured for this instrument yet." }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 564,
+              columnNumber: 13
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+            lineNumber: 475,
+            columnNumber: 9
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_12__.Panel), { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              (0,__vite_ssr_import_12__.SectionTitle),
+              {
+                eyebrow: "Timeline",
+                title: "Divergence over time",
+                body: "Only Bet365-vs-exchange quote windows are plotted. Long unmeasured spans stay disconnected."
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 571,
+                columnNumber: 11
+              },
+              this
+            ),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "chart-shell", children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_4__.ResponsiveContainer), { height: 320, width: "100%", children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_4__.LineChart), { data: divergenceChartData, children: [
+              timeline.data.data.lineMismatchWindows.map((window2, index) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                (0,__vite_ssr_import_4__.ReferenceArea),
+                {
+                  fill: "rgba(214, 132, 86, 0.14)",
+                  x1: window2.start,
+                  x2: window2.end ?? window2.start
+                },
+                `${window2.start}-${index}`,
+                false,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 580,
+                  columnNumber: 19
+                },
+                this
+              )),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_4__.CartesianGrid), { stroke: __vite_ssr_import_14__.chartGridColor, vertical: false }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 587,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                (0,__vite_ssr_import_4__.XAxis),
+                {
+                  dataKey: "capturedAt",
+                  stroke: __vite_ssr_import_14__.chartAxisColor,
+                  tickFormatter: __vite_ssr_import_8__.formatTimelineTimestamp
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 588,
+                  columnNumber: 17
+                },
+                this
+              ),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                (0,__vite_ssr_import_4__.YAxis),
+                {
+                  stroke: __vite_ssr_import_14__.chartAxisColor,
+                  tickFormatter: (value) => `${value} pp`
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 593,
+                  columnNumber: 17
+                },
+                this
+              ),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                (0,__vite_ssr_import_4__.Tooltip),
+                {
+                  labelFormatter: __vite_ssr_import_8__.formatTimelineTimestamp,
+                  ...__vite_ssr_import_14__.chartTooltipStyle
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 597,
+                  columnNumber: 17
+                },
+                this
+              ),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_4__.Legend), { wrapperStyle: __vite_ssr_import_14__.chartLegendStyle }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 601,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                (0,__vite_ssr_import_4__.Line),
+                {
+                  activeDot: {
+                    fill: "#f4c96f",
+                    r: 5,
+                    stroke: "#f3f7fb",
+                    strokeWidth: 1
+                  },
+                  connectNulls: false,
+                  dataKey: "divergence",
+                  dot: divergencePointCount <= 1 ? {
+                    fill: "#f4c96f",
+                    r: 4,
+                    stroke: "#f4c96f",
+                    strokeWidth: 0
+                  } : false,
+                  isAnimationActive: false,
+                  name: "divergence",
+                  stroke: "#f4c96f",
+                  strokeWidth: 2,
+                  type: "stepAfter"
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 602,
+                  columnNumber: 17
+                },
+                this
+              )
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 578,
+              columnNumber: 15
+            }, this) }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 577,
+              columnNumber: 13
+            }, this) }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 576,
+              columnNumber: 11
+            }, this),
+            timeline.data.data.lineMismatchWindows.length > 0 ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "tag-row", children: timeline.data.data.lineMismatchWindows.map((window2, index) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_12__.Badge), { tone: "warning", children: [
+              window2.sources.join(" / "),
+              " mismatch from",
+              " ",
+              (0,__vite_ssr_import_8__.formatTimelineTimestamp)(window2.start),
+              window2.end ? ` to ${(0,__vite_ssr_import_8__.formatTimelineTimestamp)(window2.end)}` : ""
+            ] }, `${window2.start}-${index}`, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 633,
+              columnNumber: 17
+            }, this)) }, void 0, false, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 631,
+              columnNumber: 13
+            }, this) : null
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+            lineNumber: 570,
+            columnNumber: 9
+          }, this),
+          /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)((0,__vite_ssr_import_12__.Panel), { children: [
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+              (0,__vite_ssr_import_12__.SectionTitle),
+              {
+                eyebrow: "Details",
+                title: "Source records",
+                body: "Stored source rows and timing checks stay here so the comparison above uses one canonical probability scale."
+              },
+              void 0,
+              false,
+              {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 646,
+                columnNumber: 11
+              },
+              this
+            ),
+            /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "stack", children: [
+              /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "tag-row", children: /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                "button",
+                {
+                  className: "ghost-button",
+                  onClick: () => setShowDiagnostics((current) => !current),
+                  type: "button",
+                  children: showDiagnostics ? "Hide source records" : "Show source records"
+                },
+                void 0,
+                false,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 653,
+                  columnNumber: 15
+                },
+                this
+              ) }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 652,
+                columnNumber: 13
+              }, this),
+              showDiagnostics && sourceDiagnostics.isLoading ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "Loading diagnostics…" }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 664,
+                columnNumber: 15
+              }, this) : null,
+              showDiagnostics && sourceDiagnostics.isError ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "Source records failed to load. The comparison above is still available." }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 667,
+                columnNumber: 15
+              }, this) : null,
+              showDiagnostics && hasSourceDiagnostics ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "source-compare-grid", children: diagnosticsData.map((entry) => /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                "div",
+                {
+                  className: "source-compare-card",
+                  children: [
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "source-compare-head", children: [
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("strong", { children: entry.source }, void 0, false, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                        lineNumber: 680,
+                        columnNumber: 23
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+                        (0,__vite_ssr_import_12__.Badge),
+                        {
+                          tone: toneForMappingStatus(
+                            entry.diagnostics.mappingStatus
+                          ),
+                          children: entry.diagnostics.mappingStatus
+                        },
+                        void 0,
+                        false,
+                        {
+                          fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                          lineNumber: 681,
+                          columnNumber: 23
+                        },
+                        this
+                      )
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                      lineNumber: 679,
+                      columnNumber: 21
+                    }, this),
+                    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("div", { className: "source-compare-body", children: [
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                        "market id ",
+                        entry.sourceMarket.sourceMarketKey
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                        lineNumber: 690,
+                        columnNumber: 23
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                        "source label ",
+                        entry.sourceMarket.rawLabel ?? "n/a",
+                        " · family ",
+                        entry.sourceMarket.rawFamily ?? "n/a"
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                        lineNumber: 693,
+                        columnNumber: 23
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                        "quote age ",
+                        formatMinutes(entry.freshnessMs),
+                        " · lag",
+                        " ",
+                        formatMinutes(entry.diagnostics.captureLagMs)
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                        lineNumber: 697,
+                        columnNumber: 23
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                        "line mismatch",
+                        " ",
+                        entry.diagnostics.lineMismatch ? "present" : "clear"
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                        lineNumber: 701,
+                        columnNumber: 23
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                        "latest quote",
+                        " ",
+                        formatCapturedAt(entry.latestQuote?.capturedAt)
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                        lineNumber: 705,
+                        columnNumber: 23
+                      }, this),
+                      /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", { children: [
+                        "last source record",
+                        " ",
+                        entry.latestRawPayload ? `#${entry.latestRawPayload.id} at ${formatCapturedAt(entry.latestRawPayload.capturedAt)}` : "none"
+                      ] }, void 0, true, {
+                        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                        lineNumber: 709,
+                        columnNumber: 23
+                      }, this)
+                    ] }, void 0, true, {
+                      fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                      lineNumber: 689,
+                      columnNumber: 21
+                    }, this)
+                  ]
+                },
+                entry.sourceMarket.id,
+                true,
+                {
+                  fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                  lineNumber: 675,
+                  columnNumber: 19
+                },
+                this
+              )) }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 673,
+                columnNumber: 15
+              }, this) : null,
+              showDiagnostics && !sourceDiagnostics.isLoading && !sourceDiagnostics.isError && !hasSourceDiagnostics ? /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("p", { className: "muted", children: "No source markets are attached to this canonical instrument yet." }, void 0, false, {
+                fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+                lineNumber: 724,
+                columnNumber: 15
+              }, this) : null
+            ] }, void 0, true, {
+              fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+              lineNumber: 651,
+              columnNumber: 11
+            }, this)
+          ] }, void 0, true, {
+            fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+            lineNumber: 645,
+            columnNumber: 9
+          }, this)
+        ]
+      },
+      void 0,
+      true,
+      {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+        lineNumber: 413,
+        columnNumber: 7
+      },
+      this
+    ),
+    /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)(
+      (0,__vite_ssr_import_6__.RawSourceDrawer),
+      {
+        gameId,
+        instrumentId,
+        onClose: () => setRawDrawerOpen(false),
+        open: rawDrawerOpen,
+        preferredSourceId: selectedSourceId,
+        sourceIds: instrumentData.latestQuotesBySource.map(
+          (quote) => quote.source
+        )
+      },
+      void 0,
+      false,
+      {
+        fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+        lineNumber: 732,
+        columnNumber: 7
+      },
+      this
+    )
+  ] }, void 0, true, {
+    fileName: "/Users/davidmontgomery/nba-predict/apps/web/src/features/event/EventWorkspacePage.tsx",
+    lineNumber: 412,
+    columnNumber: 5
+  }, this);
+}
+
+//# sourceMappingSource=vite-node
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,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QTBVQTtBQUVKIiwibmFtZXMiOlsid2luZG93Il0sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIkV2ZW50V29ya3NwYWNlUGFnZS50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgdXNlUXVlcnkgfSBmcm9tIFwiQHRhbnN0YWNrL3JlYWN0LXF1ZXJ5XCI7XG5pbXBvcnQgeyB1c2VNZW1vLCB1c2VTdGF0ZSB9IGZyb20gXCJyZWFjdFwiO1xuaW1wb3J0IHsgdXNlUGFyYW1zIH0gZnJvbSBcInJlYWN0LXJvdXRlci1kb21cIjtcbmltcG9ydCB7XG4gIENhcnRlc2lhbkdyaWQsXG4gIExlZ2VuZCxcbiAgTGluZSxcbiAgTGluZUNoYXJ0LFxuICBSZWZlcmVuY2VBcmVhLFxuICBSZXNwb25zaXZlQ29udGFpbmVyLFxuICBUb29sdGlwLFxuICBYQXhpcyxcbiAgWUF4aXMsXG59IGZyb20gXCJyZWNoYXJ0c1wiO1xuXG5pbXBvcnQgeyBjbGFzc2lmeU1hcmtldFNpZ25hbCB9IGZyb20gXCJAc2lnbmFsLWNvbnNvbGUvZG9tYWluXCI7XG5cbmltcG9ydCB7IFJhd1NvdXJjZURyYXdlciB9IGZyb20gXCIuL1Jhd1NvdXJjZURyYXdlclwiO1xuaW1wb3J0IHsgU2lnbmFsUXVhbGl0eVN0cmlwIH0gZnJvbSBcIi4vU2lnbmFsUXVhbGl0eVN0cmlwXCI7XG5pbXBvcnQge1xuICBmb3JtYXREaXZlcmdlbmNlQ2hhcnREYXRhLFxuICBmb3JtYXRUaW1lbGluZVRpbWVzdGFtcCxcbn0gZnJvbSBcIi4vdGltZWxpbmUtY2hhcnRcIjtcbmltcG9ydCB7IERpdmVyZ2VuY2VNaW5pQ2hhcnQgfSBmcm9tIFwiLi4vLi4vY29tcG9uZW50cy9EaXZlcmdlbmNlTWluaUNoYXJ0XCI7XG5pbXBvcnQgeyBFcnJvclN0YXRlLCBMb2FkaW5nU3RhdGUgfSBmcm9tIFwiLi4vLi4vY29tcG9uZW50cy9FcnJvclN0YXRlXCI7XG5pbXBvcnQgeyBQYWdlRnJhbWUgfSBmcm9tIFwiLi4vLi4vY29tcG9uZW50cy9QYWdlRnJhbWVcIjtcbmltcG9ydCB7IEJhZGdlLCBQYW5lbCwgU2VjdGlvblRpdGxlIH0gZnJvbSBcIi4uLy4uL2NvbXBvbmVudHMvUHJpbWl0aXZlc1wiO1xuaW1wb3J0IHtcbiAgZ2V0R2FtZSxcbiAgZ2V0SW5zdHJ1bWVudCxcbiAgZ2V0SW5zdHJ1bWVudFNvdXJjZXMsXG4gIGdldEluc3RydW1lbnRUaW1lbGluZSxcbiAgZ2V0SW5zdHJ1bWVudFRpbWVsaW5lRXhwb3J0VXJsLFxufSBmcm9tIFwiLi4vLi4vZGF0YS9hcGlcIjtcbmltcG9ydCB7XG4gIGNoYXJ0QXhpc0NvbG9yLFxuICBjaGFydEdyaWRDb2xvcixcbiAgY2hhcnRMZWdlbmRTdHlsZSxcbiAgY2hhcnRUb29sdGlwU3R5bGUsXG59IGZyb20gXCIuLi8uLi9saWIvY2hhcnQtdGhlbWVcIjtcbmltcG9ydCB7XG4gIGJ1aWxkRGl2ZXJnZW5jZVRyYWNlU3VtbWFyeSxcbiAgYnVpbGRMYXRlc3RDb21wYXJpc29uLFxufSBmcm9tIFwiLi4vLi4vbGliL2RpdmVyZ2VuY2UtaGlzdG9yeVwiO1xuaW1wb3J0IHsgZ2V0R2FtZU9wZXJhdGlvbmFsU3RhdGUgfSBmcm9tIFwiLi4vLi4vbGliL2dhbWUtc3RhdGVcIjtcbmltcG9ydCB7IGZvcm1hdEdhcFBvaW50cyB9IGZyb20gXCIuLi8uLi9saWIvbWFya2V0LWZvcm1hdFwiO1xuaW1wb3J0IHsgZm9ybWF0T3BlcmF0b3JEYXRlVGltZSB9IGZyb20gXCIuLi8uLi9saWIvdGltZS1mb3JtYXRcIjtcblxuY29uc3QgbWFya2V0UmVzZWFyY2hTb3VyY2VzID0gW1wiYmV0MzY1XCIsIFwia2Fsc2hpXCIsIFwicG9seW1hcmtldFwiXSBhcyBjb25zdDtcblxuZnVuY3Rpb24gdG9uZUZvck1hcHBpbmdTdGF0dXMoc3RhdHVzOiBzdHJpbmcpIHtcbiAgaWYgKHN0YXR1cyA9PT0gXCJhdXRvXCIpIHtcbiAgICByZXR1cm4gXCJwb3NpdGl2ZVwiIGFzIGNvbnN0O1xuICB9XG4gIGlmIChzdGF0dXMgPT09IFwibWFudWFsXCIpIHtcbiAgICByZXR1cm4gXCJ3YXJuaW5nXCIgYXMgY29uc3Q7XG4gIH1cbiAgcmV0dXJuIFwiY3JpdGljYWxcIiBhcyBjb25zdDtcbn1cblxuZnVuY3Rpb24gZm9ybWF0TWludXRlcyh2YWx1ZT86IG51bWJlciB8IG51bGwpIHtcbiAgaWYgKHZhbHVlID09IG51bGwpIHtcbiAgICByZXR1cm4gXCJuL2FcIjtcbiAgfVxuXG4gIHJldHVybiBgJHsodmFsdWUgLyA2MF8wMDApLnRvRml4ZWQoMSl9IG1pbmA7XG59XG5cbmZ1bmN0aW9uIGZvcm1hdER1cmF0aW9uKHZhbHVlOiBudW1iZXIpIHtcbiAgaWYgKHZhbHVlIDwgNjBfMDAwKSB7XG4gICAgcmV0dXJuIGAke01hdGgucm91bmQodmFsdWUgLyAxMDAwKX1zYDtcbiAgfVxuICBpZiAodmFsdWUgPCA2MCAqIDYwXzAwMCkge1xuICAgIHJldHVybiBgJHtNYXRoLnJvdW5kKHZhbHVlIC8gNjBfMDAwKX1tYDtcbiAgfVxuICByZXR1cm4gYCR7KHZhbHVlIC8gKDYwICogNjBfMDAwKSkudG9GaXhlZCgxKX1oYDtcbn1cblxuZnVuY3Rpb24gZm9ybWF0UHJvYmFiaWxpdHkodmFsdWU/OiBudW1iZXIgfCBudWxsKSB7XG4gIGlmICh2YWx1ZSA9PSBudWxsKSB7XG4gICAgcmV0dXJuIFwibi9hXCI7XG4gIH1cblxuICByZXR1cm4gYCR7KHZhbHVlICogMTAwKS50b0ZpeGVkKDEpfSVgO1xufVxuXG5mdW5jdGlvbiBmb3JtYXRMaW5lKHZhbHVlPzogbnVtYmVyIHwgbnVsbCkge1xuICBpZiAodmFsdWUgPT0gbnVsbCkge1xuICAgIHJldHVybiBcIm4vYVwiO1xuICB9XG5cbiAgcmV0dXJuIHZhbHVlID4gMCA/IGArJHt2YWx1ZX1gIDogYCR7dmFsdWV9YDtcbn1cblxuZnVuY3Rpb24gZm9ybWF0Q2FwdHVyZWRBdCh2YWx1ZT86IHN0cmluZyB8IG51bGwpIHtcbiAgcmV0dXJuIGZvcm1hdE9wZXJhdG9yRGF0ZVRpbWUodmFsdWUpO1xufVxuXG5mdW5jdGlvbiBmb3JtYXRHYW1lU3RhdGVTdW1tYXJ5KFxuICBnYW1lOiB7XG4gICAgc2NoZWR1bGVkU3RhcnQ6IHN0cmluZztcbiAgfSxcbiAgZ2FtZVN0YXRlPzoge1xuICAgIGF3YXlTY29yZT86IG51bWJlciB8IG51bGw7XG4gICAgY2xvY2s/OiBzdHJpbmcgfCBudWxsO1xuICAgIGhvbWVTY29yZT86IG51bWJlciB8IG51bGw7XG4gICAgcGVyaW9kPzogbnVtYmVyIHwgbnVsbDtcbiAgICBzdGF0dXM6IHN0cmluZztcbiAgfSB8IG51bGxcbikge1xuICBjb25zdCBzY2hlZHVsZWRMYWJlbCA9IGZvcm1hdE9wZXJhdG9yRGF0ZVRpbWUoZ2FtZS5zY2hlZHVsZWRTdGFydCk7XG5cbiAgaWYgKCFnYW1lU3RhdGUpIHtcbiAgICByZXR1cm4gYFNjaGVkdWxlZCAke3NjaGVkdWxlZExhYmVsfWA7XG4gIH1cblxuICBpZiAoZ2FtZVN0YXRlLnN0YXR1cyA9PT0gXCJzY2hlZHVsZWRcIikge1xuICAgIHJldHVybiBgU2NoZWR1bGVkICR7c2NoZWR1bGVkTGFiZWx9YDtcbiAgfVxuXG4gIGNvbnN0IHNjb3JlbGluZSA9IGAke2dhbWVTdGF0ZS5hd2F5U2NvcmUgPz8gXCItXCJ9IC0gJHtnYW1lU3RhdGUuaG9tZVNjb3JlID8/IFwiLVwifWA7XG4gIGNvbnN0IHBlcmlvZExhYmVsID0gZ2FtZVN0YXRlLnBlcmlvZCA/IGAgwrcgUCR7Z2FtZVN0YXRlLnBlcmlvZH1gIDogXCJcIjtcbiAgY29uc3QgY2xvY2tMYWJlbCA9XG4gICAgZ2FtZVN0YXRlLmNsb2NrICYmIGdhbWVTdGF0ZS5jbG9jayAhPT0gXCJOb25lXCJcbiAgICAgID8gYCDCtyAke2dhbWVTdGF0ZS5jbG9ja31gXG4gICAgICA6IFwiXCI7XG5cbiAgcmV0dXJuIGAke3Njb3JlbGluZX0gwrcgJHtnYW1lU3RhdGUuc3RhdHVzfSR7cGVyaW9kTGFiZWx9JHtjbG9ja0xhYmVsfWA7XG59XG5cbmZ1bmN0aW9uIGRlc2NyaWJlSW5zdHJ1bWVudFF1ZXN0aW9uKFxuICBnYW1lOiB7XG4gICAgYXdheVBhcnRpY2lwYW50OiB7IGtleTogc3RyaW5nOyBzaG9ydE5hbWU6IHN0cmluZyB9O1xuICAgIGhvbWVQYXJ0aWNpcGFudDogeyBrZXk6IHN0cmluZzsgc2hvcnROYW1lOiBzdHJpbmcgfTtcbiAgfSxcbiAgaW5zdHJ1bWVudDoge1xuICAgIGRpc3BsYXlMYWJlbD86IHN0cmluZztcbiAgICBmYW1pbHk6IHN0cmluZztcbiAgICBsaW5lPzogbnVtYmVyIHwgbnVsbDtcbiAgICBzZWxlY3Rpb246IHN0cmluZztcbiAgfVxuKSB7XG4gIGNvbnN0IHBhcnRpY2lwYW50TGFiZWwgPVxuICAgIGdhbWUuaG9tZVBhcnRpY2lwYW50LmtleSA9PT0gaW5zdHJ1bWVudC5zZWxlY3Rpb25cbiAgICAgID8gZ2FtZS5ob21lUGFydGljaXBhbnQuc2hvcnROYW1lXG4gICAgICA6IGdhbWUuYXdheVBhcnRpY2lwYW50LmtleSA9PT0gaW5zdHJ1bWVudC5zZWxlY3Rpb25cbiAgICAgICAgPyBnYW1lLmF3YXlQYXJ0aWNpcGFudC5zaG9ydE5hbWVcbiAgICAgICAgOiBpbnN0cnVtZW50LnNlbGVjdGlvbjtcblxuICBpZiAoaW5zdHJ1bWVudC5mYW1pbHkgPT09IFwibW9uZXlsaW5lXCIpIHtcbiAgICByZXR1cm4gYCR7cGFydGljaXBhbnRMYWJlbH0gdG8gd2luIG91dHJpZ2h0YDtcbiAgfVxuXG4gIGlmIChpbnN0cnVtZW50LmZhbWlseSA9PT0gXCJzcHJlYWRcIikge1xuICAgIHJldHVybiBgJHtwYXJ0aWNpcGFudExhYmVsfSB0byBjb3ZlciAke2Zvcm1hdExpbmUoaW5zdHJ1bWVudC5saW5lKX1gO1xuICB9XG5cbiAgaWYgKGluc3RydW1lbnQuZmFtaWx5ID09PSBcInRvdGFsXCIpIHtcbiAgICBjb25zdCBkaXJlY3Rpb24gPVxuICAgICAgaW5zdHJ1bWVudC5zZWxlY3Rpb24gPT09IFwib3ZlclwiXG4gICAgICAgID8gXCJHYW1lIHRvdGFsIG92ZXJcIlxuICAgICAgICA6IGluc3RydW1lbnQuc2VsZWN0aW9uID09PSBcInVuZGVyXCJcbiAgICAgICAgICA/IFwiR2FtZSB0b3RhbCB1bmRlclwiXG4gICAgICAgICAgOiBcIkdhbWUgdG90YWxcIjtcbiAgICByZXR1cm4gYCR7ZGlyZWN0aW9ufSAke2luc3RydW1lbnQubGluZSA/PyBcIm4vYVwifWA7XG4gIH1cblxuICByZXR1cm4gaW5zdHJ1bWVudC5kaXNwbGF5TGFiZWwgPz8gaW5zdHJ1bWVudC5zZWxlY3Rpb247XG59XG5cbmV4cG9ydCBmdW5jdGlvbiBFdmVudFdvcmtzcGFjZVBhZ2UoKSB7XG4gIGNvbnN0IHsgZ2FtZUlkID0gXCJcIiwgaW5zdHJ1bWVudElkID0gXCJcIiB9ID0gdXNlUGFyYW1zKCk7XG4gIGNvbnN0IFtyYXdEcmF3ZXJPcGVuLCBzZXRSYXdEcmF3ZXJPcGVuXSA9IHVzZVN0YXRlKGZhbHNlKTtcbiAgY29uc3QgW3NlbGVjdGVkU291cmNlSWRdID0gdXNlU3RhdGU8c3RyaW5nIHwgbnVsbD4obnVsbCk7XG4gIGNvbnN0IFtzaG93RGlhZ25vc3RpY3MsIHNldFNob3dEaWFnbm9zdGljc10gPSB1c2VTdGF0ZShmYWxzZSk7XG5cbiAgY29uc3QgZ2FtZSA9IHVzZVF1ZXJ5KHtcbiAgICBlbmFibGVkOiBCb29sZWFuKGdhbWVJZCksXG4gICAgcXVlcnlLZXk6IFtcImdhbWVcIiwgZ2FtZUlkXSxcbiAgICBxdWVyeUZuOiAoKSA9PiBnZXRHYW1lKGdhbWVJZCksXG4gIH0pO1xuICBjb25zdCBpbnN0cnVtZW50ID0gdXNlUXVlcnkoe1xuICAgIGVuYWJsZWQ6IEJvb2xlYW4oZ2FtZUlkICYmIGluc3RydW1lbnRJZCksXG4gICAgcXVlcnlLZXk6IFtcImluc3RydW1lbnRcIiwgZ2FtZUlkLCBpbnN0cnVtZW50SWRdLFxuICAgIHF1ZXJ5Rm46ICgpID0+IGdldEluc3RydW1lbnQoZ2FtZUlkLCBpbnN0cnVtZW50SWQpLFxuICB9KTtcbiAgY29uc3QgdGltZWxpbmUgPSB1c2VRdWVyeSh7XG4gICAgZW5hYmxlZDogQm9vbGVhbihnYW1lSWQgJiYgaW5zdHJ1bWVudElkKSxcbiAgICBxdWVyeUtleTogW1wiaW5zdHJ1bWVudC10aW1lbGluZVwiLCBnYW1lSWQsIGluc3RydW1lbnRJZF0sXG4gICAgcXVlcnlGbjogKCkgPT4gZ2V0SW5zdHJ1bWVudFRpbWVsaW5lKGdhbWVJZCwgaW5zdHJ1bWVudElkKSxcbiAgfSk7XG4gIGNvbnN0IHNvdXJjZURpYWdub3N0aWNzID0gdXNlUXVlcnkoe1xuICAgIGVuYWJsZWQ6IEJvb2xlYW4oZ2FtZUlkICYmIGluc3RydW1lbnRJZCAmJiBzaG93RGlhZ25vc3RpY3MpLFxuICAgIHF1ZXJ5S2V5OiBbXCJpbnN0cnVtZW50LXNvdXJjZXNcIiwgZ2FtZUlkLCBpbnN0cnVtZW50SWRdLFxuICAgIHF1ZXJ5Rm46ICgpID0+IGdldEluc3RydW1lbnRTb3VyY2VzKGdhbWVJZCwgaW5zdHJ1bWVudElkKSxcbiAgfSk7XG5cbiAgY29uc3QgZGl2ZXJnZW5jZVRyYWNlID0gdXNlTWVtbyhcbiAgICAoKSA9PiBidWlsZERpdmVyZ2VuY2VUcmFjZVN1bW1hcnkodGltZWxpbmUuZGF0YT8uZGF0YSksXG4gICAgW3RpbWVsaW5lLmRhdGE/LmRhdGFdXG4gICk7XG4gIGNvbnN0IGxhdGVzdENvbXBhcmlzb24gPSB1c2VNZW1vKFxuICAgICgpID0+IGJ1aWxkTGF0ZXN0Q29tcGFyaXNvbih0aW1lbGluZS5kYXRhPy5kYXRhKSxcbiAgICBbdGltZWxpbmUuZGF0YT8uZGF0YV1cbiAgKTtcblxuICBpZiAoIWdhbWVJZCB8fCAhaW5zdHJ1bWVudElkKSB7XG4gICAgcmV0dXJuIChcbiAgICAgIDxQYWdlRnJhbWVcbiAgICAgICAgYXNpZGU9e1xuICAgICAgICAgIDxQYW5lbD5cbiAgICAgICAgICAgIDxTZWN0aW9uVGl0bGUgZXllYnJvdz1cIlJvdXRlIEd1YXJkXCIgdGl0bGU9XCJNaXNzaW5nIHJvdXRlIHBhcmFtc1wiIC8+XG4gICAgICAgICAgPC9QYW5lbD5cbiAgICAgICAgfVxuICAgICAgPlxuICAgICAgICA8RXJyb3JTdGF0ZVxuICAgICAgICAgIGFjdGlvbkxhYmVsPVwiQmFjayB0byBnYW1lc1wiXG4gICAgICAgICAgZGVzY3JpcHRpb249XCJJbnN0cnVtZW50IHdvcmtzcGFjZSBuZWVkcyBib3RoIGEgZ2FtZSBpZCBhbmQgYW4gaW5zdHJ1bWVudCBpZC5cIlxuICAgICAgICAgIG9uQWN0aW9uPXsoKSA9PiB7XG4gICAgICAgICAgICB3aW5kb3cubG9jYXRpb24uYXNzaWduKFwiL1wiKTtcbiAgICAgICAgICB9fVxuICAgICAgICAgIHRpdGxlPVwiTm8gaW5zdHJ1bWVudCBzZWxlY3RlZFwiXG4gICAgICAgIC8+XG4gICAgICA8L1BhZ2VGcmFtZT5cbiAgICApO1xuICB9XG5cbiAgaWYgKFxuICAgIGdhbWUuaXNMb2FkaW5nIHx8XG4gICAgaW5zdHJ1bWVudC5pc0xvYWRpbmcgfHxcbiAgICB0aW1lbGluZS5pc0xvYWRpbmcgfHxcbiAgICAoIWdhbWUuZGF0YSAmJiAhZ2FtZS5pc0Vycm9yKSB8fFxuICAgICghaW5zdHJ1bWVudC5kYXRhICYmICFpbnN0cnVtZW50LmlzRXJyb3IpIHx8XG4gICAgKCF0aW1lbGluZS5kYXRhICYmICF0aW1lbGluZS5pc0Vycm9yKVxuICApIHtcbiAgICByZXR1cm4gPExvYWRpbmdTdGF0ZSBtZXNzYWdlPVwiTG9hZGluZyBpbnN0cnVtZW50IHdvcmtzcGFjZeKAplwiIC8+O1xuICB9XG5cbiAgaWYgKFxuICAgIGdhbWUuaXNFcnJvciB8fFxuICAgIGluc3RydW1lbnQuaXNFcnJvciB8fFxuICAgIHRpbWVsaW5lLmlzRXJyb3IgfHxcbiAgICAhZ2FtZS5kYXRhIHx8XG4gICAgIWluc3RydW1lbnQuZGF0YSB8fFxuICAgICF0aW1lbGluZS5kYXRhXG4gICkge1xuICAgIHJldHVybiAoXG4gICAgICA8UGFnZUZyYW1lXG4gICAgICAgIGFzaWRlPXtcbiAgICAgICAgICA8UGFuZWw+XG4gICAgICAgICAgICA8U2VjdGlvblRpdGxlXG4gICAgICAgICAgICAgIGV5ZWJyb3c9XCJGYWlsdXJlIFN0YXRlXCJcbiAgICAgICAgICAgICAgdGl0bGU9XCJJbnN0cnVtZW50IHdvcmtzcGFjZSB1bmF2YWlsYWJsZVwiXG4gICAgICAgICAgICAvPlxuICAgICAgICAgIDwvUGFuZWw+XG4gICAgICAgIH1cbiAgICAgID5cbiAgICAgICAgPEVycm9yU3RhdGVcbiAgICAgICAgICBkZXNjcmlwdGlvbj1cIlRoZSBpbnN0cnVtZW50IHdvcmtzcGFjZSBxdWVyeSBmYWlsZWQuXCJcbiAgICAgICAgICBlcnJvcj17Z2FtZS5lcnJvciA/PyBpbnN0cnVtZW50LmVycm9yID8/IHRpbWVsaW5lLmVycm9yfVxuICAgICAgICAgIG9uQWN0aW9uPXsoKSA9PiB7XG4gICAgICAgICAgICB2b2lkIGdhbWUucmVmZXRjaCgpO1xuICAgICAgICAgICAgdm9pZCBpbnN0cnVtZW50LnJlZmV0Y2goKTtcbiAgICAgICAgICAgIHZvaWQgdGltZWxpbmUucmVmZXRjaCgpO1xuICAgICAgICAgIH19XG4gICAgICAgICAgdGl0bGU9XCJJbnN0cnVtZW50IGRldGFpbCBmYWlsZWQgdG8gbG9hZFwiXG4gICAgICAgIC8+XG4gICAgICA8L1BhZ2VGcmFtZT5cbiAgICApO1xuICB9XG5cbiAgY29uc3QgZ2FtZURhdGEgPSBnYW1lLmRhdGEuZGF0YTtcbiAgY29uc3QgaW5zdHJ1bWVudERhdGEgPSBpbnN0cnVtZW50LmRhdGEuZGF0YTtcbiAgY29uc3QgYXBpRGl2ZXJnZW5jZVN1bW1hcnkgPVxuICAgIGluc3RydW1lbnREYXRhLmRlcml2ZWRDb21wYXJpc29uLmNvbXBhcmlzb25TdW1tYXJ5O1xuICBjb25zdCBkaXZlcmdlbmNlU3VtbWFyeSA9IGFwaURpdmVyZ2VuY2VTdW1tYXJ5XG4gICAgPyB7XG4gICAgICAgIGFib3ZlVGhyZXNob2xkRHVyYXRpb25NczogYXBpRGl2ZXJnZW5jZVN1bW1hcnkuYWJvdmVUaHJlc2hvbGREdXJhdGlvbk1zLFxuICAgICAgICBjdXJyZW50R2FwOiBhcGlEaXZlcmdlbmNlU3VtbWFyeS5sYXRlc3RHYXAgPz8gbnVsbCxcbiAgICAgICAgZmlyc3RBYm92ZVRocmVzaG9sZEF0OlxuICAgICAgICAgIGFwaURpdmVyZ2VuY2VTdW1tYXJ5LmZpcnN0QWJvdmVUaHJlc2hvbGRBdCA/PyBudWxsLFxuICAgICAgICBsYXRlc3RBdDogYXBpRGl2ZXJnZW5jZVN1bW1hcnkubGF0ZXN0Q29tcGFyaXNvbkF0ID8/IG51bGwsXG4gICAgICAgIG1heEdhcDogYXBpRGl2ZXJnZW5jZVN1bW1hcnkubWF4R2FwID8/IG51bGwsXG4gICAgICAgIG1heEdhcEF0OiBhcGlEaXZlcmdlbmNlU3VtbWFyeS5tYXhHYXBBdCA/PyBudWxsLFxuICAgICAgICBtaW5HYXA6IGFwaURpdmVyZ2VuY2VTdW1tYXJ5Lm1pbkdhcCA/PyBudWxsLFxuICAgICAgICBwb2ludHM6IGRpdmVyZ2VuY2VUcmFjZT8ucG9pbnRzID8/IFtdLFxuICAgICAgICB0aHJlc2hvbGQ6IGFwaURpdmVyZ2VuY2VTdW1tYXJ5LnRocmVzaG9sZCxcbiAgICAgIH1cbiAgICA6IGRpdmVyZ2VuY2VUcmFjZTtcbiAgY29uc3QgZGl2ZXJnZW5jZUNoYXJ0RGF0YSA9IGZvcm1hdERpdmVyZ2VuY2VDaGFydERhdGEoXG4gICAgZGl2ZXJnZW5jZVN1bW1hcnk/LnBvaW50cyA/PyBbXVxuICApO1xuICBjb25zdCBkaXZlcmdlbmNlUG9pbnRDb3VudCA9IGRpdmVyZ2VuY2VDaGFydERhdGEuZmlsdGVyKFxuICAgIChyb3cpID0+IHR5cGVvZiByb3cuZGl2ZXJnZW5jZSA9PT0gXCJudW1iZXJcIlxuICApLmxlbmd0aDtcbiAgY29uc3QgZGlhZ25vc3RpY3NEYXRhID0gc291cmNlRGlhZ25vc3RpY3MuZGF0YT8uZGF0YSA/PyBbXTtcbiAgY29uc3QgZXhwb3J0VXJsID0gZ2V0SW5zdHJ1bWVudFRpbWVsaW5lRXhwb3J0VXJsKGdhbWVJZCwgaW5zdHJ1bWVudElkKTtcbiAgY29uc3QgaGFzU291cmNlUXVvdGVzID0gaW5zdHJ1bWVudERhdGEubGF0ZXN0UXVvdGVzQnlTb3VyY2UubGVuZ3RoID4gMDtcbiAgY29uc3QgaGFzU291cmNlRGlhZ25vc3RpY3MgPSBkaWFnbm9zdGljc0RhdGEubGVuZ3RoID4gMDtcbiAgY29uc3QgcHJpY2VkUXVvdGVzID0gaW5zdHJ1bWVudERhdGEubGF0ZXN0UXVvdGVzQnlTb3VyY2UuZmlsdGVyKFxuICAgIChcbiAgICAgIHF1b3RlXG4gICAgKTogcXVvdGUgaXMgKHR5cGVvZiBpbnN0cnVtZW50RGF0YS5sYXRlc3RRdW90ZXNCeVNvdXJjZSlbbnVtYmVyXSAmIHtcbiAgICAgIGltcGxpZWRQcm9iYWJpbGl0eTogbnVtYmVyO1xuICAgIH0gPT4gcXVvdGUuaW1wbGllZFByb2JhYmlsaXR5ICE9IG51bGxcbiAgKTtcbiAgY29uc3QgZ2FtZVN0YXRlU3VtbWFyeSA9IGZvcm1hdEdhbWVTdGF0ZVN1bW1hcnkoXG4gICAgZ2FtZURhdGEuZ2FtZSxcbiAgICBnYW1lRGF0YS5nYW1lU3RhdGVcbiAgKTtcbiAgY29uc3QgZ2FtZUxpZmVjeWNsZSA9IGdldEdhbWVPcGVyYXRpb25hbFN0YXRlKGdhbWVEYXRhKTtcbiAgY29uc3QgbWFya2V0UXVlc3Rpb24gPSBkZXNjcmliZUluc3RydW1lbnRRdWVzdGlvbihcbiAgICBnYW1lRGF0YS5nYW1lLFxuICAgIGluc3RydW1lbnREYXRhLmluc3RydW1lbnRcbiAgKTtcbiAgY29uc3QgbWlzc2luZ01hcmtldFNvdXJjZXMgPSBtYXJrZXRSZXNlYXJjaFNvdXJjZXMuZmlsdGVyKFxuICAgIChzb3VyY2UpID0+ICFwcmljZWRRdW90ZXMuc29tZSgocXVvdGUpID0+IHF1b3RlLnNvdXJjZSA9PT0gc291cmNlKVxuICApO1xuICBjb25zdCBzaWduYWxTdW1tYXJ5ID1cbiAgICBsYXRlc3RDb21wYXJpc29uICYmIGxhdGVzdENvbXBhcmlzb24ucm93cy5sZW5ndGggPj0gMlxuICAgICAgPyBgJHtsYXRlc3RDb21wYXJpc29uLnJvd3NcbiAgICAgICAgICAubWFwKFxuICAgICAgICAgICAgKHJvdykgPT5cbiAgICAgICAgICAgICAgYCR7cm93LnNvdXJjZX0gJHtmb3JtYXRQcm9iYWJpbGl0eShyb3cuaW1wbGllZFByb2JhYmlsaXR5KX1gXG4gICAgICAgICAgKVxuICAgICAgICAgIC5qb2luKFwiIMK3IFwiKX0gwrcgZGl2ZXJnZW5jZSAke2Zvcm1hdEdhcFBvaW50cyhcbiAgICAgICAgICBsYXRlc3RDb21wYXJpc29uLmdhcFxuICAgICAgICApfSDCtyAke2Zvcm1hdENhcHR1cmVkQXQobGF0ZXN0Q29tcGFyaXNvbi5jYXB0dXJlZEF0KX1gXG4gICAgICA6IHByaWNlZFF1b3Rlcy5sZW5ndGggPCAyXG4gICAgICAgID8gYE5vIGNvbXBhcmlzb24geWV0LiBPbmx5ICR7cHJpY2VkUXVvdGVzWzBdPy5zb3VyY2UgPz8gXCJ6ZXJvIHNvdXJjZXNcIn0gaGFzIGEgcXVvdGUgb24gdGhpcyBleGFjdCBtYXJrZXQuJHttaXNzaW5nTWFya2V0U291cmNlcy5sZW5ndGggPiAwID8gYCBNaXNzaW5nICR7bWlzc2luZ01hcmtldFNvdXJjZXMuam9pbihcIiwgXCIpfS5gIDogXCJcIn1gXG4gICAgICAgIDogXCJCZXQzNjUgYW5kIGV4Y2hhbmdlIHF1b3RlcyBoYXZlIG5vdCBvdmVybGFwcGVkIGNsb3NlbHkgZW5vdWdoIHRvIG1lYXN1cmUgdGhpcyBtYXJrZXQuXCI7XG4gIGNvbnN0IHNpZ25hbFN0YXRlID0gY2xhc3NpZnlNYXJrZXRTaWduYWwoe1xuICAgIGNvbXBhcmFibGVTdGF0ZTogaW5zdHJ1bWVudERhdGEuZGVyaXZlZENvbXBhcmlzb24uY29tcGFyYWJsZVN0YXRlLFxuICAgIGdhbWVMaWZlY3ljbGUsXG4gICAgbGF0ZXN0U291cmNlczogaW5zdHJ1bWVudERhdGEubGF0ZXN0UXVvdGVzQnlTb3VyY2UsXG4gICAgcmVxdWlyZUJldDM2NVBsdXNQcmVkaWN0aW9uTWFya2V0OlxuICAgICAgaW5zdHJ1bWVudERhdGEuaW5zdHJ1bWVudC5mYW1pbHkgPT09IFwicGxheWVyLXByb3BcIixcbiAgICBzb3VyY2VDb3VudDogcHJpY2VkUXVvdGVzLmxlbmd0aCxcbiAgfSk7XG4gIGNvbnN0IGRpc3BsYXlTaWduYWxTdGF0ZSA9XG4gICAgc2lnbmFsU3RhdGUuc3RhdGUgPT09IFwiaW52YWxpZFwiICYmXG4gICAgc2lnbmFsU3RhdGUubGFiZWwgPT09IFwiTm8gY29tcGFyaXNvbiB5ZXRcIiAmJlxuICAgIGRpdmVyZ2VuY2VTdW1tYXJ5Py5tYXhHYXAgIT0gbnVsbFxuICAgICAgPyB7XG4gICAgICAgICAgbGFiZWw6XG4gICAgICAgICAgICBnYW1lTGlmZWN5Y2xlLmtpbmQgPT09IFwiZmluYWxcIlxuICAgICAgICAgICAgICA/IFwiUmV2aWV3IGNvbXBhcmlzb25cIlxuICAgICAgICAgICAgICA6IFwiRWFybGllciBjb21wYXJpc29uXCIsXG4gICAgICAgICAgcmVhc29uOlxuICAgICAgICAgICAgXCJMYXRlc3QgcXVvdGVzIGFyZSBub3QgZnJvbSB0aGUgc2FtZSB0aW1lLiBTaG93aW5nIHRoZSBtb3N0IHJlY2VudCBCZXQzNjUtdnMtZXhjaGFuZ2UgY29tcGFyaXNvbi5cIixcbiAgICAgICAgICBzdGF0ZTogc2lnbmFsU3RhdGUuc3RhdGUsXG4gICAgICAgIH1cbiAgICAgIDogc2lnbmFsU3RhdGU7XG4gIGNvbnN0IHNob3dTaWduYWxTdW1tYXJ5ID1cbiAgICBpbnN0cnVtZW50RGF0YS5kZXJpdmVkQ29tcGFyaXNvbi5jb21wYXJhYmxlU3RhdGUgPT09IFwiY29tcGFyYWJsZVwiICYmXG4gICAgbGF0ZXN0Q29tcGFyaXNvbiAhPSBudWxsO1xuICBjb25zdCBzaWduYWxCYWRnZSA9ICgoKSA9PiB7XG4gICAgaWYgKHNpZ25hbFN0YXRlLnN0YXRlID09PSBcImhpc3RvcmljYWxcIikge1xuICAgICAgcmV0dXJuIHsgbGFiZWw6IGRpc3BsYXlTaWduYWxTdGF0ZS5sYWJlbCwgdG9uZTogXCJuZXV0cmFsXCIgYXMgY29uc3QgfTtcbiAgICB9XG4gICAgaWYgKFxuICAgICAgc2lnbmFsU3RhdGUuc3RhdGUgPT09IFwiaW52YWxpZFwiIHx8XG4gICAgICBzaWduYWxTdGF0ZS5zdGF0ZSA9PT0gXCJzdGFsZVwiIHx8XG4gICAgICBpbnN0cnVtZW50RGF0YS5kZXJpdmVkQ29tcGFyaXNvbi5saW5lTWlzbWF0Y2hcbiAgICApIHtcbiAgICAgIHJldHVybiB7XG4gICAgICAgIGxhYmVsOlxuICAgICAgICAgIGluc3RydW1lbnREYXRhLmRlcml2ZWRDb21wYXJpc29uLmxpbmVNaXNtYXRjaCAmJlxuICAgICAgICAgIHNpZ25hbFN0YXRlLnN0YXRlID09PSBcImFjdGlvbmFibGUtbm93XCJcbiAgICAgICAgICAgID8gXCJsaW5lIG1pc21hdGNoXCJcbiAgICAgICAgICAgIDogZGlzcGxheVNpZ25hbFN0YXRlLmxhYmVsLFxuICAgICAgICB0b25lOiBcIndhcm5pbmdcIiBhcyBjb25zdCxcbiAgICAgIH07XG4gICAgfVxuICAgIHJldHVybiB7IGxhYmVsOiBkaXNwbGF5U2lnbmFsU3RhdGUubGFiZWwsIHRvbmU6IFwicG9zaXRpdmVcIiBhcyBjb25zdCB9O1xuICB9KSgpO1xuICBjb25zdCBjb21wYXJpc29uUm93cyA9XG4gICAgbGF0ZXN0Q29tcGFyaXNvbj8ucm93cy5tYXAoKHJvdykgPT4gKHtcbiAgICAgIGNhcHR1cmVkQXQ6IHJvdy5jYXB0dXJlZEF0LFxuICAgICAgaW1wbGllZFByb2JhYmlsaXR5OiByb3cuaW1wbGllZFByb2JhYmlsaXR5LFxuICAgICAgbGluZTogcm93LmxpbmUsXG4gICAgICBtYXJrZXRMYWJlbDogaW5zdHJ1bWVudERhdGEuaW5zdHJ1bWVudC5kaXNwbGF5TGFiZWwsXG4gICAgICBzb3VyY2U6IHJvdy5zb3VyY2UsXG4gICAgfSkpID8/IFtdO1xuICBjb25zdCBjb21wYXJpc29uU3VtbWFyeSA9XG4gICAgbGF0ZXN0Q29tcGFyaXNvbiAmJiBsYXRlc3RDb21wYXJpc29uLnJvd3MubGVuZ3RoID49IDJcbiAgICAgID8gYCR7bGF0ZXN0Q29tcGFyaXNvbi5yb3dzXG4gICAgICAgICAgLm1hcChcbiAgICAgICAgICAgIChyb3cpID0+XG4gICAgICAgICAgICAgIGAke3Jvdy5zb3VyY2V9ICR7Zm9ybWF0UHJvYmFiaWxpdHkocm93LmltcGxpZWRQcm9iYWJpbGl0eSl9YFxuICAgICAgICAgIClcbiAgICAgICAgICAuam9pbihcbiAgICAgICAgICAgIFwiIMK3IFwiXG4gICAgICAgICAgKX0gwrcgZGl2ZXJnZW5jZSAke2Zvcm1hdEdhcFBvaW50cyhsYXRlc3RDb21wYXJpc29uLmdhcCl9IMK3ICR7Zm9ybWF0Q2FwdHVyZWRBdChcbiAgICAgICAgICBsYXRlc3RDb21wYXJpc29uLmNhcHR1cmVkQXRcbiAgICAgICAgKX1gXG4gICAgICA6IGRpc3BsYXlTaWduYWxTdGF0ZS5yZWFzb247XG4gIGNvbnN0IGRpdmVyZ2VuY2VIZWFkbGluZSA9XG4gICAgZGl2ZXJnZW5jZVN1bW1hcnk/Lm1heEdhcCAhPSBudWxsXG4gICAgICA/IGAke2Zvcm1hdEdhcFBvaW50cyhkaXZlcmdlbmNlU3VtbWFyeS5tYXhHYXApfSBwZWFrIGRpdmVyZ2VuY2VgXG4gICAgICA6IGRpc3BsYXlTaWduYWxTdGF0ZS5sYWJlbDtcbiAgY29uc3QgZGl2ZXJnZW5jZURldGFpbCA9XG4gICAgZGl2ZXJnZW5jZVN1bW1hcnk/Lm1heEdhcEF0ICE9IG51bGxcbiAgICAgID8gYFBlYWsgYXQgJHtmb3JtYXRDYXB0dXJlZEF0KFxuICAgICAgICAgIGRpdmVyZ2VuY2VTdW1tYXJ5Lm1heEdhcEF0XG4gICAgICAgICl9LiBMYXRlc3QgbWVhc3VyZWQgZGl2ZXJnZW5jZSAke2Zvcm1hdEdhcFBvaW50cyhcbiAgICAgICAgICBkaXZlcmdlbmNlU3VtbWFyeS5jdXJyZW50R2FwXG4gICAgICAgICl9IGF0ICR7Zm9ybWF0Q2FwdHVyZWRBdChkaXZlcmdlbmNlU3VtbWFyeS5sYXRlc3RBdCl9LmBcbiAgICAgIDogY29tcGFyaXNvblN1bW1hcnk7XG5cbiAgcmV0dXJuIChcbiAgICA8PlxuICAgICAgPFBhZ2VGcmFtZVxuICAgICAgICBhc2lkZT17XG4gICAgICAgICAgPD5cbiAgICAgICAgICAgIDxQYW5lbD5cbiAgICAgICAgICAgICAgPFNlY3Rpb25UaXRsZVxuICAgICAgICAgICAgICAgIGV5ZWJyb3c9XCJDb21wYXJpc29uXCJcbiAgICAgICAgICAgICAgICB0aXRsZT17aW5zdHJ1bWVudERhdGEuaW5zdHJ1bWVudC5kaXNwbGF5TGFiZWx9XG4gICAgICAgICAgICAgIC8+XG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwidGFnLXJvd1wiPlxuICAgICAgICAgICAgICAgIDxCYWRnZSB0b25lPXtzaWduYWxCYWRnZS50b25lfT57c2lnbmFsQmFkZ2UubGFiZWx9PC9CYWRnZT5cbiAgICAgICAgICAgICAgICA8QmFkZ2VcbiAgICAgICAgICAgICAgICAgIHRvbmU9e1xuICAgICAgICAgICAgICAgICAgICBpbnN0cnVtZW50RGF0YS5kZXJpdmVkQ29tcGFyaXNvbi5saW5lTWlzbWF0Y2hcbiAgICAgICAgICAgICAgICAgICAgICA/IFwid2FybmluZ1wiXG4gICAgICAgICAgICAgICAgICAgICAgOiBcIm5ldXRyYWxcIlxuICAgICAgICAgICAgICAgICAgfVxuICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgIHtpbnN0cnVtZW50RGF0YS5pbnN0cnVtZW50LmZhbWlseX1cbiAgICAgICAgICAgICAgICA8L0JhZGdlPlxuICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgIDwvUGFuZWw+XG5cbiAgICAgICAgICAgIDxQYW5lbD5cbiAgICAgICAgICAgICAgPFNlY3Rpb25UaXRsZVxuICAgICAgICAgICAgICAgIGV5ZWJyb3c9XCJHYW1lIFN0YXRlXCJcbiAgICAgICAgICAgICAgICB0aXRsZT17YCR7Z2FtZURhdGEuZ2FtZS5hd2F5UGFydGljaXBhbnQuc2hvcnROYW1lfSBhdCAke2dhbWVEYXRhLmdhbWUuaG9tZVBhcnRpY2lwYW50LnNob3J0TmFtZX1gfVxuICAgICAgICAgICAgICAvPlxuICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJtdXRlZFwiPntnYW1lU3RhdGVTdW1tYXJ5fTwvcD5cbiAgICAgICAgICAgIDwvUGFuZWw+XG4gICAgICAgICAgPC8+XG4gICAgICAgIH1cbiAgICAgID5cbiAgICAgICAgPHNlY3Rpb24gY2xhc3NOYW1lPVwiaGVyby1zdHJpcFwiPlxuICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImV5ZWJyb3dcIj5NYXJrZXQ8L2Rpdj5cbiAgICAgICAgICAgIDxoMT57aW5zdHJ1bWVudERhdGEuaW5zdHJ1bWVudC5kaXNwbGF5TGFiZWx9PC9oMT5cbiAgICAgICAgICAgIDxwPlxuICAgICAgICAgICAgICBCZXQzNjUgYW5kIGV4Y2hhbmdlIHByaWNlcyBhcmUgc2hvd24gb24gdGhlIHNhbWUgcHJvYmFiaWxpdHlcbiAgICAgICAgICAgICAgc2NhbGUuXG4gICAgICAgICAgICA8L3A+XG4gICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJoZXJvLWFjdGlvbnNcIj5cbiAgICAgICAgICAgIDxhIGNsYXNzTmFtZT1cInByaW1hcnktYnV0dG9uXCIgaHJlZj17ZXhwb3J0VXJsfT5cbiAgICAgICAgICAgICAgRXhwb3J0IHRpbWVsaW5lIENTVlxuICAgICAgICAgICAgPC9hPlxuICAgICAgICAgICAgPGJ1dHRvblxuICAgICAgICAgICAgICBjbGFzc05hbWU9XCJnaG9zdC1idXR0b25cIlxuICAgICAgICAgICAgICBkaXNhYmxlZD17IWhhc1NvdXJjZVF1b3Rlc31cbiAgICAgICAgICAgICAgb25DbGljaz17KCkgPT4gc2V0UmF3RHJhd2VyT3Blbih0cnVlKX1cbiAgICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXG4gICAgICAgICAgICA+XG4gICAgICAgICAgICAgIFNvdXJjZSByZWNvcmRzXG4gICAgICAgICAgICA8L2J1dHRvbj5cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgPC9zZWN0aW9uPlxuXG4gICAgICAgIDxTaWduYWxRdWFsaXR5U3RyaXBcbiAgICAgICAgICBjb21wYXJpc29uU3VtbWFyeT17YXBpRGl2ZXJnZW5jZVN1bW1hcnl9XG4gICAgICAgICAgZ2FtZUlkPXtnYW1lSWR9XG4gICAgICAgICAgaW5zdHJ1bWVudElkPXtpbnN0cnVtZW50SWR9XG4gICAgICAgIC8+XG5cbiAgICAgICAgPFBhbmVsPlxuICAgICAgICAgIDxTZWN0aW9uVGl0bGVcbiAgICAgICAgICAgIGV5ZWJyb3c9XCJDb21wYXJpc29uXCJcbiAgICAgICAgICAgIHRpdGxlPXttYXJrZXRRdWVzdGlvbn1cbiAgICAgICAgICAgIGJvZHk9e2Ake2luc3RydW1lbnREYXRhLmluc3RydW1lbnQuZGlzcGxheUxhYmVsfSDCtyAke2dhbWVTdGF0ZVN1bW1hcnl9YH1cbiAgICAgICAgICAvPlxuICAgICAgICAgIHtoYXNTb3VyY2VRdW90ZXMgPyAoXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInN0YWNrXCI+XG4gICAgICAgICAgICAgIDxkaXZcbiAgICAgICAgICAgICAgICBjbGFzc05hbWU9e2BpbmxpbmUtYWxlcnQgJHtcbiAgICAgICAgICAgICAgICAgIGRpc3BsYXlTaWduYWxTdGF0ZS5zdGF0ZSA9PT0gXCJhY3Rpb25hYmxlLW5vd1wiXG4gICAgICAgICAgICAgICAgICAgID8gXCJpbmxpbmUtYWxlcnQtcG9zaXRpdmVcIlxuICAgICAgICAgICAgICAgICAgICA6IFwiaW5saW5lLWFsZXJ0LXdhcm5pbmdcIlxuICAgICAgICAgICAgICAgIH1gfVxuICAgICAgICAgICAgICA+XG4gICAgICAgICAgICAgICAgPHN0cm9uZz57ZGl2ZXJnZW5jZUhlYWRsaW5lfTwvc3Ryb25nPlxuICAgICAgICAgICAgICAgIDxzcGFuPlxuICAgICAgICAgICAgICAgICAge3Nob3dTaWduYWxTdW1tYXJ5ID8gc2lnbmFsU3VtbWFyeSA6IGRpdmVyZ2VuY2VEZXRhaWx9XG4gICAgICAgICAgICAgICAgPC9zcGFuPlxuICAgICAgICAgICAgICAgIDxEaXZlcmdlbmNlTWluaUNoYXJ0IHN1bW1hcnk9e2RpdmVyZ2VuY2VTdW1tYXJ5fSAvPlxuICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAge2RpdmVyZ2VuY2VTdW1tYXJ5Py5tYXhHYXAgIT0gbnVsbCA/IChcbiAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImRpdmVyZ2VuY2Utc3VtbWFyeS1ncmlkXCI+XG4gICAgICAgICAgICAgICAgICA8ZGl2PlxuICAgICAgICAgICAgICAgICAgICA8c3Bhbj5QZWFrIGRpdmVyZ2VuY2U8L3NwYW4+XG4gICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+e2Zvcm1hdEdhcFBvaW50cyhkaXZlcmdlbmNlU3VtbWFyeS5tYXhHYXApfTwvc3Ryb25nPlxuICAgICAgICAgICAgICAgICAgICA8ZW0+e2Zvcm1hdENhcHR1cmVkQXQoZGl2ZXJnZW5jZVN1bW1hcnkubWF4R2FwQXQpfTwvZW0+XG4gICAgICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICAgICAgICAgIDxzcGFuPkxhdGVzdCBtZWFzdXJlZDwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgPHN0cm9uZz5cbiAgICAgICAgICAgICAgICAgICAgICB7Zm9ybWF0R2FwUG9pbnRzKGRpdmVyZ2VuY2VTdW1tYXJ5LmN1cnJlbnRHYXApfVxuICAgICAgICAgICAgICAgICAgICA8L3N0cm9uZz5cbiAgICAgICAgICAgICAgICAgICAgPGVtPntmb3JtYXRDYXB0dXJlZEF0KGRpdmVyZ2VuY2VTdW1tYXJ5LmxhdGVzdEF0KX08L2VtPlxuICAgICAgICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICAgICAgICA8ZGl2PlxuICAgICAgICAgICAgICAgICAgICA8c3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgICBBYm92ZSB7Zm9ybWF0R2FwUG9pbnRzKGRpdmVyZ2VuY2VTdW1tYXJ5LnRocmVzaG9sZCl9XG4gICAgICAgICAgICAgICAgICAgIDwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgPHN0cm9uZz5cbiAgICAgICAgICAgICAgICAgICAgICB7Zm9ybWF0RHVyYXRpb24oXG4gICAgICAgICAgICAgICAgICAgICAgICBkaXZlcmdlbmNlU3VtbWFyeS5hYm92ZVRocmVzaG9sZER1cmF0aW9uTXNcbiAgICAgICAgICAgICAgICAgICAgICApfVxuICAgICAgICAgICAgICAgICAgICA8L3N0cm9uZz5cbiAgICAgICAgICAgICAgICAgICAgPGVtPlxuICAgICAgICAgICAgICAgICAgICAgIHtkaXZlcmdlbmNlU3VtbWFyeS5maXJzdEFib3ZlVGhyZXNob2xkQXRcbiAgICAgICAgICAgICAgICAgICAgICAgID8gYGZyb20gJHtmb3JtYXRDYXB0dXJlZEF0KFxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIGRpdmVyZ2VuY2VTdW1tYXJ5LmZpcnN0QWJvdmVUaHJlc2hvbGRBdFxuICAgICAgICAgICAgICAgICAgICAgICAgICApfWBcbiAgICAgICAgICAgICAgICAgICAgICAgIDogXCJub3QgcmVhY2hlZFwifVxuICAgICAgICAgICAgICAgICAgICA8L2VtPlxuICAgICAgICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICAgICkgOiBudWxsfVxuICAgICAgICAgICAgICB7Y29tcGFyaXNvblJvd3MubGVuZ3RoID4gMCA/IChcbiAgICAgICAgICAgICAgICA8dGFibGUgY2xhc3NOYW1lPVwiZGF0YS10YWJsZVwiPlxuICAgICAgICAgICAgICAgICAgPHRoZWFkPlxuICAgICAgICAgICAgICAgICAgICA8dHI+XG4gICAgICAgICAgICAgICAgICAgICAgPHRoPlNvdXJjZTwvdGg+XG4gICAgICAgICAgICAgICAgICAgICAgPHRoPk1hcmtldDwvdGg+XG4gICAgICAgICAgICAgICAgICAgICAgPHRoPlByb2JhYmlsaXR5PC90aD5cbiAgICAgICAgICAgICAgICAgICAgICA8dGg+TGluZTwvdGg+XG4gICAgICAgICAgICAgICAgICAgICAgPHRoPkNhcHR1cmVkPC90aD5cbiAgICAgICAgICAgICAgICAgICAgPC90cj5cbiAgICAgICAgICAgICAgICAgIDwvdGhlYWQ+XG4gICAgICAgICAgICAgICAgICA8dGJvZHk+XG4gICAgICAgICAgICAgICAgICAgIHtjb21wYXJpc29uUm93cy5tYXAoKHJvdykgPT4gKFxuICAgICAgICAgICAgICAgICAgICAgIDx0ciBrZXk9e2Ake3Jvdy5zb3VyY2V9OiR7cm93LmNhcHR1cmVkQXQgPz8gXCJtaXNzaW5nXCJ9YH0+XG4gICAgICAgICAgICAgICAgICAgICAgICA8dGQ+XG4gICAgICAgICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+e3Jvdy5zb3VyY2V9PC9zdHJvbmc+XG4gICAgICAgICAgICAgICAgICAgICAgICA8L3RkPlxuICAgICAgICAgICAgICAgICAgICAgICAgPHRkPntyb3cubWFya2V0TGFiZWx9PC90ZD5cbiAgICAgICAgICAgICAgICAgICAgICAgIDx0ZCBjbGFzc05hbWU9XCJ0YWJsZS1tZXRyaWNcIj5cbiAgICAgICAgICAgICAgICAgICAgICAgICAge2Zvcm1hdFByb2JhYmlsaXR5KHJvdy5pbXBsaWVkUHJvYmFiaWxpdHkpfVxuICAgICAgICAgICAgICAgICAgICAgICAgPC90ZD5cbiAgICAgICAgICAgICAgICAgICAgICAgIDx0ZD57Zm9ybWF0TGluZShyb3cubGluZSl9PC90ZD5cbiAgICAgICAgICAgICAgICAgICAgICAgIDx0ZD57Zm9ybWF0Q2FwdHVyZWRBdChyb3cuY2FwdHVyZWRBdCl9PC90ZD5cbiAgICAgICAgICAgICAgICAgICAgICA8L3RyPlxuICAgICAgICAgICAgICAgICAgICApKX1cbiAgICAgICAgICAgICAgICAgIDwvdGJvZHk+XG4gICAgICAgICAgICAgICAgPC90YWJsZT5cbiAgICAgICAgICAgICAgKSA6IChcbiAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJtdXRlZFwiPlxuICAgICAgICAgICAgICAgICAgTm8gQmV0MzY1LXZzLWV4Y2hhbmdlIGNvbXBhcmlzb24gd2FzIG1lYXN1cmVkIGluIHRoZSBzYW1lXG4gICAgICAgICAgICAgICAgICBxdW90ZSB3aW5kb3cuXG4gICAgICAgICAgICAgICAgPC9wPlxuICAgICAgICAgICAgICApfVxuICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgKSA6IChcbiAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cIm11dGVkXCI+XG4gICAgICAgICAgICAgIE5vIHNvdXJjZSBxdW90ZXMgaGF2ZSBiZWVuIGNhcHR1cmVkIGZvciB0aGlzIGluc3RydW1lbnQgeWV0LlxuICAgICAgICAgICAgPC9wPlxuICAgICAgICAgICl9XG4gICAgICAgIDwvUGFuZWw+XG5cbiAgICAgICAgPFBhbmVsPlxuICAgICAgICAgIDxTZWN0aW9uVGl0bGVcbiAgICAgICAgICAgIGV5ZWJyb3c9XCJUaW1lbGluZVwiXG4gICAgICAgICAgICB0aXRsZT1cIkRpdmVyZ2VuY2Ugb3ZlciB0aW1lXCJcbiAgICAgICAgICAgIGJvZHk9XCJPbmx5IEJldDM2NS12cy1leGNoYW5nZSBxdW90ZSB3aW5kb3dzIGFyZSBwbG90dGVkLiBMb25nIHVubWVhc3VyZWQgc3BhbnMgc3RheSBkaXNjb25uZWN0ZWQuXCJcbiAgICAgICAgICAvPlxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiY2hhcnQtc2hlbGxcIj5cbiAgICAgICAgICAgIDxSZXNwb25zaXZlQ29udGFpbmVyIGhlaWdodD17MzIwfSB3aWR0aD1cIjEwMCVcIj5cbiAgICAgICAgICAgICAgPExpbmVDaGFydCBkYXRhPXtkaXZlcmdlbmNlQ2hhcnREYXRhfT5cbiAgICAgICAgICAgICAgICB7dGltZWxpbmUuZGF0YS5kYXRhLmxpbmVNaXNtYXRjaFdpbmRvd3MubWFwKCh3aW5kb3csIGluZGV4KSA9PiAoXG4gICAgICAgICAgICAgICAgICA8UmVmZXJlbmNlQXJlYVxuICAgICAgICAgICAgICAgICAgICBmaWxsPVwicmdiYSgyMTQsIDEzMiwgODYsIDAuMTQpXCJcbiAgICAgICAgICAgICAgICAgICAga2V5PXtgJHt3aW5kb3cuc3RhcnR9LSR7aW5kZXh9YH1cbiAgICAgICAgICAgICAgICAgICAgeDE9e3dpbmRvdy5zdGFydH1cbiAgICAgICAgICAgICAgICAgICAgeDI9e3dpbmRvdy5lbmQgPz8gd2luZG93LnN0YXJ0fVxuICAgICAgICAgICAgICAgICAgLz5cbiAgICAgICAgICAgICAgICApKX1cbiAgICAgICAgICAgICAgICA8Q2FydGVzaWFuR3JpZCBzdHJva2U9e2NoYXJ0R3JpZENvbG9yfSB2ZXJ0aWNhbD17ZmFsc2V9IC8+XG4gICAgICAgICAgICAgICAgPFhBeGlzXG4gICAgICAgICAgICAgICAgICBkYXRhS2V5PVwiY2FwdHVyZWRBdFwiXG4gICAgICAgICAgICAgICAgICBzdHJva2U9e2NoYXJ0QXhpc0NvbG9yfVxuICAgICAgICAgICAgICAgICAgdGlja0Zvcm1hdHRlcj17Zm9ybWF0VGltZWxpbmVUaW1lc3RhbXB9XG4gICAgICAgICAgICAgICAgLz5cbiAgICAgICAgICAgICAgICA8WUF4aXNcbiAgICAgICAgICAgICAgICAgIHN0cm9rZT17Y2hhcnRBeGlzQ29sb3J9XG4gICAgICAgICAgICAgICAgICB0aWNrRm9ybWF0dGVyPXsodmFsdWUpID0+IGAke3ZhbHVlfSBwcGB9XG4gICAgICAgICAgICAgICAgLz5cbiAgICAgICAgICAgICAgICA8VG9vbHRpcFxuICAgICAgICAgICAgICAgICAgbGFiZWxGb3JtYXR0ZXI9e2Zvcm1hdFRpbWVsaW5lVGltZXN0YW1wfVxuICAgICAgICAgICAgICAgICAgey4uLmNoYXJ0VG9vbHRpcFN0eWxlfVxuICAgICAgICAgICAgICAgIC8+XG4gICAgICAgICAgICAgICAgPExlZ2VuZCB3cmFwcGVyU3R5bGU9e2NoYXJ0TGVnZW5kU3R5bGV9IC8+XG4gICAgICAgICAgICAgICAgPExpbmVcbiAgICAgICAgICAgICAgICAgIGFjdGl2ZURvdD17e1xuICAgICAgICAgICAgICAgICAgICBmaWxsOiBcIiNmNGM5NmZcIixcbiAgICAgICAgICAgICAgICAgICAgcjogNSxcbiAgICAgICAgICAgICAgICAgICAgc3Ryb2tlOiBcIiNmM2Y3ZmJcIixcbiAgICAgICAgICAgICAgICAgICAgc3Ryb2tlV2lkdGg6IDEsXG4gICAgICAgICAgICAgICAgICB9fVxuICAgICAgICAgICAgICAgICAgY29ubmVjdE51bGxzPXtmYWxzZX1cbiAgICAgICAgICAgICAgICAgIGRhdGFLZXk9XCJkaXZlcmdlbmNlXCJcbiAgICAgICAgICAgICAgICAgIGRvdD17XG4gICAgICAgICAgICAgICAgICAgIGRpdmVyZ2VuY2VQb2ludENvdW50IDw9IDFcbiAgICAgICAgICAgICAgICAgICAgICA/IHtcbiAgICAgICAgICAgICAgICAgICAgICAgICAgZmlsbDogXCIjZjRjOTZmXCIsXG4gICAgICAgICAgICAgICAgICAgICAgICAgIHI6IDQsXG4gICAgICAgICAgICAgICAgICAgICAgICAgIHN0cm9rZTogXCIjZjRjOTZmXCIsXG4gICAgICAgICAgICAgICAgICAgICAgICAgIHN0cm9rZVdpZHRoOiAwLFxuICAgICAgICAgICAgICAgICAgICAgICAgfVxuICAgICAgICAgICAgICAgICAgICAgIDogZmFsc2VcbiAgICAgICAgICAgICAgICAgIH1cbiAgICAgICAgICAgICAgICAgIGlzQW5pbWF0aW9uQWN0aXZlPXtmYWxzZX1cbiAgICAgICAgICAgICAgICAgIG5hbWU9XCJkaXZlcmdlbmNlXCJcbiAgICAgICAgICAgICAgICAgIHN0cm9rZT1cIiNmNGM5NmZcIlxuICAgICAgICAgICAgICAgICAgc3Ryb2tlV2lkdGg9ezJ9XG4gICAgICAgICAgICAgICAgICB0eXBlPVwic3RlcEFmdGVyXCJcbiAgICAgICAgICAgICAgICAvPlxuICAgICAgICAgICAgICA8L0xpbmVDaGFydD5cbiAgICAgICAgICAgIDwvUmVzcG9uc2l2ZUNvbnRhaW5lcj5cbiAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICB7dGltZWxpbmUuZGF0YS5kYXRhLmxpbmVNaXNtYXRjaFdpbmRvd3MubGVuZ3RoID4gMCA/IChcbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwidGFnLXJvd1wiPlxuICAgICAgICAgICAgICB7dGltZWxpbmUuZGF0YS5kYXRhLmxpbmVNaXNtYXRjaFdpbmRvd3MubWFwKCh3aW5kb3csIGluZGV4KSA9PiAoXG4gICAgICAgICAgICAgICAgPEJhZGdlIGtleT17YCR7d2luZG93LnN0YXJ0fS0ke2luZGV4fWB9IHRvbmU9XCJ3YXJuaW5nXCI+XG4gICAgICAgICAgICAgICAgICB7d2luZG93LnNvdXJjZXMuam9pbihcIiAvIFwiKX0gbWlzbWF0Y2ggZnJvbXtcIiBcIn1cbiAgICAgICAgICAgICAgICAgIHtmb3JtYXRUaW1lbGluZVRpbWVzdGFtcCh3aW5kb3cuc3RhcnQpfVxuICAgICAgICAgICAgICAgICAge3dpbmRvdy5lbmRcbiAgICAgICAgICAgICAgICAgICAgPyBgIHRvICR7Zm9ybWF0VGltZWxpbmVUaW1lc3RhbXAod2luZG93LmVuZCl9YFxuICAgICAgICAgICAgICAgICAgICA6IFwiXCJ9XG4gICAgICAgICAgICAgICAgPC9CYWRnZT5cbiAgICAgICAgICAgICAgKSl9XG4gICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICApIDogbnVsbH1cbiAgICAgICAgPC9QYW5lbD5cblxuICAgICAgICA8UGFuZWw+XG4gICAgICAgICAgPFNlY3Rpb25UaXRsZVxuICAgICAgICAgICAgZXllYnJvdz1cIkRldGFpbHNcIlxuICAgICAgICAgICAgdGl0bGU9XCJTb3VyY2UgcmVjb3Jkc1wiXG4gICAgICAgICAgICBib2R5PVwiU3RvcmVkIHNvdXJjZSByb3dzIGFuZCB0aW1pbmcgY2hlY2tzIHN0YXkgaGVyZSBzbyB0aGUgY29tcGFyaXNvbiBhYm92ZSB1c2VzIG9uZSBjYW5vbmljYWwgcHJvYmFiaWxpdHkgc2NhbGUuXCJcbiAgICAgICAgICAvPlxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3RhY2tcIj5cbiAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwidGFnLXJvd1wiPlxuICAgICAgICAgICAgICA8YnV0dG9uXG4gICAgICAgICAgICAgICAgY2xhc3NOYW1lPVwiZ2hvc3QtYnV0dG9uXCJcbiAgICAgICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBzZXRTaG93RGlhZ25vc3RpY3MoKGN1cnJlbnQpID0+ICFjdXJyZW50KX1cbiAgICAgICAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcbiAgICAgICAgICAgICAgPlxuICAgICAgICAgICAgICAgIHtzaG93RGlhZ25vc3RpY3NcbiAgICAgICAgICAgICAgICAgID8gXCJIaWRlIHNvdXJjZSByZWNvcmRzXCJcbiAgICAgICAgICAgICAgICAgIDogXCJTaG93IHNvdXJjZSByZWNvcmRzXCJ9XG4gICAgICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICB7c2hvd0RpYWdub3N0aWNzICYmIHNvdXJjZURpYWdub3N0aWNzLmlzTG9hZGluZyA/IChcbiAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwibXV0ZWRcIj5Mb2FkaW5nIGRpYWdub3N0aWNz4oCmPC9wPlxuICAgICAgICAgICAgKSA6IG51bGx9XG4gICAgICAgICAgICB7c2hvd0RpYWdub3N0aWNzICYmIHNvdXJjZURpYWdub3N0aWNzLmlzRXJyb3IgPyAoXG4gICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cIm11dGVkXCI+XG4gICAgICAgICAgICAgICAgU291cmNlIHJlY29yZHMgZmFpbGVkIHRvIGxvYWQuIFRoZSBjb21wYXJpc29uIGFib3ZlIGlzIHN0aWxsXG4gICAgICAgICAgICAgICAgYXZhaWxhYmxlLlxuICAgICAgICAgICAgICA8L3A+XG4gICAgICAgICAgICApIDogbnVsbH1cbiAgICAgICAgICAgIHtzaG93RGlhZ25vc3RpY3MgJiYgaGFzU291cmNlRGlhZ25vc3RpY3MgPyAoXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic291cmNlLWNvbXBhcmUtZ3JpZFwiPlxuICAgICAgICAgICAgICAgIHtkaWFnbm9zdGljc0RhdGEubWFwKChlbnRyeSkgPT4gKFxuICAgICAgICAgICAgICAgICAgPGRpdlxuICAgICAgICAgICAgICAgICAgICBjbGFzc05hbWU9XCJzb3VyY2UtY29tcGFyZS1jYXJkXCJcbiAgICAgICAgICAgICAgICAgICAga2V5PXtlbnRyeS5zb3VyY2VNYXJrZXQuaWR9XG4gICAgICAgICAgICAgICAgICA+XG4gICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic291cmNlLWNvbXBhcmUtaGVhZFwiPlxuICAgICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+e2VudHJ5LnNvdXJjZX08L3N0cm9uZz5cbiAgICAgICAgICAgICAgICAgICAgICA8QmFkZ2VcbiAgICAgICAgICAgICAgICAgICAgICAgIHRvbmU9e3RvbmVGb3JNYXBwaW5nU3RhdHVzKFxuICAgICAgICAgICAgICAgICAgICAgICAgICBlbnRyeS5kaWFnbm9zdGljcy5tYXBwaW5nU3RhdHVzXG4gICAgICAgICAgICAgICAgICAgICAgICApfVxuICAgICAgICAgICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICAgICAgICAgIHtlbnRyeS5kaWFnbm9zdGljcy5tYXBwaW5nU3RhdHVzfVxuICAgICAgICAgICAgICAgICAgICAgIDwvQmFkZ2U+XG4gICAgICAgICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInNvdXJjZS1jb21wYXJlLWJvZHlcIj5cbiAgICAgICAgICAgICAgICAgICAgICA8c3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgICAgIG1hcmtldCBpZCB7ZW50cnkuc291cmNlTWFya2V0LnNvdXJjZU1hcmtldEtleX1cbiAgICAgICAgICAgICAgICAgICAgICA8L3NwYW4+XG4gICAgICAgICAgICAgICAgICAgICAgPHNwYW4+XG4gICAgICAgICAgICAgICAgICAgICAgICBzb3VyY2UgbGFiZWwge2VudHJ5LnNvdXJjZU1hcmtldC5yYXdMYWJlbCA/PyBcIm4vYVwifSDCt1xuICAgICAgICAgICAgICAgICAgICAgICAgZmFtaWx5IHtlbnRyeS5zb3VyY2VNYXJrZXQucmF3RmFtaWx5ID8/IFwibi9hXCJ9XG4gICAgICAgICAgICAgICAgICAgICAgPC9zcGFuPlxuICAgICAgICAgICAgICAgICAgICAgIDxzcGFuPlxuICAgICAgICAgICAgICAgICAgICAgICAgcXVvdGUgYWdlIHtmb3JtYXRNaW51dGVzKGVudHJ5LmZyZXNobmVzc01zKX0gwrcgbGFne1wiIFwifVxuICAgICAgICAgICAgICAgICAgICAgICAge2Zvcm1hdE1pbnV0ZXMoZW50cnkuZGlhZ25vc3RpY3MuY2FwdHVyZUxhZ01zKX1cbiAgICAgICAgICAgICAgICAgICAgICA8L3NwYW4+XG4gICAgICAgICAgICAgICAgICAgICAgPHNwYW4+XG4gICAgICAgICAgICAgICAgICAgICAgICBsaW5lIG1pc21hdGNoe1wiIFwifVxuICAgICAgICAgICAgICAgICAgICAgICAge2VudHJ5LmRpYWdub3N0aWNzLmxpbmVNaXNtYXRjaCA/IFwicHJlc2VudFwiIDogXCJjbGVhclwifVxuICAgICAgICAgICAgICAgICAgICAgIDwvc3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgICA8c3Bhbj5cbiAgICAgICAgICAgICAgICAgICAgICAgIGxhdGVzdCBxdW90ZXtcIiBcIn1cbiAgICAgICAgICAgICAgICAgICAgICAgIHtmb3JtYXRDYXB0dXJlZEF0KGVudHJ5LmxhdGVzdFF1b3RlPy5jYXB0dXJlZEF0KX1cbiAgICAgICAgICAgICAgICAgICAgICA8L3NwYW4+XG4gICAgICAgICAgICAgICAgICAgICAgPHNwYW4+XG4gICAgICAgICAgICAgICAgICAgICAgICBsYXN0IHNvdXJjZSByZWNvcmR7XCIgXCJ9XG4gICAgICAgICAgICAgICAgICAgICAgICB7ZW50cnkubGF0ZXN0UmF3UGF5bG9hZFxuICAgICAgICAgICAgICAgICAgICAgICAgICA/IGAjJHtlbnRyeS5sYXRlc3RSYXdQYXlsb2FkLmlkfSBhdCAke2Zvcm1hdENhcHR1cmVkQXQoZW50cnkubGF0ZXN0UmF3UGF5bG9hZC5jYXB0dXJlZEF0KX1gXG4gICAgICAgICAgICAgICAgICAgICAgICAgIDogXCJub25lXCJ9XG4gICAgICAgICAgICAgICAgICAgICAgPC9zcGFuPlxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgICAgICkpfVxuICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgICkgOiBudWxsfVxuICAgICAgICAgICAge3Nob3dEaWFnbm9zdGljcyAmJlxuICAgICAgICAgICAgIXNvdXJjZURpYWdub3N0aWNzLmlzTG9hZGluZyAmJlxuICAgICAgICAgICAgIXNvdXJjZURpYWdub3N0aWNzLmlzRXJyb3IgJiZcbiAgICAgICAgICAgICFoYXNTb3VyY2VEaWFnbm9zdGljcyA/IChcbiAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwibXV0ZWRcIj5cbiAgICAgICAgICAgICAgICBObyBzb3VyY2UgbWFya2V0cyBhcmUgYXR0YWNoZWQgdG8gdGhpcyBjYW5vbmljYWwgaW5zdHJ1bWVudCB5ZXQuXG4gICAgICAgICAgICAgIDwvcD5cbiAgICAgICAgICAgICkgOiBudWxsfVxuICAgICAgICAgIDwvZGl2PlxuICAgICAgICA8L1BhbmVsPlxuICAgICAgPC9QYWdlRnJhbWU+XG5cbiAgICAgIDxSYXdTb3VyY2VEcmF3ZXJcbiAgICAgICAgZ2FtZUlkPXtnYW1lSWR9XG4gICAgICAgIGluc3RydW1lbnRJZD17aW5zdHJ1bWVudElkfVxuICAgICAgICBvbkNsb3NlPXsoKSA9PiBzZXRSYXdEcmF3ZXJPcGVuKGZhbHNlKX1cbiAgICAgICAgb3Blbj17cmF3RHJhd2VyT3Blbn1cbiAgICAgICAgcHJlZmVycmVkU291cmNlSWQ9e3NlbGVjdGVkU291cmNlSWR9XG4gICAgICAgIHNvdXJjZUlkcz17aW5zdHJ1bWVudERhdGEubGF0ZXN0UXVvdGVzQnlTb3VyY2UubWFwKFxuICAgICAgICAgIChxdW90ZSkgPT4gcXVvdGUuc291cmNlXG4gICAgICAgICl9XG4gICAgICAvPlxuICAgIDwvPlxuICApO1xufVxuIl0sImZpbGUiOiIvc3JjL2ZlYXR1cmVzL2V2ZW50L0V2ZW50V29ya3NwYWNlUGFnZS50c3gifQ==
