@@ -1,3 +1,5 @@
+import { isStrictYmdDate } from "@signal-console/domain";
+
 import { formatGamePeriodClock } from "../../lib/game-state";
 
 import type {
@@ -9,8 +11,6 @@ import type {
 } from "../../data/api";
 
 export const INCIDENT_BURST_WINDOW_SECONDS = 120;
-
-import { isStrictYmdDate } from "@signal-console/domain";
 
 export type BoardAlertIncidentRow = {
   alert: BoardAnomalyAlertDto;
