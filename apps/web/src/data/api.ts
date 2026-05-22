@@ -24,12 +24,27 @@ type RequestOptions = {
   timeoutMs?: number;
 };
 
+type RuntimeImportMetaEnv = {
+  DEV?: boolean;
+  MODE?: string;
+  VITE_API_BASE_URL?: string;
+};
+
 const API_REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_LOCAL_API_BASE_URL = "http://127.0.0.1:8788";
 const MAX_IN_FLIGHT_API_REQUESTS = 4;
 
 let activeApiRequestCount = 0;
-const queuedApiRequestResolvers: Array<() => void> = [];
+const queuedApiRequestWaiters: Array<{
+  cleanup: () => void;
+  resolve: (releaseLane: () => void) => void;
+}> = [];
+
+const runtimeImportMetaEnv = (
+  import.meta as ImportMeta & {
+    env?: RuntimeImportMetaEnv;
+  }
+).env;
 
 export function resolveApiRequestPath(
   path: string,
@@ -39,9 +54,10 @@ export function resolveApiRequestPath(
     mode?: string;
   }
 ) {
-  const apiBaseUrl = options?.apiBaseUrl ?? import.meta.env.VITE_API_BASE_URL;
-  const isDev = options?.isDev ?? import.meta.env.DEV;
-  const mode = options?.mode ?? import.meta.env.MODE;
+  const apiBaseUrl =
+    options?.apiBaseUrl ?? runtimeImportMetaEnv?.VITE_API_BASE_URL;
+  const isDev = options?.isDev ?? runtimeImportMetaEnv?.DEV;
+  const mode = options?.mode ?? runtimeImportMetaEnv?.MODE;
   const normalizedBaseUrl = apiBaseUrl?.trim();
 
   if (normalizedBaseUrl) {
@@ -57,25 +73,64 @@ export function resolveApiRequestPath(
 
 export function resetApiRequestLaneForTests() {
   activeApiRequestCount = 0;
-  queuedApiRequestResolvers.length = 0;
+  queuedApiRequestWaiters.length = 0;
 }
 
-async function acquireApiRequestLane() {
-  if (activeApiRequestCount >= MAX_IN_FLIGHT_API_REQUESTS) {
-    await new Promise<void>((resolve) => {
-      queuedApiRequestResolvers.push(resolve);
-    });
-  }
-
-  activeApiRequestCount += 1;
+function createReleaseLane() {
+  let released = false;
 
   return () => {
+    if (released) {
+      return;
+    }
+
+    released = true;
     activeApiRequestCount = Math.max(0, activeApiRequestCount - 1);
-    const next = queuedApiRequestResolvers.shift();
-    if (next) {
-      next();
+
+    while (queuedApiRequestWaiters.length > 0) {
+      const next = queuedApiRequestWaiters.shift();
+      if (!next) {
+        break;
+      }
+
+      next.cleanup();
+      activeApiRequestCount += 1;
+      next.resolve(createReleaseLane());
+      break;
     }
   };
+}
+
+async function acquireApiRequestLane(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new Error("The operation was aborted.");
+  }
+
+  if (activeApiRequestCount < MAX_IN_FLIGHT_API_REQUESTS) {
+    activeApiRequestCount += 1;
+    return createReleaseLane();
+  }
+
+  return new Promise<() => void>((resolve, reject) => {
+    const waiter = {
+      cleanup: () => {
+        signal?.removeEventListener("abort", onAbort);
+      },
+      resolve,
+    };
+
+    const onAbort = () => {
+      const waiterIndex = queuedApiRequestWaiters.indexOf(waiter);
+      if (waiterIndex >= 0) {
+        queuedApiRequestWaiters.splice(waiterIndex, 1);
+      }
+      waiter.cleanup();
+      reject(new Error("The operation was aborted."));
+    };
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+    queuedApiRequestWaiters.push(waiter);
+  });
 }
 
 function buildRequestHeaders(init?: RequestInit) {
@@ -151,7 +206,7 @@ async function request<T>(
   options?: RequestOptions
 ): Promise<T> {
   const requestPath = resolveApiRequestPath(path);
-  const releaseLane = await acquireApiRequestLane();
+  let releaseLane: (() => void) | null = null;
   let response: Response;
   const controller = new AbortController();
   const headers = buildRequestHeaders(init);
@@ -161,6 +216,7 @@ async function request<T>(
   );
 
   try {
+    releaseLane = await acquireApiRequestLane(controller.signal);
     response = await fetch(requestPath, {
       credentials: "same-origin",
       headers,
@@ -192,7 +248,7 @@ async function request<T>(
     throw apiError;
   } finally {
     clearTimeout(timeoutId);
-    releaseLane();
+    releaseLane?.();
   }
 
   const payload = (await response.json().catch(() => null)) as

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   getGames,
+  getReadyHealth,
   putMarketAnomalyScoreConfig,
   resetApiRequestLaneForTests,
   resolveApiRequestPath,
@@ -53,7 +54,15 @@ describe("web API client", () => {
     );
   });
 
-  it("talks directly to the local API in dev mode without depending on the Vite proxy", () => {
+  it("prefers a configured API target before falling back to the local dev API port", () => {
+    expect(
+      resolveApiRequestPath("/api/v1/games", {
+        apiBaseUrl: "http://127.0.0.1:8787",
+        isDev: true,
+        mode: "development",
+      })
+    ).toBe("http://127.0.0.1:8787/api/v1/games");
+
     expect(
       resolveApiRequestPath("/api/v1/games", {
         apiBaseUrl: "",
@@ -226,5 +235,76 @@ describe("web API client", () => {
     }
 
     await Promise.allSettled(requests);
+  });
+
+  it("times out queued requests at their declared deadline instead of waiting behind long-running work", async () => {
+    vi.useFakeTimers();
+
+    const resolvers: Array<{
+      reject: (error: unknown) => void;
+      resolve: (value: Response) => void;
+    }> = [];
+    const fetchMock = vi.fn<typeof fetch>((_input, init) => {
+      return new Promise<Response>((resolve, reject) => {
+        resolvers.push({ reject, resolve });
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new Error("The operation was aborted.")),
+          { once: true }
+        );
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const blockingWrites = Array.from({ length: 4 }, () =>
+      putMarketAnomalyScoreConfig({
+        contextWindowMinutes: 10,
+        families: ["moneyline"],
+        minConfidence: 0.5,
+        minScore: 45,
+        profileId: "default",
+        shockWindowSeconds: 60,
+        thresholds: {
+          depthScoreDrop: 30,
+          maxQuoteAgeMinutes: 10,
+          priceJump: 0.18,
+          spread: 0.08,
+          tradeDistance: 0.25,
+          volumeShare: 0.1,
+        },
+        toggles: {
+          includeHistorical: false,
+          includeUnmapped: true,
+          requireBet365: false,
+        },
+        updatedAt: null,
+        updatedBy: null,
+        weights: {
+          crossVenue: 0.1,
+          liquidity: 0.1,
+          offPrice: 0.35,
+          volatility: 0.2,
+          volumeShare: 0.25,
+        },
+      })
+    );
+    const blockingWriteSettles = Promise.allSettled(blockingWrites);
+    const queuedRead = expect(getReadyHealth()).rejects.toMatchObject({
+      code: "NETWORK_ERROR",
+      status: 0,
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    await queuedRead;
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await blockingWriteSettles;
   });
 });

@@ -42,6 +42,8 @@ export default defineConfig({
       cwd: appDir,
       env: {
         ...process.env,
+        SIGNAL_CONSOLE_API_TARGET: `http://127.0.0.1:${defaultE2eApiPort}`,
+        VITE_API_BASE_URL: `http://127.0.0.1:${defaultE2eApiPort}`,
       },
       name: "web",
       reuseExistingServer: !process.env.CI,
