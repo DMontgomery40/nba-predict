@@ -68,6 +68,15 @@ describe("web API client", () => {
         apiBaseUrl: "",
         isDev: true,
         mode: "development",
+        signalConsoleApiTarget: "http://127.0.0.1:8787",
+      })
+    ).toBe("http://127.0.0.1:8787/api/v1/games");
+
+    expect(
+      resolveApiRequestPath("/api/v1/games", {
+        apiBaseUrl: "",
+        isDev: true,
+        mode: "development",
       })
     ).toBe("http://127.0.0.1:8788/api/v1/games");
 
