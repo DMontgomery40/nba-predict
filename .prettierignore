@@ -9,5 +9,6 @@ data/*.sqlite-wal
 data/backups/
 data/exports/
 .playwright-mcp
+.gitnexus/
 output/
 outputs/
