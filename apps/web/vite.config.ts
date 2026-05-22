@@ -9,6 +9,12 @@ import {
 
 const apiTarget =
   process.env.SIGNAL_CONSOLE_API_TARGET ?? `http://127.0.0.1:${defaultApiPort}`;
+const clientApiBaseUrl =
+  process.env.VITE_API_BASE_URL ?? process.env.SIGNAL_CONSOLE_API_TARGET;
+
+if (clientApiBaseUrl) {
+  process.env.VITE_API_BASE_URL = clientApiBaseUrl;
+}
 
 export default defineConfig({
   plugins: [react()],
