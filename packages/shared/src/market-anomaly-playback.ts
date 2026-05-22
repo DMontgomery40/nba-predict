@@ -3,7 +3,6 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { isStrictYmdDate } from "@signal-console/domain";
-
 import type { MarketAnomalyPlaybackFrame } from "@signal-console/domain";
 
 const defaultPlaybackDirectory = resolve(
