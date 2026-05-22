@@ -45,7 +45,8 @@ describe("dev port contract", () => {
     delete process.env.VITE_API_BASE_URL;
     process.env.SIGNAL_CONSOLE_API_TARGET = "http://127.0.0.1:9787";
 
-    const { default: viteConfig } = await import("../../../../apps/web/vite.config");
+    const { default: viteConfig } =
+      await import("../../../../apps/web/vite.config");
 
     expect(viteConfig.envPrefix).toEqual(["VITE_", "SIGNAL_CONSOLE_"]);
     expect(process.env.VITE_API_BASE_URL).toBeUndefined();
