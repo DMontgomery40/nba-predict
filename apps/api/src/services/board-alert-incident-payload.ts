@@ -94,8 +94,8 @@ export async function getBoardAnomalyIncidentsPayload(
     "getBoardAnomalyIncidentsPayload"
   );
   const { limit, queryForLimit } = buildBoardIncidentQuery(query);
-  let forensic = listForensicFinishedGameIncidents(queryForLimit);
-  let replay = listFinishedGameIncidents(queryForLimit);
+  const forensic = listForensicFinishedGameIncidents(queryForLimit);
+  const replay = listFinishedGameIncidents(queryForLimit);
   const missingPlayByPlayGameIds = collectMissingPlayByPlayGameIds(
     forensic,
     replay

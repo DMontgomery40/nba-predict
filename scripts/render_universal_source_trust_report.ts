@@ -33,11 +33,16 @@ const SRC_LABEL: Record<string, string> = {
 
 // ---- small helpers -------------------------------------------------------
 const esc = (s: unknown) =>
-  String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+  String(s ?? "").replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!
+  );
 const f3 = (x: number | null | undefined) => (x == null ? "—" : x.toFixed(3));
 const f2 = (x: number | null | undefined) => (x == null ? "—" : x.toFixed(2));
-const pct = (x: number | null | undefined) => (x == null ? "—" : (x * 100).toFixed(0) + "%");
-const intc = (x: number | null | undefined) => (x == null ? "—" : Math.round(x).toLocaleString());
+const pct = (x: number | null | undefined) =>
+  x == null ? "—" : (x * 100).toFixed(0) + "%";
+const intc = (x: number | null | undefined) =>
+  x == null ? "—" : Math.round(x).toLocaleString();
 
 // Brier color scale: 0.05 (green) -> 0.18 (amber) -> 0.30+ (red). Lower better.
 function brierColor(b: number | null): string {
@@ -73,14 +78,20 @@ function sparkline(
   const times = series.map((d) => Date.parse(d.at));
   const t0 = Math.min(...times);
   const t1 = Math.max(...times);
-  const x = (t: number) => (t1 === t0 ? 4 : 8 + ((t - t0) / (t1 - t0)) * (width - 16));
+  const x = (t: number) =>
+    t1 === t0 ? 4 : 8 + ((t - t0) / (t1 - t0)) * (width - 16);
   const y = (p: number) => height - 12 - p * (height - 24);
   const bySource: Record<string, Array<{ at: number; p: number }>> = {};
-  for (const d of series) (bySource[d.source] ??= []).push({ at: Date.parse(d.at), p: d.p });
+  for (const d of series)
+    (bySource[d.source] ??= []).push({ at: Date.parse(d.at), p: d.p });
   let paths = "";
   for (const [src, pts] of Object.entries(bySource)) {
     pts.sort((a, b) => a.at - b.at);
-    const dstr = pts.map((p, i) => `${i ? "L" : "M"}${x(p.at).toFixed(1)},${y(p.p).toFixed(1)}`).join(" ");
+    const dstr = pts
+      .map(
+        (p, i) => `${i ? "L" : "M"}${x(p.at).toFixed(1)},${y(p.p).toFixed(1)}`
+      )
+      .join(" ");
     paths += `<path d="${dstr}" fill="none" stroke="${colors[src] ?? "#888"}" stroke-width="1.8"/>`;
     const last = pts[pts.length - 1];
     paths += `<circle cx="${x(last.at).toFixed(1)}" cy="${y(last.p).toFixed(1)}" r="2.6" fill="${colors[src] ?? "#888"}"/>`;
@@ -94,7 +105,10 @@ function sparkline(
     mk += `<text x="${(mx + 3).toFixed(1)}" y="16" fill="#999" font-size="9">${esc(m.label)}</text>`;
   }
   const grid = [0.25, 0.5, 0.75]
-    .map((g) => `<line x1="8" y1="${y(g).toFixed(1)}" x2="${width - 8}" y2="${y(g).toFixed(1)}" stroke="#222"/>`)
+    .map(
+      (g) =>
+        `<line x1="8" y1="${y(g).toFixed(1)}" x2="${width - 8}" y2="${y(g).toFixed(1)}" stroke="#222"/>`
+    )
     .join("");
   return `<svg viewBox="0 0 ${width} ${height}" class="spark" preserveAspectRatio="none">${grid}${mk}${paths}</svg>`;
 }
@@ -106,11 +120,15 @@ function bar(value: number, max: number, color: string, label: string): string {
 }
 
 // ---- derived rankings for executive read --------------------------------
-function bestAt(familyTable: Record<string, Record<string, Summary>>, checkpoint: string) {
+function bestAt(
+  familyTable: Record<string, Record<string, Summary>>,
+  checkpoint: string
+) {
   const rows: Array<{ source: string; brier: number; n: number }> = [];
   for (const src of Object.keys(familyTable)) {
     const cell = familyTable[src]?.[checkpoint];
-    if (cell && cell.brier != null && cell.n >= 20) rows.push({ source: src, brier: cell.brier, n: cell.n });
+    if (cell && cell.brier != null && cell.n >= 20)
+      rows.push({ source: src, brier: cell.brier, n: cell.n });
   }
   rows.sort((a, b) => a.brier - b.brier);
   return rows;
@@ -133,7 +151,8 @@ function settledTable(
   checkpointLabels: Record<string, string>
 ): string {
   let head = `<tr><th>Source</th>`;
-  for (const cp of checkpoints) head += `<th>${esc(checkpointLabels[cp] ?? cp)}</th>`;
+  for (const cp of checkpoints)
+    head += `<th>${esc(checkpointLabels[cp] ?? cp)}</th>`;
   head += `<th>Calibration<br><span class="th-sub">slope / intercept @ pregame</span></th></tr>`;
   let body = "";
   for (const src of SOURCES) {
@@ -144,8 +163,12 @@ function settledTable(
       if (!c || c.brier == null) {
         body += `<td class="cell empty">—</td>`;
       } else {
-        const stale = c.staleExcluded > 0 ? `<span class="stale" title="quotes excluded as stale at this checkpoint">${intc(c.staleExcluded)} stale</span>` : "";
-        const push = c.pushes > 0 ? `<span class="push">${c.pushes} push</span>` : "";
+        const stale =
+          c.staleExcluded > 0
+            ? `<span class="stale" title="quotes excluded as stale at this checkpoint">${intc(c.staleExcluded)} stale</span>`
+            : "";
+        const push =
+          c.pushes > 0 ? `<span class="push">${c.pushes} push</span>` : "";
         body += `<td class="cell" style="background:${brierColor(c.brier)}"><b>${f3(c.brier)}</b><span class="cmeta">acc ${pct(c.accuracy)} · n ${intc(c.n)}</span>${push}${stale}</td>`;
       }
     }
@@ -166,10 +189,15 @@ const GM_CP_LABEL: Record<string, string> = {
 
 // ---- 1. EXECUTIVE READ ----------------------------------------------------
 {
-  const mlBest = bestAt(data.settledGameMarkets.moneyline ?? {}, "pregame_close");
+  const mlBest = bestAt(
+    data.settledGameMarkets.moneyline ?? {},
+    "pregame_close"
+  );
   const spBest = bestAt(data.settledGameMarkets.spread ?? {}, "pregame_close");
   const toBest = bestAt(data.settledGameMarkets.total ?? {}, "pregame_close");
-  const recOk = data.reconciliation.every((r: { matches: boolean }) => r.matches);
+  const recOk = data.reconciliation.every(
+    (r: { matches: boolean }) => r.matches
+  );
   const h2h = data.playerPropHeadToHead.overall;
   const html = `
   <div class="lede">Across <b>${intc(data.audit.settleableGames)}</b> settleable NBA games in the persisted live store, this brief separates two questions a trader conflates at their peril: <b>who is actually right</b> (settled accuracy, where deterministic truth exists) and <b>who is merely fast or merely present</b> (timing, leadership, coverage). Player props are treated as the primary subject.</div>
@@ -184,7 +212,7 @@ const GM_CP_LABEL: Record<string, string> = {
   </div>
 
   <div class="cards">
-    <div class="card"><h4>Game winner (moneyline)</h4><p>Best pregame: <b>${mlBest[0] ? SRC_LABEL[mlBest[0].source] : "—"}</b> (Brier ${f3(mlBest[0]?.brier)}, n ${intc(mlBest[0]?.n)}). Bet365's moneyline book is thin (n ${intc((data.settledGameMarkets.moneyline?.bet365?.pregame_close?.n) ?? 0)}) and should not be ranked as "weak" — it barely quotes the market.</p></div>
+    <div class="card"><h4>Game winner (moneyline)</h4><p>Best pregame: <b>${mlBest[0] ? SRC_LABEL[mlBest[0].source] : "—"}</b> (Brier ${f3(mlBest[0]?.brier)}, n ${intc(mlBest[0]?.n)}). Bet365's moneyline book is thin (n ${intc(data.settledGameMarkets.moneyline?.bet365?.pregame_close?.n ?? 0)}) and should not be ranked as "weak" — it barely quotes the market.</p></div>
     <div class="card"><h4>Spread & total</h4><p>Bet365 is the coverage workhorse (spread n ${intc(data.settledGameMarkets.spread?.bet365?.pregame_close?.n)}, total n ${intc(data.settledGameMarkets.total?.bet365?.pregame_close?.n)}) and well-calibrated. Best pregame Brier: spread <b>${spBest[0] ? SRC_LABEL[spBest[0].source] : "—"}</b>, total <b>${toBest[0] ? SRC_LABEL[toBest[0].source] : "—"}</b> — but on small exchange samples.</p></div>
     <div class="card accent"><h4>Player props — the headline</h4><p>Bet365 owns coverage (only source for combos &amp; milestones) but its prop quotes <b>do not reprice live</b> — pregame value ≈ final value across n ${intc(data.settledPlayerPropsOverall.ALL?.bet365?.pregame_close?.n)} props. Kalshi &amp; Polymarket reprice through the game. On the <i>same</i> player+stat+line, the three sources are within Brier ~0.005 — no skill edge; the aggregate gaps are line-mix structure.</p></div>
     <div class="card"><h4>Who moves first</h4><p>Among prediction markets, <b>Kalshi tends to lead Polymarket</b> in repricing player props (${data.playerPropLeadLag.kalshi__polymarket?.aLeads ?? "—"} vs ${data.playerPropLeadLag.kalshi__polymarket?.bLeads ?? "—"} instruments). Bet365-vs-exchange lead is a toss-up and thin, because Bet365 props are pregame-only.</p></div>
@@ -219,14 +247,26 @@ const GM_CP_LABEL: Record<string, string> = {
     matrix[row.source] ??= {};
     matrix[row.source][row.family] = row.instruments;
   }
-  const fams = ["moneyline", "spread", "total", "team-prop", "player-prop", "other"];
-  let head = `<tr><th>Source</th>` + fams.map((f) => `<th>${esc(f)}</th>`).join("") + `<th>Microstructure</th></tr>`;
+  const fams = [
+    "moneyline",
+    "spread",
+    "total",
+    "team-prop",
+    "player-prop",
+    "other",
+  ];
+  let head =
+    `<tr><th>Source</th>` +
+    fams.map((f) => `<th>${esc(f)}</th>`).join("") +
+    `<th>Microstructure</th></tr>`;
   let body = "";
   const microTotal: Record<string, number> = {};
-  for (const m of data.audit.microstructureBySource) microTotal[m.source] = (microTotal[m.source] ?? 0) + m.c;
+  for (const m of data.audit.microstructureBySource)
+    microTotal[m.source] = (microTotal[m.source] ?? 0) + m.c;
   for (const src of SOURCES) {
     body += `<tr><td class="src">${esc(SRC_LABEL[src])}</td>`;
-    for (const f of fams) body += `<td class="num">${matrix[src]?.[f] ? intc(matrix[src][f]) : "·"}</td>`;
+    for (const f of fams)
+      body += `<td class="num">${matrix[src]?.[f] ? intc(matrix[src][f]) : "·"}</td>`;
     body += `<td class="num">${microTotal[src] ? intc(microTotal[src]) + " events" : "none"}</td></tr>`;
   }
   const html = `
@@ -254,32 +294,45 @@ const GM_CP_LABEL: Record<string, string> = {
   const ppFams = Object.keys(data.settledPlayerPropsByFamily).sort();
   // overall settled accuracy table
   const overallTable = settledTable(
-    Object.fromEntries(SOURCES.filter((s) => ov[s]).map((s) => [s, ov[s]])) as Record<string, Record<string, Summary>>,
+    Object.fromEntries(
+      SOURCES.filter((s) => ov[s]).map((s) => [s, ov[s]])
+    ) as Record<string, Record<string, Summary>>,
     ["pregame_close", "final_settle"],
     { pregame_close: "Pregame close", final_settle: "Live / final" }
   );
 
   // by-family table: rows = stat family, cols = sources (pregame brier)
-  let famHead = `<tr><th>Stat family</th>` + SOURCES.map((s) => `<th>${esc(SRC_LABEL[s])}<br><span class="th-sub">pregame Brier · acc · n</span></th>`).join("") + `<th>Instruments</th></tr>`;
+  let famHead =
+    `<tr><th>Stat family</th>` +
+    SOURCES.map(
+      (s) =>
+        `<th>${esc(SRC_LABEL[s])}<br><span class="th-sub">pregame Brier · acc · n</span></th>`
+    ).join("") +
+    `<th>Instruments</th></tr>`;
   let famBody = "";
   for (const fam of ppFams) {
     famBody += `<tr><td class="src">${esc(fam)}</td>`;
     for (const s of SOURCES) {
       const c = data.settledPlayerPropsByFamily[fam][s]?.pregame_close;
       if (!c || c.brier == null) famBody += `<td class="cell empty">·</td>`;
-      else famBody += `<td class="cell" style="background:${brierColor(c.brier)}"><b>${f3(c.brier)}</b><span class="cmeta">${pct(c.accuracy)} · n ${intc(c.n)}</span></td>`;
+      else
+        famBody += `<td class="cell" style="background:${brierColor(c.brier)}"><b>${f3(c.brier)}</b><span class="cmeta">${pct(c.accuracy)} · n ${intc(c.n)}</span></td>`;
     }
     famBody += `<td class="num">${intc(data.pbp.familyCoverage[fam] ?? 0)}</td></tr>`;
   }
 
   // head-to-head
-  function h2hTable(obj: Record<string, { aBrier: number; bBrier: number; n: number }>) {
-    if (!obj || Object.keys(obj).length === 0) return `<p class="note">No shared-instrument pairs with sufficient sample.</p>`;
+  function h2hTable(
+    obj: Record<string, { aBrier: number; bBrier: number; n: number }>
+  ) {
+    if (!obj || Object.keys(obj).length === 0)
+      return `<p class="note">No shared-instrument pairs with sufficient sample.</p>`;
     let rows = `<tr><th>Source pair (same player+stat+line)</th><th>Brier A</th><th>Brier B</th><th>Δ</th><th>n shared</th><th>Edge</th></tr>`;
     for (const [key, v] of Object.entries(obj)) {
       const [a, b] = key.split("__");
       const d = v.aBrier - v.bBrier;
-      const edge = Math.abs(d) < 0.01 ? "≈ tie" : d < 0 ? SRC_LABEL[a] : SRC_LABEL[b];
+      const edge =
+        Math.abs(d) < 0.01 ? "≈ tie" : d < 0 ? SRC_LABEL[a] : SRC_LABEL[b];
       rows += `<tr><td>${SRC_LABEL[a]} vs ${SRC_LABEL[b]}</td><td class="num">${f3(v.aBrier)}</td><td class="num">${f3(v.bBrier)}</td><td class="num">${(d >= 0 ? "+" : "") + d.toFixed(3)}</td><td class="num">${intc(v.n)}</td><td>${esc(edge)}</td></tr>`;
     }
     return `<table class="grid">${rows}</table>`;
@@ -287,7 +340,12 @@ const GM_CP_LABEL: Record<string, string> = {
 
   // lead-lag direction
   let llRows = `<tr><th>Pair</th><th>Leader (moved first)</th><th>Win count</th><th>Instruments</th></tr>`;
-  for (const [key, v] of Object.entries<{ aLeads: number; bLeads: number; n: number; leader: string }>(data.playerPropLeadLag)) {
+  for (const [key, v] of Object.entries<{
+    aLeads: number;
+    bLeads: number;
+    n: number;
+    leader: string;
+  }>(data.playerPropLeadLag)) {
     const [a, b] = key.split("__");
     const winrate = `${SRC_LABEL[a]} ${v.aLeads} : ${v.bLeads} ${SRC_LABEL[b]}`;
     llRows += `<tr><td>${SRC_LABEL[a]} vs ${SRC_LABEL[b]}</td><td><b>${v.leader === "tie" ? "toss-up" : SRC_LABEL[v.leader]}</b></td><td class="num">${esc(winrate)}</td><td class="num">${intc(v.n)}</td></tr>`;
@@ -296,7 +354,11 @@ const GM_CP_LABEL: Record<string, string> = {
   // microstructure
   let microRows = `<tr><th>Stat family</th><th>Venue</th><th>Trades</th><th>Notional</th><th>Concentrated prints (≥10% vol share)</th></tr>`;
   for (const fam of Object.keys(data.playerPropMicrostructure)) {
-    for (const [src, m] of Object.entries<{ trades: number; notional: number; concentratedPrints: number }>(data.playerPropMicrostructure[fam])) {
+    for (const [src, m] of Object.entries<{
+      trades: number;
+      notional: number;
+      concentratedPrints: number;
+    }>(data.playerPropMicrostructure[fam])) {
       microRows += `<tr><td>${esc(fam)}</td><td>${SRC_LABEL[src]}</td><td class="num">${intc(m.trades)}</td><td class="num">$${intc(m.notional)}</td><td class="num">${intc(m.concentratedPrints)}</td></tr>`;
     }
   }
@@ -339,7 +401,10 @@ const GM_CP_LABEL: Record<string, string> = {
 // ---- 6. TIMING MATRIX -----------------------------------------------------
 {
   // who is best at each checkpoint, per family
-  let rows = `<tr><th>Family</th>` + GM_CP.map((c) => `<th>${esc(GM_CP_LABEL[c])}</th>`).join("") + `</tr>`;
+  let rows =
+    `<tr><th>Family</th>` +
+    GM_CP.map((c) => `<th>${esc(GM_CP_LABEL[c])}</th>`).join("") +
+    `</tr>`;
   const fams: Array<[string, Record<string, Record<string, Summary>>]> = [
     ["moneyline", data.settledGameMarkets.moneyline],
     ["spread", data.settledGameMarkets.spread],
@@ -350,9 +415,13 @@ const GM_CP_LABEL: Record<string, string> = {
     if (!table) continue;
     rows += `<tr><td class="src">${esc(fam)}</td>`;
     for (const cp of GM_CP) {
-      const ranked = bestAt(table as Record<string, Record<string, Summary>>, cp);
+      const ranked = bestAt(
+        table as Record<string, Record<string, Summary>>,
+        cp
+      );
       if (ranked.length === 0) rows += `<td class="cell empty">—</td>`;
-      else rows += `<td class="cell"><b>${SRC_LABEL[ranked[0].source]}</b><span class="cmeta">${f3(ranked[0].brier)} · n ${intc(ranked[0].n)}</span></td>`;
+      else
+        rows += `<td class="cell"><b>${SRC_LABEL[ranked[0].source]}</b><span class="cmeta">${f3(ranked[0].brier)} · n ${intc(ranked[0].n)}</span></td>`;
     }
     rows += `</tr>`;
   }
@@ -365,8 +434,12 @@ const GM_CP_LABEL: Record<string, string> = {
 
 // ---- 7. COVERAGE / BLIND SPOTS -------------------------------------------
 {
-  const teamProp = data.audit.sourceFamilyMatrix.filter((r: { family: string }) => r.family === "team-prop").reduce((s: number, r: { instruments: number }) => s + r.instruments, 0);
-  const unmapped = data.audit.mappingStatus.find((m: { status: string }) => m.status === "unmapped");
+  const teamProp = data.audit.sourceFamilyMatrix
+    .filter((r: { family: string }) => r.family === "team-prop")
+    .reduce((s: number, r: { instruments: number }) => s + r.instruments, 0);
+  const unmapped = data.audit.mappingStatus.find(
+    (m: { status: string }) => m.status === "unmapped"
+  );
   const html = `
   <table class="grid blind">
     <tr><th>Blind spot</th><th>Impact</th><th>What would close it</th></tr>
@@ -389,7 +462,12 @@ const GM_CP_LABEL: Record<string, string> = {
       { at: cs.scheduledStart, label: "tip" },
       ...(cs.finalAt ? [{ at: cs.finalAt, label: "final" }] : []),
     ];
-    const outcome = cs.settledOutcome === 1 ? "YES (hit)" : cs.settledOutcome === 0 ? "NO (miss)" : "—";
+    const outcome =
+      cs.settledOutcome === 1
+        ? "YES (hit)"
+        : cs.settledOutcome === 0
+          ? "NO (miss)"
+          : "—";
     let detail = "";
     if (cs.kind === "kalshi-leads-polymarket") {
       detail = `<p>Cross-correlation places Kalshi <b>${cs.leadBuckets} bucket(s) ahead</b> of Polymarket (corr ${f2(cs.crossCorrelation)}). Kalshi's curve turns before Polymarket's — the exchange repriced this player's market first.</p>`;
@@ -435,7 +513,9 @@ const GM_CP_LABEL: Record<string, string> = {
 // ===========================================================================
 // ASSEMBLE
 // ===========================================================================
-const navHtml = nav.map((n) => `<a href="#${n.id}">${esc(n.label)}</a>`).join("");
+const navHtml = nav
+  .map((n) => `<a href="#${n.id}">${esc(n.label)}</a>`)
+  .join("");
 const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Universal Source Trust — NBA Signal Console</title>
@@ -516,4 +596,6 @@ Generated ${esc(data.meta.generatedAt)} from ${intc(data.audit.tableCounts.quote
 </main></div></body></html>`;
 
 writeFileSync(resolve(OUT, "index.html"), html);
-console.log(`wrote ${resolve(OUT, "index.html")} (${(html.length / 1024).toFixed(0)} KB)`);
+console.log(
+  `wrote ${resolve(OUT, "index.html")} (${(html.length / 1024).toFixed(0)} KB)`
+);

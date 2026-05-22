@@ -103,12 +103,21 @@ export function listForensicFinishedGameIncidents(
       const db = getDatabase();
       const candidateWindows = listFinishedGameReplayWindows(db, input);
       const maxGames = Math.max(1, Math.min(25, input.limit ?? 10));
+      const participantFanoutRows = listHistoricalParticipantReactionRows(
+        db,
+        input.date,
+        input.gameId
+      );
       const candidateGameIds = Array.from(
         new Set(
-          (input.gameId
-            ? [input.gameId]
-            : candidateWindows.slice(0, maxGames).map((window) => window.gameId)
-          ).filter(Boolean)
+          [
+            ...(input.gameId
+              ? [input.gameId]
+              : candidateWindows
+                  .slice(0, maxGames)
+                  .map((window) => window.gameId)),
+            ...participantFanoutRows.map((row) => row.gameId),
+          ].filter(Boolean)
         )
       );
       const mismatches = candidateGameIds.flatMap((gameId) =>
@@ -238,19 +247,22 @@ export function listForensicFinishedGameIncidents(
         incidents.push({ ...alert, playByPlay: pbp, vigAdjusted });
       }
 
-      if (input.gameId) {
+      const marketAnomaliesByGame = new Map<string, MarketAnomalyAlert[]>();
+      const usedAlertIds = new Set<string>();
+      const coveredParticipants = new Set<string>();
+
+      for (const gameId of candidateGameIds) {
         const marketAnomalies = listMarketAnomalyAlerts({
           date: input.date,
-          gameId: input.gameId,
+          gameId,
           limit: 200,
           includeUnmapped: true,
           includeHistorical: true,
           minConfidence: 0.35,
           minScore: 20,
-        }).filter((anomaly) => anomaly.gameId === input.gameId);
+        }).filter((anomaly) => anomaly.gameId === gameId);
+        marketAnomaliesByGame.set(gameId, marketAnomalies);
         const fanouts = buildFanouts(marketAnomalies, 900, 2, 0.01);
-        const usedAlertIds = new Set<string>();
-        const coveredParticipants = new Set<string>();
         for (const fanout of fanouts) {
           const pbp = getPlayByPlayContext(
             fanout.gameId,
@@ -267,59 +279,59 @@ export function listForensicFinishedGameIncidents(
           coveredParticipants.add(`${fanout.gameId}:${fanout.participantKey}`);
           incidents.push(fanoutToBoardCard(fanout, pbp));
         }
+      }
 
-        const participantFanoutRows = listHistoricalParticipantReactionRows(
-          db,
-          input.date,
-          input.gameId
-        );
-        const participantFanouts = buildHistoricalParticipantFanouts(
-          participantFanoutRows
-        );
-        for (const fanout of participantFanouts) {
-          const coveredKey = `${fanout.gameId}:${fanout.participantKey}`;
-          if (coveredParticipants.has(coveredKey)) continue;
-          const pbp = getPlayByPlayContext(
-            fanout.gameId,
-            fanout.windowStartIso
-          );
-          if (
-            pbp.nearestBefore?.timeActual == null &&
-            pbp.nearestAfter?.timeActual == null
-          ) {
-            continue;
-          }
-          coveredParticipants.add(coveredKey);
-          incidents.push(historicalParticipantFanoutToBoardCard(fanout, pbp));
+      const participantFanouts = buildHistoricalParticipantFanouts(
+        participantFanoutRows
+      );
+      for (const fanout of participantFanouts) {
+        if (
+          candidateGameIds.length > 0 &&
+          !candidateGameIds.includes(fanout.gameId)
+        ) {
+          continue;
         }
+        const coveredKey = `${fanout.gameId}:${fanout.participantKey}`;
+        if (coveredParticipants.has(coveredKey)) continue;
+        const pbp = getPlayByPlayContext(fanout.gameId, fanout.windowStartIso);
+        if (
+          pbp.nearestBefore?.timeActual == null &&
+          pbp.nearestAfter?.timeActual == null
+        ) {
+          continue;
+        }
+        coveredParticipants.add(coveredKey);
+        incidents.push(historicalParticipantFanoutToBoardCard(fanout, pbp));
+      }
 
-        const leftoverByGame = new Map<string, MarketAnomalyAlert[]>();
+      const leftoverByGame = new Map<string, MarketAnomalyAlert[]>();
+      for (const [gameId, marketAnomalies] of marketAnomaliesByGame.entries()) {
         for (const anomaly of marketAnomalies) {
           if (usedAlertIds.has(anomaly.id)) continue;
-          const list = leftoverByGame.get(anomaly.gameId) ?? [];
+          const list = leftoverByGame.get(gameId) ?? [];
           list.push(anomaly);
-          leftoverByGame.set(anomaly.gameId, list);
+          leftoverByGame.set(gameId, list);
         }
-        for (const [gameId, anomalies] of leftoverByGame.entries()) {
-          const sized = anomalies.filter(
-            (a) => (a.metrics.notional ?? 0) >= minMarketStructureNotional
-          );
-          sized.sort((a, b) => {
-            const aShare = a.metrics.volumeShare ?? 0;
-            const bShare = b.metrics.volumeShare ?? 0;
-            if (bShare !== aShare) return bShare - aShare;
-            const aNotional = a.metrics.notional ?? 0;
-            const bNotional = b.metrics.notional ?? 0;
-            return bNotional - aNotional;
-          });
-          const top = sized.slice(0, 2);
-          for (const anomaly of top) {
-            if ((anomaly.metrics.volumeShare ?? 0) < 0.25) continue;
-            const pbp = getPlayByPlayContext(gameId, anomaly.eventTimestamp);
-            const surface = anomaly.apiSurface.toLowerCase();
-            const candleEnd = surface.includes("candle");
-            incidents.push(marketAnomalyToBoardCard(anomaly, pbp, candleEnd));
-          }
+      }
+      for (const [gameId, anomalies] of leftoverByGame.entries()) {
+        const sized = anomalies.filter(
+          (a) => (a.metrics.notional ?? 0) >= minMarketStructureNotional
+        );
+        sized.sort((a, b) => {
+          const aShare = a.metrics.volumeShare ?? 0;
+          const bShare = b.metrics.volumeShare ?? 0;
+          if (bShare !== aShare) return bShare - aShare;
+          const aNotional = a.metrics.notional ?? 0;
+          const bNotional = b.metrics.notional ?? 0;
+          return bNotional - aNotional;
+        });
+        const top = sized.slice(0, 2);
+        for (const anomaly of top) {
+          if ((anomaly.metrics.volumeShare ?? 0) < 0.25) continue;
+          const pbp = getPlayByPlayContext(gameId, anomaly.eventTimestamp);
+          const surface = anomaly.apiSurface.toLowerCase();
+          const candleEnd = surface.includes("candle");
+          incidents.push(marketAnomalyToBoardCard(anomaly, pbp, candleEnd));
         }
       }
 

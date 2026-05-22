@@ -264,12 +264,10 @@ log(`closing: ${gameMarketClosing.length} game-market closing rows`);
 const pbpInClause = pbpGameIds.map((id) => `'${id}'`).join(",");
 log("closing: extracting player-prop closing probabilities (64 PBP games)");
 // Player props only need pregame_close + final_settle for the settled track.
-const playerPropClosing = (
-  fetchClosing(
-    "closing_player_props",
-    "mi.family = 'player-prop'",
-    `AND sm.game_id IN (${pbpInClause})`
-  )
+const playerPropClosing = fetchClosing(
+  "closing_player_props",
+  "mi.family = 'player-prop'",
+  `AND sm.game_id IN (${pbpInClause})`
 ).filter(
   (r) => r.checkpoint === "pregame_close" || r.checkpoint === "final_settle"
 );
@@ -302,7 +300,9 @@ for (const gid of pbpGameIds) {
     description: string | null;
   }>;
   const statsByName = reconstructStatsFromPbp(actions);
-  const roster = (stmtRoster.all(gid) as Array<{ pk: string }>).map((r) => r.pk);
+  const roster = (stmtRoster.all(gid) as Array<{ pk: string }>).map(
+    (r) => r.pk
+  );
   const statByParticipant = new Map<string, PbpStatLine>();
   let reconTotal = 0;
   for (const [name, line] of statsByName) {
@@ -314,7 +314,12 @@ for (const gid of pbpGameIds) {
   const finalTotal = ga ? ga.finalTotal : 0;
   const reconciled = ga != null && Math.abs(reconTotal - finalTotal) <= 2;
   if (reconciled) reconciledGames += 1;
-  reconByGame.set(gid, { reconTotal, finalTotal, reconciled, statByParticipant });
+  reconByGame.set(gid, {
+    reconTotal,
+    finalTotal,
+    reconciled,
+    statByParticipant,
+  });
 }
 log(
   `pbp: ${reconciledGames}/${pbpGameIds.length} games reconciled (recon points == final ±2)`
@@ -452,7 +457,12 @@ for (const r of playerPropClosing) {
 
   let entry = ppInstr.get(r.iid);
   if (!entry) {
-    entry = { fam, actual: settlement.actual, push: settlement.push, bySource: new Map() };
+    entry = {
+      fam,
+      actual: settlement.actual,
+      push: settlement.push,
+      bySource: new Map(),
+    };
     ppInstr.set(r.iid, entry);
   }
   if (settlement.push) {
@@ -475,7 +485,12 @@ const ppCells = new Map<string, Cell>();
 const ppOverall = new Map<string, Cell>();
 const ppFamilyCoverage = new Map<string, number>();
 const seenInstrByFamily = new Map<string, Set<string>>();
-function pushPp(fam: string, source: string, checkpoint: string, sample: SettledSample) {
+function pushPp(
+  fam: string,
+  source: string,
+  checkpoint: string,
+  sample: SettledSample
+) {
   for (const famKey of [fam, "ALL"]) {
     const map = famKey === "ALL" ? ppOverall : ppCells;
     const k = cellKey(famKey, source, checkpoint);
@@ -491,9 +506,15 @@ for (const [iid, entry] of ppInstr) {
   if (entry.push) continue;
   for (const [source, bs] of entry.bySource) {
     if (bs.pregame != null)
-      pushPp(entry.fam, source, "pregame_close", { p: bs.pregame, actual: entry.actual });
+      pushPp(entry.fam, source, "pregame_close", {
+        p: bs.pregame,
+        actual: entry.actual,
+      });
     if (bs.final != null)
-      pushPp(entry.fam, source, "final_settle", { p: bs.final, actual: entry.actual });
+      pushPp(entry.fam, source, "final_settle", {
+        p: bs.final,
+        actual: entry.actual,
+      });
   }
   const set = seenInstrByFamily.get(entry.fam) ?? new Set<string>();
   set.add(iid);
@@ -508,7 +529,10 @@ const settledPlayerPropsOverall = serializeCells(ppOverall);
 log("settled: player-prop head-to-head on shared instruments");
 type H2H = { aBrier: number; bBrier: number; n: number };
 function headToHead(famFilter?: string) {
-  const pairs: Record<string, { aSamp: SettledSample[]; bSamp: SettledSample[] }> = {};
+  const pairs: Record<
+    string,
+    { aSamp: SettledSample[]; bSamp: SettledSample[] }
+  > = {};
   for (const entry of ppInstr.values()) {
     if (entry.push) continue;
     if (famFilter && entry.fam !== famFilter) continue;
@@ -646,7 +670,13 @@ function bestLag(
   return best;
 }
 
-type LeadAgg = { aLeads: number; bLeads: number; ties: number; sumLagSec: number; n: number };
+type LeadAgg = {
+  aLeads: number;
+  bLeads: number;
+  ties: number;
+  sumLagSec: number;
+  n: number;
+};
 const leadLagPairs: Record<string, LeadAgg> = {};
 for (const bySrc of seriesByInstr.values()) {
   for (let i = 0; i < SOURCES.length; i++) {
@@ -681,7 +711,11 @@ const playerPropLeadLag = Object.fromEntries(
       ...v,
       meanAbsLagSec: v.n > 0 ? v.sumLagSec / v.n : null,
       leader:
-        v.aLeads > v.bLeads ? k.split("__")[0] : v.bLeads > v.aLeads ? k.split("__")[1] : "tie",
+        v.aLeads > v.bLeads
+          ? k.split("__")[0]
+          : v.bLeads > v.aLeads
+            ? k.split("__")[1]
+            : "tie",
     },
   ])
 );
@@ -719,7 +753,15 @@ const microRows = db
 }>;
 const microByFamily: Record<
   string,
-  Record<string, { events: number; trades: number; notional: number; concentratedPrints: number }>
+  Record<
+    string,
+    {
+      events: number;
+      trades: number;
+      notional: number;
+      concentratedPrints: number;
+    }
+  >
 > = {};
 for (const r of microRows) {
   const fam = normalizeStatFamily(r.rawFamily, r.rawLabel);
@@ -792,7 +834,13 @@ for (const [iid, bySrc] of seriesByInstr) {
   const bl = bestLag(sk, sp);
   // require a credible (non-degenerate) fit over a real overlap, not a perfect
   // correlation on a handful of collinear buckets.
-  if (bl && bl.lag > 0 && bl.corr >= 0.65 && bl.corr <= 0.97 && bl.overlap >= 15) {
+  if (
+    bl &&
+    bl.lag > 0 &&
+    bl.corr >= 0.65 &&
+    bl.corr <= 0.97 &&
+    bl.overlap >= 15
+  ) {
     if (!bestKalshiLead || bl.overlap > bestKalshiLead.overlap)
       bestKalshiLead = { iid, lag: bl.lag, corr: bl.corr, overlap: bl.overlap };
   }
@@ -818,9 +866,17 @@ for (const [iid, entry] of ppInstr) {
   const other =
     entry.bySource.get("kalshi") ?? entry.bySource.get("polymarket");
   if (!b || !other) continue;
-  if (b.pregame == null || b.final == null || other.pregame == null || other.final == null)
+  if (
+    b.pregame == null ||
+    b.final == null ||
+    other.pregame == null ||
+    other.final == null
+  )
     continue;
-  if (Math.abs(b.pregame - b.final) < 0.01 && Math.abs(other.pregame - other.final) > 0.2) {
+  if (
+    Math.abs(b.pregame - b.final) < 0.01 &&
+    Math.abs(other.pregame - other.final) > 0.2
+  ) {
     const tl = instrumentTimeline(iid);
     if (tl) {
       caseStudies.push({
@@ -925,4 +981,6 @@ writeFileSync(
 for (const [name, sql] of Object.entries(savedQueries)) {
   writeFileSync(resolve(QUERY_DIR, `${name}.sql`), sql + "\n");
 }
-log(`done: wrote report-data.json + ${Object.keys(savedQueries).length} queries`);
+log(
+  `done: wrote report-data.json + ${Object.keys(savedQueries).length} queries`
+);
