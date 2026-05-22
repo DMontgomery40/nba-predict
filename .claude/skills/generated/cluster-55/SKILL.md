@@ -15,8 +15,8 @@ description: "Skill for the Cluster_55 area of nba-predict. 16 symbols across 1 
 
 ## Key Files
 
-| File | Symbols |
-|------|---------|
+| File                       | Symbols                                                                                                                           |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/worker/src/index.ts` | getDefaultIntervalMs, getDefaultMaxBackoffMs, getBet365RateLimitCooldownMs, getSidecarLookbackDays, getSidecarLookaheadDays (+11) |
 
 ## Entry Points
@@ -31,38 +31,38 @@ Start here when exploring this area:
 
 ## Key Symbols
 
-| Symbol | Type | File | Line |
-|--------|------|------|------|
-| `calculateBackoffDelay` | Function | `apps/worker/src/index.ts` | 317 |
-| `runWorkerCycle` | Function | `apps/worker/src/index.ts` | 359 |
-| `startWorker` | Function | `apps/worker/src/index.ts` | 616 |
-| `stop` | Function | `apps/worker/src/index.ts` | 631 |
-| `scheduleNext` | Function | `apps/worker/src/index.ts` | 645 |
-| `getDefaultIntervalMs` | Function | `apps/worker/src/index.ts` | 32 |
-| `getDefaultMaxBackoffMs` | Function | `apps/worker/src/index.ts` | 36 |
-| `getBet365RateLimitCooldownMs` | Function | `apps/worker/src/index.ts` | 40 |
-| `getSidecarLookbackDays` | Function | `apps/worker/src/index.ts` | 44 |
-| `getSidecarLookaheadDays` | Function | `apps/worker/src/index.ts` | 48 |
-| `getKalshiLiveMaxEvents` | Function | `apps/worker/src/index.ts` | 52 |
-| `getKalshiLiveLookbackDays` | Function | `apps/worker/src/index.ts` | 56 |
-| `getKalshiLiveMinimumStartDate` | Function | `apps/worker/src/index.ts` | 60 |
-| `getPolymarketTradesLookbackMinutes` | Function | `apps/worker/src/index.ts` | 66 |
-| `getPolymarketTradesMaxMarkets` | Function | `apps/worker/src/index.ts` | 70 |
-| `isRateLimitFailure` | Function | `apps/worker/src/index.ts` | 140 |
+| Symbol                               | Type     | File                       | Line |
+| ------------------------------------ | -------- | -------------------------- | ---- |
+| `calculateBackoffDelay`              | Function | `apps/worker/src/index.ts` | 317  |
+| `runWorkerCycle`                     | Function | `apps/worker/src/index.ts` | 359  |
+| `startWorker`                        | Function | `apps/worker/src/index.ts` | 616  |
+| `stop`                               | Function | `apps/worker/src/index.ts` | 631  |
+| `scheduleNext`                       | Function | `apps/worker/src/index.ts` | 645  |
+| `getDefaultIntervalMs`               | Function | `apps/worker/src/index.ts` | 32   |
+| `getDefaultMaxBackoffMs`             | Function | `apps/worker/src/index.ts` | 36   |
+| `getBet365RateLimitCooldownMs`       | Function | `apps/worker/src/index.ts` | 40   |
+| `getSidecarLookbackDays`             | Function | `apps/worker/src/index.ts` | 44   |
+| `getSidecarLookaheadDays`            | Function | `apps/worker/src/index.ts` | 48   |
+| `getKalshiLiveMaxEvents`             | Function | `apps/worker/src/index.ts` | 52   |
+| `getKalshiLiveLookbackDays`          | Function | `apps/worker/src/index.ts` | 56   |
+| `getKalshiLiveMinimumStartDate`      | Function | `apps/worker/src/index.ts` | 60   |
+| `getPolymarketTradesLookbackMinutes` | Function | `apps/worker/src/index.ts` | 66   |
+| `getPolymarketTradesMaxMarkets`      | Function | `apps/worker/src/index.ts` | 70   |
+| `isRateLimitFailure`                 | Function | `apps/worker/src/index.ts` | 140  |
 
 ## Execution Flows
 
-| Flow | Type | Steps |
-|------|------|-------|
-| `RunWorkerCycle → GetDefaultIntervalMs` | intra_community | 3 |
+| Flow                                    | Type            | Steps |
+| --------------------------------------- | --------------- | ----- |
+| `RunWorkerCycle → GetDefaultIntervalMs` | intra_community | 3     |
 
 ## Connected Areas
 
-| Area | Connections |
-|------|-------------|
-| Services | 4 calls |
-| Cluster_1 | 1 calls |
-| Cluster_60 | 1 calls |
+| Area       | Connections |
+| ---------- | ----------- |
+| Services   | 4 calls     |
+| Cluster_1  | 1 calls     |
+| Cluster_60 | 1 calls     |
 
 ## How to Explore
 

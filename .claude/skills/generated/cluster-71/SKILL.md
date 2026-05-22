@@ -15,10 +15,10 @@ description: "Skill for the Cluster_71 area of nba-predict. 21 symbols across 2 
 
 ## Key Files
 
-| File | Symbols |
-|------|---------|
+| File                                         | Symbols                                                                             |
+| -------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `packages/adapters/src/kalshi-historical.ts` | sleep, fetchWithRateLimit, normalizeToken, buildGameKey, parseKalshiEventDate (+15) |
-| `packages/shared/src/live-repository.ts` | appendHistoricalTick |
+| `packages/shared/src/live-repository.ts`     | appendHistoricalTick                                                                |
 
 ## Entry Points
 
@@ -31,49 +31,49 @@ Start here when exploring this area:
 
 ## Key Symbols
 
-| Symbol | Type | File | Line |
-|--------|------|------|------|
-| `fetchKalshiSettledNbaEvents` | Function | `packages/adapters/src/kalshi-historical.ts` | 436 |
-| `fetchKalshiCandlesticks` | Function | `packages/adapters/src/kalshi-historical.ts` | 480 |
-| `syncKalshiNbaHistorical` | Function | `packages/adapters/src/kalshi-historical.ts` | 629 |
-| `appendHistoricalTick` | Function | `packages/shared/src/live-repository.ts` | 3547 |
-| `sleep` | Function | `packages/adapters/src/kalshi-historical.ts` | 28 |
-| `fetchWithRateLimit` | Function | `packages/adapters/src/kalshi-historical.ts` | 34 |
-| `normalizeToken` | Function | `packages/adapters/src/kalshi-historical.ts` | 163 |
-| `buildGameKey` | Function | `packages/adapters/src/kalshi-historical.ts` | 171 |
-| `parseKalshiEventDate` | Function | `packages/adapters/src/kalshi-historical.ts` | 178 |
-| `parseKalshiTeamAbbreviations` | Function | `packages/adapters/src/kalshi-historical.ts` | 198 |
-| `toNumberFromDollars` | Function | `packages/adapters/src/kalshi-historical.ts` | 211 |
-| `shiftIsoDate` | Function | `packages/adapters/src/kalshi-historical.ts` | 220 |
-| `buildGameIndex` | Function | `packages/adapters/src/kalshi-historical.ts` | 226 |
-| `resolveKalshiGame` | Function | `packages/adapters/src/kalshi-historical.ts` | 248 |
-| `resolveParticipantKey` | Function | `packages/adapters/src/kalshi-historical.ts` | 262 |
-| `buildStableId` | Function | `packages/adapters/src/kalshi-historical.ts` | 301 |
-| `buildRawPayloadHash` | Function | `packages/adapters/src/kalshi-historical.ts` | 308 |
-| `parseJsonObject` | Function | `packages/adapters/src/kalshi-historical.ts` | 312 |
-| `chooseHistoricalWindow` | Function | `packages/adapters/src/kalshi-historical.ts` | 324 |
-| `selectExistingKalshiHistoricalTargets` | Function | `packages/adapters/src/kalshi-historical.ts` | 360 |
+| Symbol                                  | Type     | File                                         | Line |
+| --------------------------------------- | -------- | -------------------------------------------- | ---- |
+| `fetchKalshiSettledNbaEvents`           | Function | `packages/adapters/src/kalshi-historical.ts` | 436  |
+| `fetchKalshiCandlesticks`               | Function | `packages/adapters/src/kalshi-historical.ts` | 480  |
+| `syncKalshiNbaHistorical`               | Function | `packages/adapters/src/kalshi-historical.ts` | 629  |
+| `appendHistoricalTick`                  | Function | `packages/shared/src/live-repository.ts`     | 3547 |
+| `sleep`                                 | Function | `packages/adapters/src/kalshi-historical.ts` | 28   |
+| `fetchWithRateLimit`                    | Function | `packages/adapters/src/kalshi-historical.ts` | 34   |
+| `normalizeToken`                        | Function | `packages/adapters/src/kalshi-historical.ts` | 163  |
+| `buildGameKey`                          | Function | `packages/adapters/src/kalshi-historical.ts` | 171  |
+| `parseKalshiEventDate`                  | Function | `packages/adapters/src/kalshi-historical.ts` | 178  |
+| `parseKalshiTeamAbbreviations`          | Function | `packages/adapters/src/kalshi-historical.ts` | 198  |
+| `toNumberFromDollars`                   | Function | `packages/adapters/src/kalshi-historical.ts` | 211  |
+| `shiftIsoDate`                          | Function | `packages/adapters/src/kalshi-historical.ts` | 220  |
+| `buildGameIndex`                        | Function | `packages/adapters/src/kalshi-historical.ts` | 226  |
+| `resolveKalshiGame`                     | Function | `packages/adapters/src/kalshi-historical.ts` | 248  |
+| `resolveParticipantKey`                 | Function | `packages/adapters/src/kalshi-historical.ts` | 262  |
+| `buildStableId`                         | Function | `packages/adapters/src/kalshi-historical.ts` | 301  |
+| `buildRawPayloadHash`                   | Function | `packages/adapters/src/kalshi-historical.ts` | 308  |
+| `parseJsonObject`                       | Function | `packages/adapters/src/kalshi-historical.ts` | 312  |
+| `chooseHistoricalWindow`                | Function | `packages/adapters/src/kalshi-historical.ts` | 324  |
+| `selectExistingKalshiHistoricalTargets` | Function | `packages/adapters/src/kalshi-historical.ts` | 360  |
 
 ## Execution Flows
 
-| Flow | Type | Steps |
-|------|------|-------|
-| `SyncKalshiNbaHistorical → DatabaseFailureError` | cross_community | 4 |
-| `SyncKalshiNbaHistorical → GetDatabasePath` | cross_community | 4 |
-| `SyncKalshiNbaHistorical → RowToOutcome` | cross_community | 4 |
-| `SyncKalshiNbaHistorical → DeriveResearchGameStatus` | cross_community | 4 |
-| `SyncKalshiNbaHistorical → ComputeCoverageSummary` | cross_community | 4 |
-| `SyncKalshiNbaHistorical → NormalizeToken` | intra_community | 4 |
-| `SyncKalshiNbaHistorical → Sleep` | intra_community | 4 |
-| `SyncKalshiNbaHistorical → ShiftIsoDate` | intra_community | 3 |
-| `SyncKalshiNbaHistorical → ParseKalshiTeamAbbreviations` | intra_community | 3 |
-| `SyncKalshiNbaHistorical → ParseKalshiEventDate` | intra_community | 3 |
+| Flow                                                     | Type            | Steps |
+| -------------------------------------------------------- | --------------- | ----- |
+| `SyncKalshiNbaHistorical → DatabaseFailureError`         | cross_community | 4     |
+| `SyncKalshiNbaHistorical → GetDatabasePath`              | cross_community | 4     |
+| `SyncKalshiNbaHistorical → RowToOutcome`                 | cross_community | 4     |
+| `SyncKalshiNbaHistorical → DeriveResearchGameStatus`     | cross_community | 4     |
+| `SyncKalshiNbaHistorical → ComputeCoverageSummary`       | cross_community | 4     |
+| `SyncKalshiNbaHistorical → NormalizeToken`               | intra_community | 4     |
+| `SyncKalshiNbaHistorical → Sleep`                        | intra_community | 4     |
+| `SyncKalshiNbaHistorical → ShiftIsoDate`                 | intra_community | 3     |
+| `SyncKalshiNbaHistorical → ParseKalshiTeamAbbreviations` | intra_community | 3     |
+| `SyncKalshiNbaHistorical → ParseKalshiEventDate`         | intra_community | 3     |
 
 ## Connected Areas
 
-| Area | Connections |
-|------|-------------|
-| Services | 9 calls |
+| Area     | Connections |
+| -------- | ----------- |
+| Services | 9 calls     |
 
 ## How to Explore
 

@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import {
+  type DivergencePayload,
   queryClient,
   type BoardAnomalyAlertDto,
   type BoardIncidentDto,
@@ -21,6 +22,13 @@ import {
 } from "../data/api";
 
 const fetchMock = vi.fn<typeof fetch>();
+
+type DivergenceFixtureRow = Omit<
+  DivergencePayload["data"][number],
+  "sources"
+> & {
+  sources?: string[];
+};
 
 beforeEach(() => {
   fetchMock.mockReset();
@@ -69,31 +77,7 @@ function mockErrorResponse({
 function createSettingsFetchImplementation(options?: {
   boardAlertRows?: BoardAnomalyAlertDto[];
   boardVolatilityRows?: BoardGameStateVolatilityDto[];
-  divergenceRows?: Array<{
-    captureRecencyMs?: number | null;
-    comparableState: string;
-    comparisonSummary?: {
-      aboveThresholdDurationMs: number;
-      comparisonCount: number;
-      latestGap?: number | null;
-      latestSourceProbabilities?: Record<string, number | null>;
-      maxGap?: number | null;
-      maxGapSourceProbabilities?: Record<string, number | null>;
-      threshold: number;
-    } | null;
-    displayLabel: string;
-    family: string;
-    gameId: string;
-    gameStatus?: string;
-    impliedProbabilityGap?: number | null;
-    inPlay: boolean;
-    instrumentId: string;
-    lineMismatch: boolean;
-    mappingStatus: string;
-    severity: string;
-    signalPriority: number;
-    sources?: string[];
-  }>;
+  divergenceRows?: DivergenceFixtureRow[];
   signalMismatchRows?: Array<{
     bet365ImpliedProbability?: number | null;
     captureRecencyMs?: number | null;

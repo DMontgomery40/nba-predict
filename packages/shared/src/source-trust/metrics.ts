@@ -28,7 +28,9 @@ export type SettledSummary = {
   meanActual: number | null;
 };
 
-export function clampProbability(value: number | null | undefined): number | null {
+export function clampProbability(
+  value: number | null | undefined
+): number | null {
   if (value == null || !Number.isFinite(value)) return null;
   if (value <= 0) return 0.0001;
   if (value >= 1) return 0.9999;
@@ -142,7 +144,8 @@ export function settleSpread(args: {
   if (label.includes("wins by over") || label.includes("wins by under")) {
     if (teamMargin === line) return { actual: 0, push: true };
     const over = teamMargin > line;
-    if (label.includes("wins by under")) return { actual: over ? 0 : 1, push: false };
+    if (label.includes("wins by under"))
+      return { actual: over ? 0 : 1, push: false };
     return { actual: over ? 1 : 0, push: false };
   }
 
@@ -197,10 +200,13 @@ export function settleStatLine(args: {
 // Period / full-game detection
 // --------------------------------------------------------------------------
 
-const PERIOD_LABEL = /\b(1H|2H|1Q|2Q|3Q|4Q|Q1|Q2|Q3|Q4|OT|[0-9]OT|quarter|half|overtime)\b/i;
+const PERIOD_LABEL =
+  /\b(1H|2H|1Q|2Q|3Q|4Q|Q1|Q2|Q3|Q4|OT|[0-9]OT|quarter|half|overtime)\b/i;
 
 /** True when the display label denotes a period/half/quarter/OT sub-market. */
-export function isPeriodMarket(displayLabel: string | null | undefined): boolean {
+export function isPeriodMarket(
+  displayLabel: string | null | undefined
+): boolean {
   if (!displayLabel) return false;
   return PERIOD_LABEL.test(displayLabel);
 }
@@ -259,10 +265,7 @@ export function normalizeStatFamily(
   // most-specific combinations first
   if (has("triple double") || has("triple-double")) return "triple-double";
   if (has("double double") || has("double-double")) return "double-double";
-  if (
-    (has("point") && has("assist") && has("rebound")) ||
-    has("pra")
-  ) {
+  if ((has("point") && has("assist") && has("rebound")) || has("pra")) {
     return "pra";
   }
   if (has("point") && has("rebound")) return "pr";
@@ -306,7 +309,15 @@ export type PbpStatLine = {
 };
 
 export function emptyStatLine(): PbpStatLine {
-  return { points: 0, rebounds: 0, assists: 0, threes: 0, steals: 0, blocks: 0, fg: 0 };
+  return {
+    points: 0,
+    rebounds: 0,
+    assists: 0,
+    threes: 0,
+    steals: 0,
+    blocks: 0,
+    fg: 0,
+  };
 }
 
 /** "C. Cunningham" -> { initial: "c", last: "cunningham" } for in-roster matching. */
@@ -482,7 +493,11 @@ export function statForFamily(
 }
 
 function doubleTripleCount(line: PbpStatLine): number {
-  return [line.points, line.rebounds, line.assists, line.steals, line.blocks].filter(
-    (v) => v >= 10
-  ).length;
+  return [
+    line.points,
+    line.rebounds,
+    line.assists,
+    line.steals,
+    line.blocks,
+  ].filter((v) => v >= 10).length;
 }

@@ -48,33 +48,48 @@ describe("moneyline settlement", () => {
 });
 
 describe("spread settlement (sign + push)", () => {
-  const base = { homeKey: "nyk", awayKey: "bos", finalHome: 110, finalAway: 100 };
+  const base = {
+    homeKey: "nyk",
+    awayKey: "bos",
+    finalHome: 110,
+    finalAway: 100,
+  };
   it("home favorite covers -1.5 when winning by 10", () => {
-    expect(settleSpread({ ...base, participantKey: "nyk", line: -1.5 })).toEqual({
+    expect(
+      settleSpread({ ...base, participantKey: "nyk", line: -1.5 })
+    ).toEqual({
       actual: 1,
       push: false,
     });
   });
   it("away dog with +1.5 loses when losing by 10", () => {
-    expect(settleSpread({ ...base, participantKey: "bos", line: 1.5 })).toEqual({
-      actual: 0,
-      push: false,
-    });
+    expect(settleSpread({ ...base, participantKey: "bos", line: 1.5 })).toEqual(
+      {
+        actual: 0,
+        push: false,
+      }
+    );
   });
   it("favorite does NOT cover a too-large spread", () => {
-    expect(settleSpread({ ...base, participantKey: "nyk", line: -12.5 })).toEqual({
+    expect(
+      settleSpread({ ...base, participantKey: "nyk", line: -12.5 })
+    ).toEqual({
       actual: 0,
       push: false,
     });
   });
   it("integer line produces a push at the exact margin", () => {
-    expect(settleSpread({ ...base, participantKey: "nyk", line: -10 })).toEqual({
-      actual: 0,
-      push: true,
-    });
+    expect(settleSpread({ ...base, participantKey: "nyk", line: -10 })).toEqual(
+      {
+        actual: 0,
+        push: true,
+      }
+    );
   });
   it("returns null when participant is neither side", () => {
-    expect(settleSpread({ ...base, participantKey: "lal", line: -1.5 })).toBeNull();
+    expect(
+      settleSpread({ ...base, participantKey: "lal", line: -1.5 })
+    ).toBeNull();
   });
 
   it("settles kalshi 'wins by over' as a margin threshold, not a handicap", () => {
@@ -102,15 +117,21 @@ describe("spread settlement (sign + push)", () => {
 
 describe("total settlement", () => {
   it("over wins above the line, under below, push at equality", () => {
-    expect(settleTotal({ selection: "over", line: 210.5, finalTotal: 218 })).toEqual({
+    expect(
+      settleTotal({ selection: "over", line: 210.5, finalTotal: 218 })
+    ).toEqual({
       actual: 1,
       push: false,
     });
-    expect(settleTotal({ selection: "under", line: 210.5, finalTotal: 218 })).toEqual({
+    expect(
+      settleTotal({ selection: "under", line: 210.5, finalTotal: 218 })
+    ).toEqual({
       actual: 0,
       push: false,
     });
-    expect(settleTotal({ selection: "over", line: 218, finalTotal: 218 })).toEqual({
+    expect(
+      settleTotal({ selection: "over", line: 218, finalTotal: 218 })
+    ).toEqual({
       actual: 0,
       push: true,
     });
@@ -119,11 +140,15 @@ describe("total settlement", () => {
 
 describe("player stat-line settlement", () => {
   it("over/under half-point lines never push", () => {
-    expect(settleStatLine({ selection: "over", line: 24.5, stat: 27 })).toEqual({
-      actual: 1,
-      push: false,
-    });
-    expect(settleStatLine({ selection: "under", line: 24.5, stat: 27 })).toEqual({
+    expect(settleStatLine({ selection: "over", line: 24.5, stat: 27 })).toEqual(
+      {
+        actual: 1,
+        push: false,
+      }
+    );
+    expect(
+      settleStatLine({ selection: "under", line: 24.5, stat: 27 })
+    ).toEqual({
       actual: 0,
       push: false,
     });
@@ -186,29 +211,44 @@ describe("PBP name matching", () => {
     expect(matchPbpNameToParticipant("C. Cunningham", roster)).toBe(
       "cade-cunningham"
     );
-    expect(matchPbpNameToParticipant("K. Oubre", roster)).toBe("kelly-oubre-jr");
+    expect(matchPbpNameToParticipant("K. Oubre", roster)).toBe(
+      "kelly-oubre-jr"
+    );
     expect(matchPbpNameToParticipant("Z. Nobody", roster)).toBeNull();
     expect(
-      matchPbpNameToParticipant("C. Cunningham", ["cade-cunningham", "cole-cunningham"])
+      matchPbpNameToParticipant("C. Cunningham", [
+        "cade-cunningham",
+        "cole-cunningham",
+      ])
     ).toBeNull();
   });
 });
 
 describe("PBP stat reconstruction", () => {
   const actions = [
-    { actionType: "3pt", description: "D. Jenkins 3PT  (3 PTS) (C. Cunningham 1 AST)" },
+    {
+      actionType: "3pt",
+      description: "D. Jenkins 3PT  (3 PTS) (C. Cunningham 1 AST)",
+    },
     {
       actionType: "2pt",
       description: "D. Jenkins 20' running Jump Shot (5 PTS) (T. Harris 1 AST)",
     },
-    { actionType: "2pt", description: "MISS J. Harden 7' driving floating Shot - blocked" },
+    {
+      actionType: "2pt",
+      description: "MISS J. Harden 7' driving floating Shot - blocked",
+    },
     { actionType: "rebound", description: "D. Wade REBOUND (Off:0 Def:1)" },
     { actionType: "block", description: "E. Mobley BLOCK (1 BLK)" },
     { actionType: "steal", description: "C. Cunningham STEAL (1 STL)" },
   ];
   it("reconstructs cumulative points, assists, threes, fg, reb, blk, stl", () => {
     const stats = reconstructStatsFromPbp(actions);
-    expect(stats.get("D. Jenkins")).toMatchObject({ points: 5, threes: 1, fg: 2 });
+    expect(stats.get("D. Jenkins")).toMatchObject({
+      points: 5,
+      threes: 1,
+      fg: 2,
+    });
     expect(stats.get("C. Cunningham")!.assists).toBe(1);
     expect(stats.get("C. Cunningham")!.steals).toBe(1);
     expect(stats.get("T. Harris")!.assists).toBe(1);
@@ -219,7 +259,10 @@ describe("PBP stat reconstruction", () => {
   });
   it("parses accented names and matches them to ASCII participant keys", () => {
     const stats = reconstructStatsFromPbp([
-      { actionType: "2pt", description: "N. Jokić 9' floating Jump Shot (2 PTS)" },
+      {
+        actionType: "2pt",
+        description: "N. Jokić 9' floating Jump Shot (2 PTS)",
+      },
       { actionType: "3pt", description: "L. Dončić 26' 3PT (3 PTS)" },
     ]);
     expect(stats.get("N. Jokić")!.points).toBe(2);

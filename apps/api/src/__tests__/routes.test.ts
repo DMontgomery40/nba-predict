@@ -1030,7 +1030,12 @@ describe("api routes", () => {
       "volume share"
     );
     expect(boardIncidentsFetch).toHaveBeenCalledTimes(1);
-    releaseBoardIncidentsFetch?.({
+    expect(releaseBoardIncidentsFetch).not.toBeNull();
+    if (!releaseBoardIncidentsFetch) {
+      throw new Error("expected board incidents fetch release handle");
+    }
+    const release: (value: Response) => void = releaseBoardIncidentsFetch;
+    release({
       headers: new Headers(),
       json: async () => ({
         data: {

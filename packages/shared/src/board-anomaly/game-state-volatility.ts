@@ -533,13 +533,19 @@ function calculateBoardVwMeasurement(
   const evaluated = evaluateBoardVwBuckets(buckets);
   const latestBucket = buckets[buckets.length - 1] ?? null;
   const latestEvaluatedBucket = evaluated[evaluated.length - 1] ?? null;
-  const activeFireIndex = evaluated.findLastIndex(
-    (bucket) =>
-      bucket.fire &&
+  let activeFireIndex = -1;
+  for (let index = evaluated.length - 1; index >= 0; index -= 1) {
+    const bucket = evaluated[index];
+    if (
+      bucket?.fire &&
       input.nowMs -
         (bucket.bucket.bucketStartMs + BOARD_VW_BUCKET_SECONDS * 1000) <=
         input.shockWindowMs
-  );
+    ) {
+      activeFireIndex = index;
+      break;
+    }
+  }
   const activeFire =
     activeFireIndex >= 0 ? (evaluated[activeFireIndex] ?? null) : null;
   const activeStreakBucketCount =
@@ -582,8 +588,6 @@ function calculateBoardVwMeasurement(
   const currentIntensity = selectedBucket?.bucket.intensity ?? 0;
   const baselineWindow = selectedBucket?.priorIntensities ?? [];
   const threshold = selectedBucket?.threshold ?? 0;
-  const baselineMedian = selectedBucket?.median ?? 0;
-  const baselineMad = selectedBucket?.mad ?? 0;
   const currentPercentile = computePercentileRank(
     baselineWindow,
     currentIntensity
