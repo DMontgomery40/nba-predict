@@ -4,49 +4,56 @@
 
 Signal Console is composed of:
 
-- a React web app for live research workflows
-- a Fastify API for live read models and admin routes
-- a worker for ingest orchestration
-- a Python `nba_api` sidecar for NBA game-state normalization, with official NBA CDN schedule fallback for future games omitted by `scoreboardv2`
-- shared domain and repository packages
+- a React web app for trader-facing operator workflows
+- a Fastify API for live read models, health, research, exports, and admin routes
+- a worker for ingest orchestration, backfills, and watcher jobs
+- a Python `nba_api` sidecar for NBA scoreboard and play-by-play normalization
+- shared domain, repository, adapter, and signal packages
 
-## Backend Responsibilities
+## Boundaries
 
-- persist append-only live game and quote history
-- compose research read models from persisted history
-- compute urgent player-prop attribution alerts from fresh mapped Bet365 and Kalshi/Polymarket quote overlap
-- compute generalized prediction-market anomaly alerts from persisted quote ticks and microstructure events without requiring exact player-prop pairing at detection time
-- serve player-prop alert playback frames written by the watcher
-- serve market anomaly scoring configuration and playback frames
-- stream data-engineering exports from the persisted SQLite store without requiring browser-side staging
-- expose operator/admin routes for health, coverage, unmapped markets, and source state
-- emit structured errors and logs
+- `apps/web`
+  - renders Desk, Board Alerts, Market Anomalies, Prop Alerts, Games, History, Exports, and Settings
+  - never invents a client-side detector that diverges from API or shared runtime output
+- `apps/api`
+  - loads repo-root env
+  - exposes health, research, export, games, divergence, and admin routes
+  - composes read models from persisted storage only
+- `apps/worker`
+  - loads repo-root env
+  - orchestrates live sync, backfills, admin action work, and watcher jobs
+  - isolates per-provider failures so one outage does not poison the whole cycle
+- `apps/nba-sidecar`
+  - normalizes NBA upstream payloads
+  - does not own persistence
+- `packages/shared`
+  - SQLite access, repositories, env loading, signal logic, and operational helpers
+- `packages/adapters`
+  - venue-specific capture and backfill code
+- `packages/domain`
+  - schemas and typed contracts shared across apps
 
-## Worker Responsibilities
+## Runtime Data Flow
 
-- ingest normalized NBA sidecar payloads across a recent-plus-lookahead date window and preserve partial-date failures without hiding full-window outages
-- ingest Polymarket NBA game markets through the official Gamma API
-- ingest Bet365 NBA markets through the backend-only Odds-API.io backup provider when `ODDS_API_KEY` is present, bounded to pending/live NBA events around the active target slate before requesting odds for matched event ids
-- ingest direct Kalshi NBA market data through `KALSHI_API_KEY`, including milestone-related game, spread, total, team-prop, player-prop, period, overtime, and related event families
-- log adapter runs and ingest outcomes
-- keep direct public Bet365 capture behind the same storage model as it matures
-- isolate market-provider failures inside a worker cycle so one source outage does not block later source refreshes
-- run an optional player-prop alert watcher that records every poll frame and sends desktop notifications for newly observed alert ids
-- run an optional market anomaly watcher that records generalized weirdness poll frames and sends desktop notifications for newly observed anomaly ids
-- back off cleanly on unrecoverable cycle failure
+1. The worker pulls normalized NBA game state and play-by-play through the sidecar.
+2. The worker ingests sportsbook and prediction-market data through adapters into canonical storage.
+3. `packages/shared` materializes divergence, anomaly, and board-volatility read models from persisted rows.
+4. The API exposes those read models without a separate shadow detector in the web client.
+5. The web surfaces whole-board tripwires first, then lets the operator inspect fanout, anomalies, strict prop disagreements, history, exports, and settings.
 
 ## Storage
 
-- SQLite for v1 portability
-- append-only tables for `game_states`, `quote_ticks`, and `raw_payloads`
-- relational links between canonical instruments and per-source markets
-- JSONL operational playback frames under `data/player-prop-alert-playback/`
-- JSONL operational market anomaly playback frames under `data/market-anomaly-playback/`
+- SQLite is the v1 system of record.
+- Core persisted live entities live in canonical tables such as `games`, `game_states`, `nba_play_by_play_actions`, `market_instruments`, `source_markets`, `quote_ticks`, `raw_payloads`, `adapter_runs`, `mapping_resolutions`, and `game_outcomes`.
+- Prediction-market trade and book structure lives in `market_microstructure_events`.
+- Board-volatility calibration lives in `board_volatility_baselines`.
+- Watcher playback frames are written as JSONL under `data/player-prop-alert-playback/` and `data/market-anomaly-playback/`.
 
 ## Boundary Rules
 
-- Web and API should consume persisted live data, not synthetic in-memory scenarios.
-- The NBA sidecar normalizes raw upstream payloads; the worker owns persistence.
-- Admin actions should enqueue explicit operational work rather than mutating state implicitly inside request handlers.
-- Generated build output must remain downstream of the live-only source tree; stale artifacts should be rebuilt or removed rather than treated as a separate runtime surface.
-- User-behavior anomaly metrics must stay pending until user event data is persisted and queryable.
+- Web and API consume persisted live data, not synthetic in-memory scenarios.
+- Whole-board volatility is the primary trader trigger. Exact-line prop disagreement is a follow-up surface, not the main desk ordering rule.
+- The sidecar owns normalization; the worker owns persistence.
+- Admin routes enqueue or trigger explicit operational work. They should not fake success for work the runtime cannot perform.
+- Generated build output stays downstream of the live-only source tree.
+- Archived docs are not architecture inputs.

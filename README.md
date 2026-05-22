@@ -1,80 +1,102 @@
-# Productization update, 2026-04-23
-
-This zip has a hardening pass focused on making the live-data claim auditable.
-
-New pieces:
-
-- `GET /api/v1/admin/runtime-audit`
-- Settings page `Runtime evidence` panel
-- `pnpm db:audit`
-- `docs/live-db-handoff.md`
-- `docs/product-readiness-gap-analysis.md`
-- `docs/demo-runbook.md`
-
-Important: the packaged `data/signal-console.sqlite` is schema-only, and `data/signal-console.e2e.sqlite` is seeded test data. David's live desk must be pointed at `/Users/davidmontgomery/nba-predict/data/signal-console.sqlite` with `SIGNAL_CONSOLE_DB_PATH` before presenting the dashboard as live-data-backed.
-
-```bash
-cd /Users/davidmontgomery/nba-predict && printf '%s\n' 'SIGNAL_CONSOLE_DB_PATH=/Users/davidmontgomery/nba-predict/data/signal-console.sqlite' 'PORT=8788' 'VITE_API_BASE_URL=http://localhost:8788' >> .env.local && pnpm db:audit
-```
-
----
-
 # Signal Console
 
-Signal Console is a live NBA trader-incident console for Bet365 trader inspection. The primary workflow is fast detection of likely player-prop stat misattribution or related market instability so a trader can suspend the affected markets within seconds. Broad market or whole-board volatility is still useful, but as the earliest tripwire: once it fires, the product must fan out into the implicated players, props, and related derivative markets. Historical replay exists to audit warning lead time and what the desk would have seen then; it is not the headline product.
+Signal Console is a live NBA trader-incident console for Bet365-style operator review. The current product thesis is board-first: the primary live trigger is whole-board money-weighted volatility, and once that tripwire fires the product is supposed to fan out into likely players, stat families, and suspension targets. Exact-line player-prop disagreement still matters, but it is a follow-up lane, not the headline trigger.
 
-The live board-alert deck keeps the board-first fold: if a whole-game `game-state-volatility` tripwire and player-specific fanout first pop inside the same shock window, the deck keeps the whole-game card first and leaves the player rows in the board alert evidence until a later follow-up separates itself.
+The live board runtime is the shared `board-vw` detector used by Desk, Board Alerts, replay, and inspect. Today it buckets in-play quote movement into 60-second whole-board windows, scores `Σ |Δ implied probability| * log1p(volume)`, and fires on a causal trailing `median + 3*MAD` threshold over the prior 20 non-empty buckets after an 8-bucket warmup. The research report in `outputs/innovation-team-suspend-signal-report/` explains why this family of signal exists; current code and current API payloads define the exact live runtime behavior.
 
-Whole-board volatility now runs the bake-off winner across live alerts, replay, inspect, and desk surfaces: all persisted quote observations for the game are bucketed into 60-second whole-board windows, each bucket scores `Σ |Δ implied probability| * log1p(volume)`, and a bucket fires only when it exceeds the trailing `median + 3*MAD` over the prior 20 non-empty buckets after an 8-bucket warmup. `/api/v1/research/board-volatility` exposes that shared board-vw runtime with the current bucket read, trailing-window summary, phase context, evidence rows, and recent-fire state rather than the older Kalman/baseline model.
+This repo is live-only and persisted-data-only. Do not add synthetic runtime modes, curated scenarios, or presentation shells back into it.
 
-It is live-only, persisted-data-only, and never substitutes synthetic runtime modes for missing live data. Sportsbooks (Bet365, FanDuel, DraftKings) and prediction markets (Kalshi, Polymarket) are five distinct source families normalized onto a common probability axis but scored with distinct microstructure feature sets. Per-instrument divergence, per-source-market microstructure anomalies, and the exact-line player-prop monitor remain as building blocks and Inspect detail surfaces; isolated props are not the whole-game headline. See [`specs/01-product-requirements.md`](specs/01-product-requirements.md) and [`specs/06b-board-anomaly-model.md`](specs/06b-board-anomaly-model.md) for the full contract and model spec, and [`docs/board-state-inventory.md`](docs/board-state-inventory.md) for what the persisted `B(t)` actually contains today.
+## Current Truth
+
+- Trader Desk leads with whole-board `game-state-volatility`, not isolated prop rows.
+- `/api/v1/research/market-anomalies` is the broad prediction-market weirdness lane: off-price prints, volume share, spread/depth stress, and cross-venue disagreement.
+- `/api/v1/research/player-prop-alerts` is the strict exact-line compatibility route for mapped Bet365 vs Kalshi/Polymarket follow-up.
+- Historical replay exists to answer what the trader would have seen and how much earlier the warning could have arrived. It is not a generic post-game recap surface.
+- The default runtime DB path is `data/signal-console.sqlite`. `data/signal-console.e2e.sqlite` is seeded test data and must never be presented as live evidence.
+- Stale prompts, proposals, and exploratory notes were moved into `.docs-archive/2026-05-repo-audit/`. They are archival only.
 
 ## Repo Layout
 
 - `apps/web`
-  - live research operator console
+  - trader-facing console routes
 - `apps/api`
-  - Fastify API for games, instruments, divergence, coverage, admin, and health routes
+  - Fastify read models, health, research, exports, and admin routes
 - `apps/worker`
-  - capture orchestrator and NBA sidecar ingest loop
+  - ingest orchestrator, backfills, and watcher jobs
 - `apps/nba-sidecar`
-  - Python `nba_api` service for normalized NBA scoreboard, box score, and play-by-play payloads
+  - Python `nba_api` sidecar for normalized scoreboard and play-by-play
 - `packages/domain`
-  - shared live/research contracts and schemas
+  - shared contracts and schemas
 - `packages/shared`
-  - SQLite migrations, repositories, errors, and logging
+  - SQLite access, repositories, env loading, shared signal logic, errors, and logging
 - `packages/adapters`
-  - live source integrations and external market adapters
+  - sportsbook and prediction-market capture and backfill adapters
 - `specs`
-  - live-only product, UX, architecture, API, data, and delivery specs
+  - active product, architecture, API, signal, and test specs
 - `docs`
-  - ADRs and traceability notes
+  - ADRs plus a few low-level reference docs
 
-## Run It
+## Main Operator Surfaces
 
-JavaScript apps:
+- `/`
+  - Trader Desk. Ranked live queue led by whole-board volatility.
+- `/board-alerts`
+  - trader incidents and warning audit
+- `/market-anomalies`
+  - broad prediction-market weirdness queue
+- `/prop-alerts`
+  - strict exact-line player-prop follow-up
+- `/games`
+  - current slate and game workspaces
+- `/history`
+  - persisted research history
+- `/exports`
+  - data-engineering exports
+- `/settings`
+  - readiness, source state, config, admin controls, coverage, and mappings
+
+## Local Run
+
+1. Install JS dependencies:
 
 ```bash
 pnpm install
-pnpm dev
 ```
 
-NBA sidecar:
+2. Sync sidecar dependencies if needed:
+
+```bash
+cd apps/nba-sidecar
+uv sync --extra dev
+```
+
+3. Set the minimum local env in repo-root `.env.local`:
+
+```dotenv
+SIGNAL_CONSOLE_DB_PATH=/Users/davidmontgomery/nba-predict/data/signal-console.sqlite
+NBA_SIDECAR_BASE_URL=http://127.0.0.1:9393
+ODDS_API_KEY=...
+KALSHI_API_KEY=...
+```
+
+4. Start the NBA sidecar:
 
 ```bash
 cd apps/nba-sidecar
 uv run uvicorn nba_sidecar.main:app --reload --host 0.0.0.0 --port 9393
 ```
 
+5. Start the web, API, and worker:
+
+```bash
+pnpm dev
+```
+
 ## Runtime Env Loading
 
 - `apps/api` and `apps/worker` automatically load repo-root `.env.local` and then `.env`
 - explicit shell environment variables still win and are never overwritten
-- the recommended local path is:
-  1. run the NBA sidecar on `http://127.0.0.1:9393`
-  2. set `NBA_SIDECAR_BASE_URL=http://127.0.0.1:9393` in `.env.local`
-  3. keep source credentials such as `ODDS_API_KEY` and Polymarket keys in `.env.local` or `.env`
-  4. run `pnpm dev`
+- the web dev server proxies `/api` and `/health` to `SIGNAL_CONSOLE_API_TARGET`, which defaults to `http://127.0.0.1:8787`
 
 Default local ports:
 
@@ -82,22 +104,12 @@ Default local ports:
 - api: `http://127.0.0.1:8787`
 - nba sidecar: `http://127.0.0.1:9393`
 
-SQLite state is stored at `data/signal-console.sqlite` by default.
-
 Temporary public local hosting:
 
 ```bash
 pnpm --filter @signal-console/web build
 TEMP_HOST_DISABLE_AUTH=1 pnpm host:temporary
 ```
-
-The temporary host serves the built web console from `apps/web/dist`, proxies
-`/api` and `/health` to the local Fastify API, and listens on
-`http://127.0.0.1:4210` by default. Put a Cloudflare tunnel in front of that
-single local URL when a short-lived public link is needed. If you explicitly
-need HTTP Basic Auth for a private operator bridge, leave
-`TEMP_HOST_DISABLE_AUTH` unset and provide `BASIC_AUTH_USERNAME` plus
-`BASIC_AUTH_PASSWORD`.
 
 ## Key Environment
 
@@ -107,22 +119,28 @@ need HTTP Basic Auth for a private operator bridge, leave
 - `NBA_SIDECAR_LOOKAHEAD_DAYS`
 - `ODDS_API_KEY`
 - `ODDS_API_IO_KEY`
-- `ODDS_API_TARGET_LOOKAHEAD_HOURS` (optional; defaults to `8` for active Bet365 backup event discovery)
-- `ODDS_API_TARGET_LOOKBACK_MINUTES` (optional; defaults to `90` for active Bet365 backup event discovery)
-- `BET365_SESSION_STATE_PATH` (optional legacy bootstrap path)
-- `BET365_INTERNAL_DUMP_DIR` (optional internal JSONL import folder)
+- `ODDS_API_TARGET_LOOKAHEAD_HOURS`
+- `ODDS_API_TARGET_LOOKBACK_MINUTES`
+- `BET365_INTERNAL_DUMP_DIR`
 - `KALSHI_API_KEY`
-- `KALSHI_API_SECRET` (optional; not required for direct market-data capture)
-- `KALSHI_LIVE_MAX_EVENTS` (optional; defaults to `200` for bounded live worker cycles)
-- `KALSHI_LIVE_LOOKBACK_DAYS` (optional; defaults to `2` for recent live worker milestones)
+- `KALSHI_API_SECRET`
+- `KALSHI_LIVE_MAX_EVENTS`
+- `KALSHI_LIVE_LOOKBACK_DAYS`
 - `POLYMARKET_API_KEY`
 - `POLYMARKET_API_SECRET`
 - `POLYMARKET_API_PASSPHRASE`
-- `WORKER_INTERVAL_MS`, `WORKER_MAX_BACKOFF_MS`, and `BET365_RATE_LIMIT_COOLDOWN_MS` (optional; defaults to `300000` so Odds-API 429s pause Bet365 without stopping other providers)
-- `PLAYER_PROP_ALERT_LIMIT`, `PLAYER_PROP_ALERT_INCLUDE_STALE`, `PLAYER_PROP_ALERT_PLAYBACK_DIR`, and `PLAYER_PROP_ALERT_TIME_ZONE`
-- `MARKET_ANOMALY_LIMIT`, `MARKET_ANOMALY_MIN_SCORE`, `MARKET_ANOMALY_MIN_CONFIDENCE`, `MARKET_ANOMALY_INCLUDE_UNMAPPED`, `MARKET_ANOMALY_REQUIRE_BET365`, `MARKET_ANOMALY_PLAYBACK_DIR`, and `MARKET_ANOMALY_TIME_ZONE`
-- `TEMP_HOST_PORT`, `TEMP_HOST_WEB_ROOT`, `TEMP_HOST_API_TARGET`, `TEMP_HOST_DISABLE_AUTH`, `BASIC_AUTH_USERNAME`, and `BASIC_AUTH_PASSWORD`
-- `LOG_LEVEL`, `LOG_PRETTY`, `NODE_ENV`, and `CI`
+- `WORKER_INTERVAL_MS`
+- `WORKER_MAX_BACKOFF_MS`
+- `BET365_RATE_LIMIT_COOLDOWN_MS`
+- `PLAYER_PROP_ALERT_*`
+- `MARKET_ANOMALY_*`
+- `TEMP_HOST_*`
+- `BASIC_AUTH_USERNAME`
+- `BASIC_AUTH_PASSWORD`
+- `LOG_LEVEL`
+- `LOG_PRETTY`
+- `NODE_ENV`
+- `CI`
 
 ## Quality Gates
 
@@ -133,176 +151,77 @@ cd apps/nba-sidecar && uv run pytest
 
 `pnpm verify` runs the repo standard format, lint, typecheck, and test path for the TypeScript workspace.
 
-## Codex Bug-Fix Guard
-
-Codex sessions in this repo now ship a repo-local hook policy in `.codex/hooks.json`.
-After trusting the hook set through `/hooks`, concrete bug-fix prompts get an up-front reminder that regression coverage must live at the observable behavior boundary rather than as a narrow white-box test. The same hook set tracks `apply_patch` edits plus Bash test/verify commands and continues the turn if a bug-fix edit tries to stop without:
-
-- a touched regression-test file
-- a changed-surface test command
-- a `pnpm verify` attempt
-
-The hook implementation lives in `packages/shared/src/codex-hooks/bugfix-regression-guard.ts`, and its own regression coverage lives in `packages/shared/src/__tests__/bugfix-regression-guard.test.ts`.
-
-Historical backfills use the live-only persistence model and never load synthetic packs:
-
-```bash
-pnpm backfill nba --lookbackDays 365 --lookaheadDays 0
-pnpm backfill kalshi --maxEvents 200 --periodInterval 60
-pnpm backfill polymarket --since 2024-10-01 --maxEvents 200 --fidelity 1
-pnpm backfill polymarket-trades --since 2026-05-18T00:00:00Z --until 2026-05-18T05:30:00Z --gameId nba-0042500207 --maxTickers 250
-pnpm backfill bet365-historical --since 2026-04-27 --until 2026-05-10
-pnpm backfill bet365-internal
-pnpm backfill all
-```
-
-The NBA sidecar window backfill records per-date failures in the adapter run
-error fields and continues when at least one requested date succeeds. If every
-requested date fails, it fails the run honestly instead of writing a fake-green
-zero-row window.
-
 ## Runtime Surface
 
 - `GET /health/live`
 - `GET /health/ready`
-- `GET /health/ready` uses fast SQLite readiness probes: it skips full
-  integrity checks and reports high-water marks for large append-only tables
-  instead of exact row scans.
-- `GET /api/v1/games?limit=N` (defaults to 25 and orders the undated list by the current slate before old persisted history)
+- `GET /health`
+- `GET /api/v1/games`
 - `GET /api/v1/games/:gameId`
 - `GET /api/v1/games/:gameId/markets`
 - `GET /api/v1/games/:gameId/markets/:instrumentId`
 - `GET /api/v1/games/:gameId/markets/:instrumentId/timeline`
+- `GET /api/v1/games/:gameId/markets/:instrumentId/sources`
 - `GET /api/v1/games/:gameId/markets/:instrumentId/raw/:sourceId`
 - `GET /api/v1/games/:gameId/markets/:instrumentId/export.csv`
+- `GET /api/v1/divergence`
 - `GET /api/v1/exports`
-- `GET /api/v1/exports/:dataset.csv`
-- `GET /api/v1/exports/:dataset.jsonl`
 - `GET /api/v1/exports/sqlite`
 - `GET /api/v1/exports/full-package.sqlite`
-- `GET /api/v1/divergence?date=YYYY-MM-DD&limit=N`
 - `GET /api/v1/research/coverage`
-- `GET /api/v1/research/signal-mismatches?date=YYYY-MM-DD`
-- `GET /api/v1/research/player-prop-alerts?minDelta=0.15&maxQuoteTimeGapMinutes=10&maxQuoteAgeMinutes=10`
-- `GET /api/v1/research/player-prop-alert-playback?date=YYYY-MM-DD&limit=300`
-- `GET /api/v1/research/market-anomalies?minScore=45&minConfidence=0.45&includeUnmapped=true&skipQuoteAnomalies=true`
-- `GET /api/v1/research/board-alerts?now=ISO8601&limit=N&contextWindowMinutes=30`
-- `GET /api/v1/research/board-alerts/incidents?date=YYYY-MM-DD&limit=50`
-- `GET /api/v1/research/board-alerts/event-context?gameId=nba-0042500207&at=ISO8601`
-- `GET /api/v1/research/board-alerts/replay?gameId=nba-0042500207&windowStart=ISO8601&windowEnd=ISO8601`
-- `GET /api/v1/research/board-volatility?limit=5&contextWindowMinutes=30`
+- `GET /api/v1/research/signal-mismatches`
+- `GET /api/v1/research/mismatches`
+- `GET /api/v1/research/player-prop-alerts`
+- `GET /api/v1/research/player-prop-alert-playback`
+- `GET /api/v1/research/market-anomalies`
 - `GET /api/v1/research/market-anomaly-score-config`
 - `PUT /api/v1/research/market-anomaly-score-config`
-- `GET /api/v1/research/market-anomaly-playback?date=YYYY-MM-DD&limit=300`
-- `GET /api/v1/research/signal-quality?closingCutoff=pregame|live-final`
-- `GET /api/v1/research/closed-games?closingCutoff=pregame|live-final&limit=N`
-
-For `family=player-prop`, divergence rows require real comparison evidence:
-persisted Bet365 quote ticks and at least one persisted Kalshi or Polymarket
-quote tick must resolve to the same canonical instrument, and at least one
-Bet365-vs-exchange quote pair must fall inside the same-time window. Current
-alert rows add the stricter live-action requirement that both sides are still
-inside the quote-age window.
-
-Divergence summaries are DB-derived from persisted quote ticks on the canonical
-probability scale. Final-game review rows use the peak same-time Bet365-vs-
-exchange comparison for the game; live rows use the latest same-time comparison.
-The payload also carries threshold duration and source probabilities from the
-exact comparison bucket so the UI does not combine unrelated latest quotes.
-Slate and desk game cards only show a top market signal when a same-time
-comparison was measured. Coverage-only rows stay visible as market work without
-being turned into fake zero-gap signals, and market-feed coverage is displayed
-separately from NBA game-state availability.
-
-- `GET /api/v1/games/:gameId/markets/:instrumentId/delta-series?bucketSeconds=60`
-- `GET /api/v1/games/:gameId/markets/:instrumentId/lead-lag?bucketSeconds=60&maxLagBuckets=20`
+- `GET /api/v1/research/market-anomaly-playback`
+- `GET /api/v1/research/board-alerts`
+- `GET /api/v1/research/board-volatility`
+- `GET /api/v1/research/board-alerts/incidents`
+- `GET /api/v1/research/board-alerts/event-context`
+- `GET /api/v1/research/board-alerts/replay`
+- `GET /api/v1/research/signal-quality`
+- `GET /api/v1/research/closed-games`
 - `GET /api/v1/admin/sources`
+- `GET /api/v1/admin/capture/runs`
 - `GET /api/v1/admin/runtime-config`
 - `GET /api/v1/admin/unmapped-markets`
+- `GET /api/v1/admin/storage/coverage`
+- `POST /api/v1/admin/capture/restart`
+- `POST /api/v1/admin/backfill/games`
+- `POST /api/v1/admin/backfill/markets`
+- `POST /api/v1/admin/mappings/resolve`
+- `POST /api/v1/admin/board-volatility-baselines/rebuild`
+- `POST /api/v1/admin/timeline-materializations/rebuild`
 
-## Historical Backfill
+See [`specs/05-api-spec.md`](specs/05-api-spec.md) for the current route contract and route-level notes.
 
-```bash
-# Seed canonical NBA games + outcomes from nba_api (needs the Python sidecar)
-pnpm backfill nba --lookbackDays 90
-
-# Direct Kalshi NBA market-data capture across milestone-related game, spread,
-# total, team-prop, player-prop, period, overtime, and related event families
-pnpm backfill kalshi --since 2026-04-20 --maxEvents 900
-
-# Public Kalshi KXNBAGAME settled event candles at 1h OHLC
-# (or periodInterval=1 for minute)
-pnpm backfill kalshi-historical --maxEvents 600 --periodInterval 60
-
-# Polymarket closed NBA events at 1-min fidelity
-pnpm backfill polymarket --maxEvents 200 --fidelity 1
-
-# Bet365 settled-game closing snapshots from Odds API historical endpoints
-pnpm backfill bet365-historical --since 2026-04-27 --until 2026-05-10
-
-# Bet365 internal JSONL dump (see docs/bet365-internal-dump-schema.md)
-pnpm backfill bet365-internal
-
-# Bet365 direct Playwright scrape (needs BET365_SESSION_STATE_PATH)
-pnpm backfill bet365-direct
-
-# All of the above (nba → kalshi → polymarket → bet365-historical → bet365-internal)
-pnpm backfill all
-```
-
-Backfills are idempotent: `quote_ticks` has a UNIQUE constraint on `(source_market_id, captured_at)` and all historical adapters use `INSERT OR IGNORE`. Each call also writes one `adapter_runs` row with `capture_mode = 'historical'`.
-
-## Live Player-Prop Alert Watcher
+## Common Commands
 
 ```bash
-pnpm prop-alert-watch
-```
-
-The watcher polls the same live player-prop disagreement read model used by the
-desk, sends a macOS notification for each newly observed alert id, and appends
-every poll frame to `data/player-prop-alert-playback/YYYY-MM-DD.jsonl`. Live
-prop alerts require Bet365 plus Kalshi or Polymarket, matching player/outcome,
-matching line, and quote timestamps inside the same-time window. Useful knobs:
-
-- `PLAYER_PROP_ALERT_WATCH_INTERVAL_MS=10000`
-- `PLAYER_PROP_ALERT_WATCH_DURATION_MS=21600000`
-- `PLAYER_PROP_ALERT_MIN_DELTA=0.15`
-- `PLAYER_PROP_ALERT_MAX_QUOTE_TIME_GAP_MINUTES=10`
-- `PLAYER_PROP_ALERT_MAX_QUOTE_AGE_MINUTES=10`
-- `PLAYER_PROP_ALERT_NOTIFY=1`
-
-## Live Market Anomaly Watcher
-
-```bash
+pnpm backfill
 pnpm market-anomaly-watch
+pnpm prop-alert-watch
+pnpm host:temporary
 ```
 
-The watcher polls the generalized prediction-market anomaly read model, sends a
-macOS notification for each newly observed anomaly id, and appends every poll
-frame to `data/market-anomaly-playback/YYYY-MM-DD.jsonl`. It does not require a
-known paired player or Bet365 context unless `MARKET_ANOMALY_REQUIRE_BET365=1`
-is set. Useful knobs:
+The worker backfill path uses the same live-only persistence model as the rest of the repo. It should never create synthetic rows just to make historical UI surfaces look healthy.
 
-- `MARKET_ANOMALY_WATCH_INTERVAL_MS=10000`
-- `MARKET_ANOMALY_WATCH_DURATION_MS=21600000`
-- `MARKET_ANOMALY_LIMIT=25`
-- `MARKET_ANOMALY_MIN_SCORE=45`
-- `MARKET_ANOMALY_MIN_CONFIDENCE=0.45`
-- `MARKET_ANOMALY_INCLUDE_UNMAPPED=1`
-- `MARKET_ANOMALY_REQUIRE_BET365=0`
-- `MARKET_ANOMALY_NOTIFY=1`
+## Active Docs
 
-## Current Status
+- [`AGENTS.md`](AGENTS.md)
+- [`PLAN.md`](PLAN.md)
+- [`specs/01-product-requirements.md`](specs/01-product-requirements.md)
+- [`specs/03-architecture-spec.md`](specs/03-architecture-spec.md)
+- [`specs/04-data-contracts.md`](specs/04-data-contracts.md)
+- [`specs/05-api-spec.md`](specs/05-api-spec.md)
+- [`specs/06-signal-engine-spec.md`](specs/06-signal-engine-spec.md)
+- [`specs/06b-board-anomaly-model.md`](specs/06b-board-anomaly-model.md)
+- [`specs/07-test-plan.md`](specs/07-test-plan.md)
+- [`docs/board-state-inventory.md`](docs/board-state-inventory.md)
+- [`docs/bet365-internal-dump-schema.md`](docs/bet365-internal-dump-schema.md)
+- [`outputs/innovation-team-suspend-signal-report/report.html`](outputs/innovation-team-suspend-signal-report/report.html)
 
-- Live research storage, repository, and read APIs are in place. Schema version 9 includes UNIQUE `(source_market_id, captured_at)` on `quote_ticks`, `capture_mode` on `adapter_runs`, canonical instrument consolidation so all sources map to one instrument per `(game, family, participant, line)`, indexed source-market lookup for same-time divergence summaries, and persisted `market_microstructure_events` plus score configs for prediction-market anomaly detection.
-- **Ingestion** — Polymarket NBA live + historical (minute-resolution CLOB `/prices-history`, including player-prop O/U markets) plus direct Data API trade backfill through Gamma `conditionId` discovery into `market_microstructure_events`, direct Kalshi NBA market-data capture via `KALSHI_API_KEY` across game, spread, total, team-prop, player-prop, period, overtime, and related event families, Kalshi historical `KXNBAGAME` candlesticks, Bet365 live-backup via Odds-API including player-prop markets, Bet365 internal JSONL drop folder, Bet365 direct Playwright scrape (awaits `BET365_SESSION_STATE_PATH`). The Odds-API Bet365 backup discovery call is limited to pending/live NBA events around the active target slate (`ODDS_API_TARGET_LOOKAHEAD_HOURS`, `ODDS_API_TARGET_LOOKBACK_MINUTES`) before requesting odds for matched event ids. NBA canonical games, outcomes, and play-by-play actions come through the Python sidecar, with graceful per-date error isolation and official NBA CDN fallbacks for future playoff schedules, live scoreboards, and play-by-play payloads.
-- **Worker resilience** — Market-provider failures are isolated inside a cycle: a Bet365 rate-limit or upstream outage is reported in the heartbeat `providerFailures` field and adapter runs, but does not prevent Kalshi or Polymarket from refreshing. Repeated Bet365 429s trigger a provider-specific cooldown (`BET365_RATE_LIMIT_COOLDOWN_MS`) instead of hammering Odds-API every worker loop. Live Kalshi scans are bounded by `KALSHI_LIVE_MAX_EVENTS` and `KALSHI_LIVE_LOOKBACK_DAYS`.
-- **Prediction-market weirdness** — `/api/v1/research/market-anomalies` is the broad tripwire route. It scores persisted Kalshi/Polymarket/Bet365 quote ticks plus persisted microstructure events for off-price prints, volume-share anomalies, volatility shocks, liquidity/spread/depth shocks, and cross-venue disagreement. It does not require knowing the paired/rightful player at detection time. `/market-anomalies` exposes the queue and score knobs, and `pnpm market-anomaly-watch` records playback/notifications.
-- **Trader incidents / board tripwires** — `/api/v1/research/board-alerts` and `/api/v1/research/board-alerts/incidents` are the trader-facing incident routes. They should turn broad tripwires into concrete player/prop follow-up: who is likely involved, which stat families are moving, and what related markets should be reviewed or suspended first. `/api/v1/research/board-volatility` is the earliest whole-board tripwire layer, not the end of the story. `/api/v1/research/board-alerts/event-context` returns nearby market reactions and NBA play-by-play rows around an anchor timestamp so inspect can answer what the trader knew and when; when persisted NBA play-by-play is missing, the API first attempts sidecar hydration and otherwise fails honestly instead of inventing game-clock confirmation. Historical incident reads are for no-future-leakage warning-timing audit, not generic post-game noise, and inspect must label pregame / near-tip states honestly rather than dressing up a far-away NBA row as nearby context.
-- **Board-volatility runtime** — `/api/v1/research/board-volatility` and whole-board `game-state-volatility` cards in `/api/v1/research/board-alerts` now read the same shared board-vw output. The live tripwire is the bake-off winner: 60-second whole-board quote buckets, intensity `Σ |Δ implied probability| * log1p(volume)`, a causal trailing `median + 3*MAD` threshold over the prior 20 non-empty buckets, and an 8-bucket warmup before a fire is allowed. The route still carries contextual phase, evidence, and driver fields so the trader can audit why a bucket fired without reverse-engineering the math from the UI.
-- **Player-prop attribution risk** — `/api/v1/research/player-prop-alerts` remains the strict compatibility/safety route. It compares mapped player-prop quotes from Bet365 against Kalshi/Polymarket, filters by configurable divergence threshold and quote-time window, fails closed on player/outcome or line mismatch, and returns manual-review alerts with source labels, line terms, quote ages, and a risk score. `pnpm prop-alert-watch` can run out-of-band for desktop notifications and writes persisted alert checks served by `/api/v1/research/player-prop-alert-playback`.
-- **Exports** — `/exports` is package-first for data engineering: the primary control downloads the full live SQLite snapshot (`/api/v1/exports/full-package.sqlite`) with all persisted tables, timestamps, quote volume columns, and raw payloads. The same route also exposes API-backed CSV/JSONL table exports plus filtered quote pulls for provider/family slices such as all player props or Kalshi player props.
-- **Signal-quality analytics** — `signal-quality`, `closed-games`, per-instrument `delta-series` and `lead-lag` (source-to-source Pearson cross-correlation). Closing cutoff is pregame by default (`scheduled_start`), switchable to live-final. Calibration reports Brier and log-loss per source.
-- **Web app** is a trader-terminal shell: flat dense grids, monospace numerics, keyboard nav (`g b` desk, `g a` anomalies, `g p` prop alerts, `g g` slate, `g d` divergence, `g r` research, `g h` history, `g e` exports, `g s` settings). Routes: `/`, `/market-anomalies`, `/board-alerts`, `/prop-alerts`, `/divergence`, `/research`, `/history`, `/exports`, `/settings`, `/games/:gameId`, `/games/:gameId/markets/:instrumentId`. The root trader desk should surface the fastest reliable tripwire first and then the player/market breakdown a trader can act on. `/board-alerts` is the trader-incident queue and historical warning-audit route, while `/prop-alerts` remains the stricter exact-line Bet365-vs-exchange prop monitor. The instrument workspace shows peak divergence, latest measured divergence, threshold duration, same-time source rows, a mini chart, and raw source details behind a secondary control.
-- **Perf** — `listSignalMismatches` / `listResearchDivergence` use window functions, batched game-bundle loading, and indexed instrument-to-source-market quote lookups so current-slate divergence summaries do not scan the full quote history before the operator desk can load.
-- Legacy presentation-only runtime paths have been removed; storyline tables dropped in migration 3.
+Everything under `.docs-archive/` is preserved for archaeology, not for live repo guidance.

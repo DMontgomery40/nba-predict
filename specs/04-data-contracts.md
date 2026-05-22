@@ -1,10 +1,11 @@
 # Data Contracts
 
-## Canonical Live Entities
+## Core Persisted Live Entities
 
 - `Game`
 - `GameState`
 - `GameOutcome`
+- `NbaPlayByPlayAction`
 - `MarketInstrument`
 - `SourceMarket`
 - `QuoteTick`
@@ -12,13 +13,14 @@
 - `AdapterRun`
 - `MappingResolution`
 
-## Operational Artifacts
+## Supporting Signal And Ops Artifacts
 
-- `PlayerPropAlertPlaybackFrame`
 - `MarketMicrostructureEvent`
+- `BoardVolatilityBaseline`
 - `MarketAnomalyAlert`
 - `MarketAnomalyScoreConfig`
 - `MarketAnomalyPlaybackFrame`
+- `PlayerPropAlertPlaybackFrame`
 
 ## Contract Rules
 
@@ -28,9 +30,11 @@
 - `DATA-004` Raw source terms and normalized values must both remain visible.
 - `DATA-005` Spread, total, and prop comparisons must distinguish line mismatch from comparable state.
 - `DATA-006` Live API responses should be assembled from repository-backed records rather than route-local anonymous shapes.
-- `DATA-007` Runtime errors shall use stable codes such as `VALIDATION_ERROR`, `INVALID_MODE`, `EVENT_NOT_FOUND`, `GAME_NOT_FOUND`, `INSTRUMENT_NOT_FOUND`, `DATABASE_FAILURE`, and `ADAPTER_FAILURE`.
-- `DATA-008` Worker heartbeats should expose source-scoped provider failures without erasing successful refresh counts from other providers in the same cycle.
-- `DATA-009` Player-prop disagreement alerts must retain both sides of the attribution check: canonical instrument id, display label, participant key, line, side, Bet365 source market id/source label/latest probability/latest quote time, Kalshi/Polymarket source market id/source label/latest probability/latest quote time, signed divergence, quote-time gap, quote ages, and manual-review action.
-- `DATA-010` Player-prop alert playback frames must retain the exact alert snapshot, captured-at time, notified alert ids, and poll thresholds. These frames are operational evidence written by the live watcher and shall not be seeded or synthetic runtime data.
-- `DATA-011` Instrument divergence summaries must be derived from persisted quote ticks on one canonical probability scale. Summary payloads carry comparison count, first/latest comparison times, latest gap, peak gap, threshold duration, and the source probabilities from the exact latest/peak comparison bucket; UI surfaces must not combine unrelated latest source quotes.
-- `DATA-012` Market anomaly alerts must be backed by persisted quote ticks or persisted microstructure events. A row may represent unmapped prediction-market activity, but it must carry mapping status and source-market provenance rather than being hidden or forced into an exact player-prop match.
+- `DATA-007` NBA play-by-play `time_actual` is the trustworthy incident anchor when available. Do not substitute `game_states.started_at` or `game_states.final_at` for incident math.
+- `DATA-008` Runtime errors shall use stable codes such as `VALIDATION_ERROR`, `EVENT_NOT_FOUND`, `GAME_NOT_FOUND`, `INSTRUMENT_NOT_FOUND`, `DATABASE_FAILURE`, and `ADAPTER_FAILURE`.
+- `DATA-009` Worker heartbeats should expose source-scoped provider failures without erasing successful refresh counts from other providers in the same cycle.
+- `DATA-010` Player-prop disagreement alerts must retain both sides of the comparison: canonical instrument id, display label, participant key, line, side, source labels, latest probabilities, latest quote times, signed divergence, quote-time gap, and quote age.
+- `DATA-011` Player-prop and market-anomaly playback frames are operational evidence written by live watcher jobs. They must not be seeded or synthetic runtime data.
+- `DATA-012` Instrument divergence summaries must be derived from persisted quote ticks on one canonical probability scale. Summary payloads carry comparison count, first and latest comparison times, latest gap, peak gap, threshold duration, and the source probabilities from the exact latest or peak comparison bucket.
+- `DATA-013` Market anomaly alerts must be backed by persisted quote ticks or persisted microstructure events. Unmapped prediction-market activity stays visible with mapping status and source-market provenance rather than being forced into a false exact match.
+- `DATA-014` Whole-board volatility and board-alert read models must come from the shared persisted board runtime, not separate per-surface implementations.

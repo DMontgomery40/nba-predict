@@ -2,6 +2,14 @@
 
 This repo is live-only. Do not add synthetic modes, curated scenarios, seeded historical packs, or presentation-only data paths back into the runtime.
 
+## Documentation Precedence
+
+- Treat repo code and tests as the first source of truth.
+- Treat this file, `README.md`, and the active files in `specs/` as the live documentation layer.
+- Treat `outputs/innovation-team-suspend-signal-report/report.html` and `outputs/innovation-team-suspend-signal-report/REPORT.md` as the current research rationale for the board-first and off-price signal family.
+- Use current code and current API payloads for the exact live runtime math when research artifacts and runtime thresholds differ.
+- Treat `.docs-archive/` as archival only. Do not use archived prompts, notes, or proposals as live operating instructions.
+
 ## Project-Local Memory
 
 - If project-local Codex memory is used for this repo, use `~/.codex/projects/-Users-davidmontgomery-nba-predict/`.
@@ -64,7 +72,9 @@ This repo is live-only. Do not add synthetic modes, curated scenarios, seeded hi
   - what the trader would have seen at the time,
   - how many seconds earlier a warning could have appeared,
   - which related markets would also have looked dangerous.
-- Broad market or whole-board volatility is valid when it acts as the earliest tripwire, but it is not enough on its own. The operator-facing follow-up must fan out into the affected players, props, and related derivative markets.
+- Whole-board money-weighted volatility is the primary live trigger today.
+- Broad market or whole-board volatility is not enough on its own. The operator-facing follow-up must fan out into the affected players, props, and related derivative markets.
+- Exact-line player-prop disagreement remains a specialized compatibility route for follow-up and audit; it is not the headline trigger.
 
 ## Trader Output Contract
 
