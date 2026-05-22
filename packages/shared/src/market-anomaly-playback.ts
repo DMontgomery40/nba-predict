@@ -2,6 +2,8 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { isStrictYmdDate } from "@signal-console/domain";
+
 import type { MarketAnomalyPlaybackFrame } from "@signal-console/domain";
 
 const defaultPlaybackDirectory = resolve(
@@ -26,7 +28,7 @@ function clampPlaybackLimit(limit: number | undefined) {
 }
 
 function assertPlaybackDate(date: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  if (!isStrictYmdDate(date)) {
     throw new Error("Playback date must use YYYY-MM-DD format.");
   }
 }

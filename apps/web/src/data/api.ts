@@ -25,6 +25,68 @@ type RequestOptions = {
 };
 
 const API_REQUEST_TIMEOUT_MS = 10_000;
+const DEFAULT_LOCAL_API_BASE_URL = "http://127.0.0.1:8788";
+const MAX_IN_FLIGHT_API_REQUESTS = 4;
+
+let activeApiRequestCount = 0;
+const queuedApiRequestResolvers: Array<() => void> = [];
+
+export function resolveApiRequestPath(
+  path: string,
+  options?: {
+    apiBaseUrl?: string;
+    isDev?: boolean;
+    mode?: string;
+  }
+) {
+  const apiBaseUrl = options?.apiBaseUrl ?? import.meta.env.VITE_API_BASE_URL;
+  const isDev = options?.isDev ?? import.meta.env.DEV;
+  const mode = options?.mode ?? import.meta.env.MODE;
+  const normalizedBaseUrl = apiBaseUrl?.trim();
+
+  if (normalizedBaseUrl) {
+    return `${normalizedBaseUrl.replace(/\/$/, "")}${path}`;
+  }
+
+  if (isDev && mode !== "test") {
+    return `${DEFAULT_LOCAL_API_BASE_URL}${path}`;
+  }
+
+  return path;
+}
+
+export function resetApiRequestLaneForTests() {
+  activeApiRequestCount = 0;
+  queuedApiRequestResolvers.length = 0;
+}
+
+async function acquireApiRequestLane() {
+  if (activeApiRequestCount >= MAX_IN_FLIGHT_API_REQUESTS) {
+    await new Promise<void>((resolve) => {
+      queuedApiRequestResolvers.push(resolve);
+    });
+  }
+
+  activeApiRequestCount += 1;
+
+  return () => {
+    activeApiRequestCount = Math.max(0, activeApiRequestCount - 1);
+    const next = queuedApiRequestResolvers.shift();
+    if (next) {
+      next();
+    }
+  };
+}
+
+function buildRequestHeaders(init?: RequestInit) {
+  const headers = new Headers(init?.headers);
+
+  if (init?.body != null && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  return headers;
+}
 
 export class ApiRequestError extends Error {
   readonly code: string;
@@ -88,20 +150,20 @@ async function request<T>(
   init?: RequestInit,
   options?: RequestOptions
 ): Promise<T> {
+  const requestPath = resolveApiRequestPath(path);
+  const releaseLane = await acquireApiRequestLane();
   let response: Response;
   const controller = new AbortController();
+  const headers = buildRequestHeaders(init);
   const timeoutId = setTimeout(
     () => controller.abort(),
     options?.timeoutMs ?? API_REQUEST_TIMEOUT_MS
   );
 
   try {
-    response = await fetch(path, {
+    response = await fetch(requestPath, {
       credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
+      headers,
       ...init,
       signal: controller.signal,
     });
@@ -124,12 +186,13 @@ async function request<T>(
         message: apiError.message,
         operatorHint: apiError.operatorHint,
       },
-      path,
+      path: requestPath,
     });
 
     throw apiError;
   } finally {
     clearTimeout(timeoutId);
+    releaseLane();
   }
 
   const payload = (await response.json().catch(() => null)) as
@@ -163,7 +226,7 @@ async function request<T>(
         requestId: apiError.requestId,
         status: apiError.status,
       },
-      path,
+      path: requestPath,
     });
 
     throw apiError;
@@ -1888,7 +1951,7 @@ export function getLiveHealth() {
 export function getReadyHealth() {
   return request<ReadinessPayload>("/health/ready", undefined, {
     allowStatuses: [503],
-    timeoutMs: 20_000,
+    timeoutMs: 5_000,
   });
 }
 

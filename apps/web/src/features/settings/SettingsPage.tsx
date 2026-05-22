@@ -24,6 +24,10 @@ import {
   type QueuedAdminActionPayload,
 } from "../../data/api";
 import {
+  cloneMarketAnomalyScoreConfig,
+  marketAnomalyScoreConfigQueryKey,
+} from "../../lib/market-anomaly-score-config";
+import {
   formatGapPoints,
   formatProbabilityPercent,
 } from "../../lib/market-format";
@@ -62,18 +66,6 @@ function statusClass(status: string) {
     return "status-warm";
   }
   return "status-danger";
-}
-
-function cloneScoreConfig(config?: MarketAnomalyScoreConfig) {
-  if (!config) {
-    return null;
-  }
-  return {
-    ...config,
-    thresholds: { ...config.thresholds },
-    toggles: { ...config.toggles },
-    weights: { ...config.weights },
-  };
 }
 
 type QueuedActionNotice = {
@@ -130,7 +122,7 @@ export function SettingsPage() {
     queryFn: getAdminRuntimeConfig,
   });
   const marketAnomalyScoreConfig = useQuery({
-    queryKey: ["market-anomaly-score-config", "settings"],
+    queryKey: marketAnomalyScoreConfigQueryKey,
     queryFn: getMarketAnomalyScoreConfig,
   });
   const captureRuns = useQuery({
@@ -210,11 +202,14 @@ export function SettingsPage() {
     mutationFn: (config: MarketAnomalyScoreConfig) =>
       putMarketAnomalyScoreConfig(config),
     onSuccess: (payload) => {
-      setScoreConfigDraft(cloneScoreConfig(payload.data));
-      queryClient.invalidateQueries({
-        queryKey: ["market-anomaly-score-config"],
+      setScoreConfigDraft(cloneMarketAnomalyScoreConfig(payload.data));
+      void queryClient.invalidateQueries({
+        queryKey: marketAnomalyScoreConfigQueryKey,
       });
-      queryClient.invalidateQueries({ queryKey: ["market-anomalies"] });
+      void queryClient.invalidateQueries({ queryKey: ["market-anomalies"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["research-market-anomalies"],
+      });
     },
   });
   const resolveMapping = useMutation({
@@ -330,7 +325,8 @@ export function SettingsPage() {
     (item) => item.configured
   ).length;
   const scoreConfig =
-    scoreConfigDraft ?? cloneScoreConfig(marketAnomalyScoreConfig.data.data);
+    scoreConfigDraft ??
+    cloneMarketAnomalyScoreConfig(marketAnomalyScoreConfig.data.data);
   const liveStatus =
     liveHealth.data?.status ?? (liveHealth.isError ? "error" : "checking");
   const readyStatus =

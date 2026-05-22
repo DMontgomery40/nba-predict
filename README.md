@@ -96,12 +96,12 @@ pnpm dev
 
 - `apps/api` and `apps/worker` automatically load repo-root `.env.local` and then `.env`
 - explicit shell environment variables still win and are never overwritten
-- the web dev server proxies `/api` and `/health` to `SIGNAL_CONSOLE_API_TARGET`, which defaults to `http://127.0.0.1:8787`
+- the web dev server proxies `/api` and `/health` to `SIGNAL_CONSOLE_API_TARGET`, which defaults to `http://127.0.0.1:8788`
 
 Default local ports:
 
 - web: `http://127.0.0.1:4120`
-- api: `http://127.0.0.1:8787`
+- api: `http://127.0.0.1:8788`
 - nba sidecar: `http://127.0.0.1:9393`
 
 Temporary public local hosting:
@@ -201,7 +201,9 @@ See [`specs/05-api-spec.md`](specs/05-api-spec.md) for the current route contrac
 ## Common Commands
 
 ```bash
-pnpm backfill
+pnpm backfill --help
+pnpm backfill nba --lookbackDays 7
+pnpm backfill kalshi --since 2026-05-01 --maxEvents 200
 pnpm market-anomaly-watch
 pnpm prop-alert-watch
 pnpm host:temporary

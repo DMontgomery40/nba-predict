@@ -1,4 +1,6 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -6,11 +8,14 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
 import { App } from "./App";
 import {
+  createAppQueryClient,
   type DivergencePayload,
   queryClient,
+  resetApiRequestLaneForTests,
   type BoardAnomalyAlertDto,
   type BoardIncidentDto,
   type BoardGameStateVolatilityDto,
@@ -20,6 +25,8 @@ import {
   type PlayerPropAlertPlaybackPayload,
   type PlayerPropAlertsPayload,
 } from "../data/api";
+import { TraderDeskPage } from "../features/desk/TraderDeskPage";
+import { SettingsPage } from "../features/settings/SettingsPage";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -33,14 +40,23 @@ type DivergenceFixtureRow = Omit<
 beforeEach(() => {
   fetchMock.mockReset();
   queryClient.clear();
+  resetApiRequestLaneForTests();
   vi.stubGlobal("fetch", fetchMock);
   window.history.replaceState({}, "", "/");
 });
 
 afterEach(() => {
+  resetApiRequestLaneForTests();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+async function navigateTo(path: string) {
+  await act(async () => {
+    window.history.pushState({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+}
 
 function mockJsonResponse(payload: unknown) {
   return Promise.resolve({
@@ -486,7 +502,7 @@ function createSettingsFetchImplementation(options?: {
       source: "market-anomaly-watch" as const,
     },
   ];
-  const marketAnomalyScoreConfig = options?.marketAnomalyScoreConfig ?? {
+  let marketAnomalyScoreConfig = options?.marketAnomalyScoreConfig ?? {
     contextWindowMinutes: 10,
     families: [
       "moneyline",
@@ -525,7 +541,7 @@ function createSettingsFetchImplementation(options?: {
   };
   const unmappedMarkets = options?.unmappedMarkets ?? [];
 
-  return async (input: string | URL | Request) => {
+  return async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     if (url === "/api/v1/games" || url.startsWith("/api/v1/games?")) {
       return mockJsonResponse({
@@ -815,6 +831,17 @@ function createSettingsFetchImplementation(options?: {
       });
     }
     if (url.startsWith("/api/v1/research/market-anomaly-score-config")) {
+      if (init?.method === "PUT") {
+        const body =
+          typeof init.body === "string"
+            ? (JSON.parse(init.body) as typeof marketAnomalyScoreConfig)
+            : marketAnomalyScoreConfig;
+        marketAnomalyScoreConfig = {
+          ...body,
+          updatedAt: "2026-04-22T06:05:00.000Z",
+          updatedBy: "api",
+        };
+      }
       return mockJsonResponse({
         data: marketAnomalyScoreConfig,
         meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
@@ -1186,21 +1213,81 @@ describe("App routes", () => {
     ).toBeNull();
   });
 
+  it("drives the live trader queue from the anomaly feed without a separate score-config fetch", async () => {
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      if (url.startsWith("/api/v1/research/market-anomaly-score-config")) {
+        return mockErrorResponse({
+          message: "Score config route is unavailable.",
+          status: 500,
+        });
+      }
+      return baseFetch(input, init);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Volatility now",
+      })
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      const liveAnomalyUrl = requestedUrls.find((url) =>
+        url.startsWith("/api/v1/research/market-anomalies")
+      );
+      expect(liveAnomalyUrl).toBeDefined();
+      expect(
+        requestedUrls.some((url) =>
+          url.startsWith("/api/v1/research/market-anomaly-score-config")
+        )
+      ).toBe(false);
+
+      const params = new URL(liveAnomalyUrl!, "http://signal-console.test")
+        .searchParams;
+
+      expect(params.get("includeUnmapped")).toBeNull();
+      expect(params.get("minConfidence")).toBeNull();
+      expect(params.get("minScore")).toBeNull();
+      expect(params.get("requireBet365")).toBeNull();
+      expect(params.get("limit")).toBe("12");
+    });
+  });
+
   it("stages low-priority desk support feeds after the ranked queue is live", async () => {
     const requestedUrls: string[] = [];
     const baseFetch = createSettingsFetchImplementation();
+    const heldAnalyticsUrls = new Set<string>();
+    const heldAnalyticsResolvers = new Map<
+      string,
+      { resolve: (value: Response) => void }
+    >();
     fetchMock.mockImplementation(async (input) => {
       const url = String(input);
       requestedUrls.push(url);
       if (
         url.startsWith("/api/v1/research/signal-quality") ||
         url.startsWith("/api/v1/research/closed-games") ||
+        url.includes("/lead-lag")
+      ) {
+        heldAnalyticsUrls.add(url);
+        return new Promise<Response>((resolve) => {
+          heldAnalyticsResolvers.set(url, { resolve });
+        });
+      }
+
+      if (
         url === "/api/v1/admin/sources" ||
         url === "/api/v1/admin/capture/runs" ||
         url === "/api/v1/admin/storage/coverage" ||
-        url === "/health/ready"
+        url === "/health/live"
       ) {
-        return new Promise<Response>(() => {});
+        return new Promise<Response>(() => undefined);
       }
 
       return baseFetch(input);
@@ -1214,7 +1301,9 @@ describe("App routes", () => {
         name: "Volatility now",
       })
     ).toBeInTheDocument();
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
     expect(screen.queryByText(/supporting desk feed/i)).not.toBeInTheDocument();
     expect(
       requestedUrls.some((url) =>
@@ -1228,18 +1317,49 @@ describe("App routes", () => {
       )
     ).toBe(false);
 
-    await new Promise((resolve) => setTimeout(resolve, 2300));
-
-    await waitFor(() => {
-      expect(
-        requestedUrls.some((url) =>
-          url.startsWith("/api/v1/research/signal-quality")
-        )
-      ).toBe(true);
-      expect(requestedUrls).toContain("/api/v1/admin/capture/runs");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 2300));
     });
+
+    expect(
+      requestedUrls.some((url) =>
+        url.startsWith("/api/v1/research/signal-quality")
+      )
+    ).toBe(true);
+    expect(
+      requestedUrls.some((url) =>
+        url.startsWith("/api/v1/research/closed-games")
+      )
+    ).toBe(true);
+    expect(requestedUrls.some((url) => url.includes("/lead-lag"))).toBe(true);
+    expect(requestedUrls).not.toContain("/api/v1/admin/sources");
+    expect(requestedUrls).not.toContain("/api/v1/admin/capture/runs");
+    expect(requestedUrls).not.toContain("/api/v1/admin/storage/coverage");
+    expect(requestedUrls).not.toContain("/health/live");
     expect(screen.queryByText(/supporting desk feed/i)).not.toBeInTheDocument();
-  }, 9000);
+
+    const releasedAnalyticsUrls = Array.from(heldAnalyticsUrls);
+    const releaseAnalyticsRequest = async (url: string) => {
+      const resolver = heldAnalyticsResolvers.get(url);
+      expect(resolver).toBeDefined();
+      resolver?.resolve(await baseFetch(url));
+      heldAnalyticsResolvers.delete(url);
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    };
+
+    await act(async () => {
+      await releaseAnalyticsRequest(releasedAnalyticsUrls[0]!);
+    });
+    expect(requestedUrls).toContain("/api/v1/admin/sources");
+
+    await act(async () => {
+      await releaseAnalyticsRequest(releasedAnalyticsUrls[1]!);
+    });
+    expect(requestedUrls).toContain("/api/v1/admin/capture/runs");
+    expect(screen.queryByText(/supporting desk feed/i)).not.toBeInTheDocument();
+  }, 12_000);
 
   it("prefers a ready final/live board-volatility row over a higher-scored insufficient-data row", async () => {
     fetchMock.mockImplementation(
@@ -1769,6 +1889,113 @@ describe("App routes", () => {
       screen.getByText("Choose a valid research date.")
     ).toBeInTheDocument();
     expect(screen.queryByText("Console shell crashed")).not.toBeInTheDocument();
+  });
+
+  it("resyncs the board-alert desk mode from the URL when navigation drops the historic date", async () => {
+    window.history.replaceState({}, "", "/board-alerts?date=2026-05-16");
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      if (url.startsWith("/api/v1/research/board-alerts/incidents")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-17T19:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-17T19:00:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "NBA trader incidents" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Historic" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    expect(screen.getByLabelText("Research date (UTC)")).toHaveValue(
+      "2026-05-16"
+    );
+
+    await navigateTo("/board-alerts");
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Live" })).toHaveAttribute(
+        "aria-selected",
+        "true"
+      );
+    });
+    expect(
+      screen.queryByLabelText("Research date (UTC)")
+    ).not.toBeInTheDocument();
+    expect(
+      await screen.findByText("No active trader incidents.")
+    ).toBeInTheDocument();
+    expect(requestedUrls).toContain("/api/v1/research/board-alerts?limit=20");
+  });
+
+  it("keeps the last historic board-alert date across a live mode detour", async () => {
+    window.history.replaceState({}, "", "/board-alerts?date=2026-05-16");
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      if (url.startsWith("/api/v1/research/board-alerts/incidents")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-17T19:00:00.000Z" },
+        });
+      }
+      if (url.startsWith("/api/v1/research/board-alerts")) {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-05-17T19:00:00.000Z" },
+        });
+      }
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "NBA trader incidents" })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Research date (UTC)")).toHaveValue(
+      "2026-05-16"
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Live" }));
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Live" })).toHaveAttribute(
+        "aria-selected",
+        "true"
+      );
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Historic" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Historic" })).toHaveAttribute(
+        "aria-selected",
+        "true"
+      );
+    });
+    expect(screen.getByLabelText("Research date (UTC)")).toHaveValue(
+      "2026-05-16"
+    );
+    expect(requestedUrls).toContain(
+      "/api/v1/research/board-alerts/incidents?date=2026-05-16&limit=50"
+    );
   });
 
   it("shows the live board-alert empty state instead of hanging on loading when no incidents are returned", async () => {
@@ -3584,6 +3811,271 @@ describe("App routes", () => {
     );
   });
 
+  it("boots the market anomaly page from the persisted score profile before fetching the queue", async () => {
+    window.history.replaceState({}, "", "/market-anomalies");
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation({
+      marketAnomalyScoreConfig: {
+        contextWindowMinutes: 10,
+        families: [
+          "moneyline",
+          "spread",
+          "total",
+          "player-prop",
+          "team-prop",
+          "other",
+        ],
+        minConfidence: 0.62,
+        minScore: 71,
+        profileId: "market-anomaly-page",
+        shockWindowSeconds: 60,
+        thresholds: {
+          depthScoreDrop: 30,
+          maxQuoteAgeMinutes: 10,
+          priceJump: 0.18,
+          spread: 0.08,
+          tradeDistance: 0.25,
+          volumeShare: 0.1,
+        },
+        toggles: {
+          includeHistorical: false,
+          includeUnmapped: false,
+          requireBet365: true,
+        },
+        updatedAt: null,
+        updatedBy: null,
+        weights: {
+          crossVenue: 0.1,
+          liquidity: 0.1,
+          offPrice: 0.35,
+          volatility: 0.2,
+          volumeShare: 0.25,
+        },
+      },
+    });
+    fetchMock.mockImplementation(async (input) => {
+      requestedUrls.push(String(input));
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Market anomaly queue",
+      })
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      const anomalyRequests = requestedUrls.filter((url) =>
+        url.startsWith("/api/v1/research/market-anomalies")
+      );
+      expect(anomalyRequests).toHaveLength(1);
+
+      const params = new URL(anomalyRequests[0]!, "http://signal-console.test")
+        .searchParams;
+      expect(params.get("includeUnmapped")).toBe("false");
+      expect(params.get("minConfidence")).toBe("0.62");
+      expect(params.get("minScore")).toBe("71");
+      expect(params.get("requireBet365")).toBe("true");
+    });
+
+    expect(screen.getByLabelText("Unmapped")).not.toBeChecked();
+    expect(screen.getByLabelText("Require b365")).toBeChecked();
+  });
+
+  it("refreshes the live desk anomaly lane after saving score changes without relying on a URL change", async () => {
+    const localQueryClient = createAppQueryClient();
+    const anomalyRequests: string[] = [];
+    let anomalyVersion = 0;
+    let currentMarketAnomalyScoreConfig = {
+      contextWindowMinutes: 10,
+      families: [
+        "moneyline",
+        "spread",
+        "total",
+        "player-prop",
+        "team-prop",
+        "other",
+      ],
+      minConfidence: 0.45,
+      minScore: 45,
+      profileId: "default",
+      shockWindowSeconds: 60,
+      thresholds: {
+        depthScoreDrop: 30,
+        maxQuoteAgeMinutes: 10,
+        priceJump: 0.18,
+        spread: 0.08,
+        tradeDistance: 0.25,
+        volumeShare: 0.1,
+      },
+      toggles: {
+        includeHistorical: false,
+        includeUnmapped: true,
+        requireBet365: false,
+      },
+      updatedAt: "2026-04-22T06:00:00.000Z",
+      updatedBy: "api",
+      weights: {
+        crossVenue: 0.1,
+        liquidity: 0.1,
+        offPrice: 0.35,
+        volatility: 0.2,
+        volumeShare: 0.25,
+      },
+    };
+    const baseFetch = createSettingsFetchImplementation({
+      marketAnomalyScoreConfig: currentMarketAnomalyScoreConfig,
+    });
+    const initialRows: MarketAnomaliesPayload["data"] = [
+      {
+        action: "manual-review" as const,
+        apiSurface: "data-api/trades",
+        components: {
+          crossVenue: 0,
+          liquidity: 0,
+          offPrice: 1,
+          volatility: 0,
+          volumeShare: 1,
+        },
+        confidence: 0.72,
+        detectedAt: "2026-04-22T05:59:20.000Z",
+        displayLabel: "Boston moneyline",
+        eventTimestamp: "2026-04-22T05:59:20.000Z",
+        eventType: "trade" as const,
+        family: "moneyline",
+        gameId: "nba-bos-nyk-2026-04-21",
+        gameLabel: "Celtics @ Knicks",
+        id: "anomaly-initial",
+        instrumentId: "bos-moneyline",
+        labels: ["off-price", "volume-share"],
+        league: "NBA",
+        mappingStatus: "auto",
+        metrics: {
+          depthScore: 45,
+          notional: 105.66,
+          price: 0.51,
+          referencePrice: 0.51,
+          size: 106.7913,
+          spread: 0.04,
+          tradeDistance: 0.48,
+          tradePrice: 0.99,
+          volumeShare: 0.26,
+        },
+        rawLabel: "Boston wins",
+        score: 64,
+        severity: "high",
+        source: "polymarket" as const,
+        sourceMarketId: "sm-polymarket-bos-moneyline",
+        sourceMarketKey: "poly-bos-moneyline",
+        sourceSelectionKey: "bos",
+        sport: "basketball",
+      },
+    ];
+    const refreshedRows: MarketAnomaliesPayload["data"] = [
+      {
+        ...initialRows[0],
+        displayLabel: "Jalen Brunson points over 29.5",
+        id: "anomaly-refreshed",
+        instrumentId: "brunson-points-over-29_5",
+        rawLabel: "Brunson points",
+        score: 58,
+        source: "kalshi",
+        sourceMarketId: "sm-kalshi-brunson-points",
+        sourceMarketKey: "kalshi-brunson-points",
+        sourceSelectionKey: "over",
+      },
+    ];
+
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.startsWith("/api/v1/research/market-anomaly-score-config")) {
+        if (init?.method === "PUT") {
+          const body =
+            typeof init.body === "string"
+              ? (JSON.parse(
+                  init.body
+                ) as typeof currentMarketAnomalyScoreConfig)
+              : currentMarketAnomalyScoreConfig;
+          currentMarketAnomalyScoreConfig = {
+            ...body,
+            updatedAt: "2026-04-22T06:05:00.000Z",
+            updatedBy: "api",
+          };
+          anomalyVersion = 1;
+          return mockJsonResponse({
+            data: currentMarketAnomalyScoreConfig,
+            meta: { generatedAt: "2026-04-22T06:05:00.000Z" },
+          });
+        }
+
+        return mockJsonResponse({
+          data: currentMarketAnomalyScoreConfig,
+          meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+        });
+      }
+
+      if (url.startsWith("/api/v1/research/market-anomalies")) {
+        anomalyRequests.push(url);
+        return mockJsonResponse({
+          data: anomalyVersion === 0 ? initialRows : refreshedRows,
+          meta: {
+            generatedAt:
+              anomalyVersion === 0
+                ? "2026-04-22T06:00:00.000Z"
+                : "2026-04-22T06:05:00.000Z",
+          },
+        });
+      }
+
+      return baseFetch(input, init);
+    });
+
+    render(
+      <QueryClientProvider client={localQueryClient}>
+        <MemoryRouter>
+          <>
+            <TraderDeskPage />
+            <SettingsPage />
+          </>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Volatility now",
+      })
+    ).toBeInTheDocument();
+    expect(
+      (await screen.findAllByText("Boston moneyline")).length
+    ).toBeGreaterThan(0);
+    expect(anomalyRequests[0]).toBe(
+      "/api/v1/research/market-anomalies?limit=12"
+    );
+
+    const offPriceWeightRow = screen.getByText("offPrice weight").closest("tr");
+    expect(offPriceWeightRow).not.toBeNull();
+    fireEvent.change(
+      within(offPriceWeightRow as HTMLElement).getByRole("spinbutton"),
+      {
+        target: { value: "0.4" },
+      }
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save anomaly knobs" }));
+
+    expect(
+      (await screen.findAllByText("Jalen Brunson points over 29.5")).length
+    ).toBeGreaterThan(0);
+    expect(anomalyRequests.length).toBeGreaterThanOrEqual(2);
+    expect(anomalyRequests.at(-1)).toBe(
+      "/api/v1/research/market-anomalies?limit=12"
+    );
+  });
+
   it("keeps the saved-check date in the URL and data requests", async () => {
     window.history.replaceState({}, "", "/prop-alerts?date=2026-05-10");
     const requestedUrls: string[] = [];
@@ -4774,6 +5266,177 @@ describe("App routes", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps source-record inspection available for providers that only have persisted raw records", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"
+    );
+
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "/api/v1/games") {
+        return mockJsonResponse({
+          data: [],
+          meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+        });
+      }
+      if (url === "/api/v1/games/nba-bos-nyk-2026-04-21") {
+        return mockJsonResponse({
+          data: {
+            coverageSummary: {
+              activeSourceCount: 1,
+              availableSources: ["draftkings", "nba"],
+              missingSources: ["bet365", "kalshi", "polymarket"],
+              unmappedSourceMarketCount: 0,
+            },
+            game: {
+              awayParticipant: {
+                key: "nyk",
+                name: "New York Knicks",
+                shortName: "Knicks",
+              },
+              homeParticipant: {
+                key: "bos",
+                name: "Boston Celtics",
+                shortName: "Celtics",
+              },
+              id: "nba-bos-nyk-2026-04-21",
+              league: "NBA",
+              scheduledStart: "2026-04-21T23:00:00.000Z",
+              sport: "basketball",
+            },
+            gameState: { awayScore: 108, homeScore: 112, status: "in-play" },
+            marketFamilyCounts: [{ family: "moneyline", count: 1 }],
+            outcome: null,
+          },
+          meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+        });
+      }
+      if (
+        url === "/api/v1/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline"
+      ) {
+        return mockJsonResponse({
+          data: {
+            derivedComparison: {
+              comparableState: "selection-mismatch",
+              impliedProbabilityGap: null,
+              lineMismatch: false,
+              sourceCount: 0,
+            },
+            gameState: { awayScore: 108, homeScore: 112, status: "in-play" },
+            instrument: {
+              displayLabel: "Boston moneyline",
+              family: "moneyline",
+              id: "bos-moneyline",
+              inPlay: true,
+              line: null,
+              selection: "bos",
+            },
+            latestQuotesBySource: [],
+            latestRawReferences: [
+              {
+                capturedAt: "2026-04-22T05:55:00.000Z",
+                payloadId: 7,
+                source: "draftkings",
+              },
+            ],
+          },
+          meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+        });
+      }
+      if (
+        url ===
+        "/api/v1/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline/timeline"
+      ) {
+        return mockJsonResponse({
+          data: {
+            annotations: [],
+            gameStateSeries: [],
+            lineMismatchWindows: [],
+            quoteSeriesBySource: {},
+          },
+          meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+        });
+      }
+      if (
+        url ===
+        "/api/v1/games/nba-bos-nyk-2026-04-21/markets/bos-moneyline/raw/draftkings"
+      ) {
+        return mockJsonResponse({
+          data: {
+            captureDiagnostics: {
+              freshnessBand: "offline",
+              lastQuoteCapturedAt: null,
+              mappingStatus: "unmapped",
+            },
+            latestQuote: null,
+            parserOutput: {
+              impliedProbability: null,
+              line: null,
+              odds: null,
+              price: null,
+            },
+            rawPayloads: [
+              {
+                capturedAt: "2026-04-22T05:55:00.000Z",
+                id: 7,
+                payloadJson: {
+                  market: "moneyline",
+                  source: "draftkings",
+                },
+                source: "draftkings",
+              },
+            ],
+            sourceMarket: {
+              id: "sm-draftkings-bos-moneyline",
+              mappingStatus: "unmapped",
+              rawLabel: "Boston Celtics",
+              source: "draftkings",
+              sourceMarketKey: "dk-bos-ml",
+            },
+          },
+          meta: { generatedAt: "2026-04-22T06:00:00.000Z" },
+        });
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Boston moneyline",
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No source quotes have been captured for this instrument yet."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Source records" })
+    ).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Source records" }));
+
+    const sourceRecord = await screen.findByRole("dialog", {
+      name: "Source record",
+    });
+    expect(
+      within(sourceRecord).getByRole("heading", {
+        level: 2,
+        name: "draftkings",
+      })
+    ).toBeInTheDocument();
+    expect(
+      await within(sourceRecord).findByText("Latest raw payload")
+    ).toBeInTheDocument();
+    expect(sourceRecord).toHaveTextContent(/"source":\s*"draftkings"/);
+  });
+
   it("does not compare final player prop quotes captured outside the same-time window", async () => {
     window.history.replaceState(
       {},
@@ -5290,6 +5953,59 @@ describe("App routes", () => {
     expect(requestedUrls).toContain(
       "/api/v1/divergence?date=2026-04-21&family=player-prop&sort=signalPriority&limit=500"
     );
+  });
+
+  it("resyncs history filters from URL navigation after the page is mounted", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/history?date=2026-04-21&family=player-prop"
+    );
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation({
+      divergenceRows: [
+        {
+          captureRecencyMs: 15000,
+          comparableState: "comparable",
+          displayLabel: "Jalen Brunson points over 29.5",
+          family: "player-prop",
+          gameId: "nba-bos-nyk-2026-04-21",
+          impliedProbabilityGap: 0.12,
+          inPlay: true,
+          instrumentId: "brunson-points-over-29_5",
+          lineMismatch: false,
+          mappingStatus: "auto",
+          severity: "medium",
+          signalPriority: 120,
+        },
+      ],
+    });
+    fetchMock.mockImplementation(async (input) => {
+      requestedUrls.push(String(input));
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Persisted market history",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Review date")).toHaveValue("2026-04-21");
+    expect(screen.getByLabelText("Family")).toHaveValue("player-prop");
+
+    await navigateTo("/history?date=2026-05-12");
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Review date")).toHaveValue("2026-05-12");
+    });
+    expect(screen.getByLabelText("Family")).toHaveValue("all");
+    await waitFor(() => {
+      expect(requestedUrls).toContain(
+        "/api/v1/research/signal-mismatches?date=2026-05-12"
+      );
+    });
   });
 
   it("shows date-scoped history mismatches before secondary history panels finish", async () => {

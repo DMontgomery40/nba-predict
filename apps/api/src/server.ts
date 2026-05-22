@@ -5,6 +5,7 @@ import Fastify from "fastify";
 
 import {
   createAppLogger,
+  defaultApiPort,
   loadRuntimeEnv,
   serializeErrorForLog,
 } from "@signal-console/shared";
@@ -17,7 +18,7 @@ import { registerGamesRoutes } from "./routes/games";
 import { registerResearchRoutes } from "./routes/research";
 import {
   buildLivenessPayload,
-  buildReadinessPayload,
+  buildBoundedReadinessPayload,
 } from "./services/health-service";
 
 export function buildApiServer() {
@@ -68,7 +69,7 @@ export function buildApiServer() {
   app.get("/health/live", async () => buildLivenessPayload());
 
   app.get("/health/ready", async (request, reply) => {
-    const payload = await buildReadinessPayload({
+    const payload = await buildBoundedReadinessPayload({
       logger: request.log.child({ route: "health-ready" }),
     });
 
@@ -77,7 +78,7 @@ export function buildApiServer() {
 
   app.get("/health", async (request, reply) => {
     const live = buildLivenessPayload();
-    const ready = await buildReadinessPayload({
+    const ready = await buildBoundedReadinessPayload({
       logger: request.log.child({ route: "health" }),
     });
 
@@ -109,7 +110,7 @@ export function buildApiServer() {
 async function start() {
   loadRuntimeEnv();
   const app = buildApiServer();
-  const port = Number(process.env.PORT ?? 8787);
+  const port = Number(process.env.PORT ?? defaultApiPort);
   await app.listen({ host: "0.0.0.0", port });
 }
 

@@ -15,25 +15,41 @@ import { getBoardAlerts, getBoardIncidents } from "../../data/api";
 
 type Mode = "live" | "historic";
 
+const HISTORIC_VIEW = "historic";
+
+function modeFromSearchParams(searchParams: URLSearchParams): Mode {
+  const view = searchParams.get("view");
+  if (view === HISTORIC_VIEW || isDateInputValue(searchParams.get("date"))) {
+    return "historic";
+  }
+  return "live";
+}
+
 export function BoardAlertsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [mode, setMode] = useState<Mode>(() =>
-    isDateInputValue(searchParams.get("date")) ? "historic" : "live"
-  );
+  const mode = modeFromSearchParams(searchParams);
   const [dateInput, setDateInput] = useState<string>(() => {
     const paramDate = searchParams.get("date");
-    return isDateInputValue(paramDate) ? paramDate : utcIsoDate();
+    if (isDateInputValue(paramDate)) {
+      return paramDate;
+    }
+    return mode === "historic" ? "" : utcIsoDate();
   });
 
   useEffect(() => {
     const paramDate = searchParams.get("date");
-    if (!isDateInputValue(paramDate)) return;
-    setMode("historic");
-    setDateInput((current) => (current === paramDate ? current : paramDate));
-  }, [searchParams]);
+    if (isDateInputValue(paramDate)) {
+      setDateInput((current) => (current === paramDate ? current : paramDate));
+      return;
+    }
+    if (mode === "historic" && paramDate != null) {
+      setDateInput((current) => (current === "" ? current : ""));
+    }
+  }, [mode, searchParams]);
 
   function setHistoricDateParam(nextDate: string | null) {
     const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("view", HISTORIC_VIEW);
     if (nextDate && isDateInputValue(nextDate)) {
       nextParams.set("date", nextDate);
     } else {
@@ -43,12 +59,13 @@ export function BoardAlertsPage() {
   }
 
   function showLiveMode() {
-    setMode("live");
-    setHistoricDateParam(null);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("date");
+    nextParams.delete("view");
+    setSearchParams(nextParams, { replace: true });
   }
 
   function showHistoricMode() {
-    setMode("historic");
     if (isDateInputValue(dateInput)) {
       setHistoricDateParam(dateInput);
       return;

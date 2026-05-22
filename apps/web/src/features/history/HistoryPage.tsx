@@ -1,6 +1,8 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+
+import { isStrictYmdDate } from "@signal-console/domain";
 
 import { ErrorState, LoadingState } from "../../components/ErrorState";
 import { PageFrame } from "../../components/PageFrame";
@@ -57,6 +59,15 @@ function yesterdayDateInputValue() {
   const date = new Date();
   date.setDate(date.getDate() - 1);
   return localDateInputValue(date);
+}
+
+function historyDateFromParam(value: string | null) {
+  if (value === "all") {
+    return "";
+  }
+  return value != null && isStrictYmdDate(value)
+    ? value
+    : yesterdayDateInputValue();
 }
 
 function formatReviewDateLabel(value: string) {
@@ -307,12 +318,8 @@ function formatPlayerPropCount(count: number) {
 
 export function HistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [reviewDate, setReviewDate] = useState(
-    () => searchParams.get("date") ?? yesterdayDateInputValue()
-  );
-  const [marketFamily, setMarketFamily] = useState(() =>
-    marketFamilyFromParam(searchParams.get("family"))
-  );
+  const reviewDate = historyDateFromParam(searchParams.get("date"));
+  const marketFamily = marketFamilyFromParam(searchParams.get("family"));
   const reviewDateLabel = useMemo(
     () => formatReviewDateLabel(reviewDate),
     [reviewDate]
@@ -322,11 +329,11 @@ export function HistoryPage() {
   function updateHistoryFilters(next: { date?: string; family?: string }) {
     const nextDate = next.date ?? reviewDate;
     const nextFamily = next.family ?? marketFamily;
-    setReviewDate(nextDate);
-    setMarketFamily(nextFamily);
     setSearchParams((current) => {
       const params = new URLSearchParams(current);
-      if (nextDate) {
+      if (nextDate === "") {
+        params.set("date", "all");
+      } else if (nextDate) {
         params.set("date", nextDate);
       } else {
         params.delete("date");

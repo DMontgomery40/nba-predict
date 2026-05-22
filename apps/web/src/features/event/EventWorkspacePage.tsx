@@ -295,7 +295,16 @@ export function EventWorkspacePage() {
   ).length;
   const diagnosticsData = sourceDiagnostics.data?.data ?? [];
   const exportUrl = getInstrumentTimelineExportUrl(gameId, instrumentId);
+  const availableSourceRecordIds = [
+    ...new Set([
+      ...instrumentData.latestQuotesBySource.map((quote) => quote.source),
+      ...instrumentData.latestRawReferences.map(
+        (reference) => reference.source
+      ),
+    ]),
+  ];
   const hasSourceQuotes = instrumentData.latestQuotesBySource.length > 0;
+  const hasSourceRecords = availableSourceRecordIds.length > 0;
   const hasSourceDiagnostics = diagnosticsData.length > 0;
   const pricedQuotes = instrumentData.latestQuotesBySource.filter(
     (
@@ -457,7 +466,7 @@ export function EventWorkspacePage() {
             </a>
             <button
               className="ghost-button"
-              disabled={!hasSourceQuotes}
+              disabled={!hasSourceRecords}
               onClick={() => setRawDrawerOpen(true)}
               type="button"
             >
@@ -735,9 +744,7 @@ export function EventWorkspacePage() {
         onClose={() => setRawDrawerOpen(false)}
         open={rawDrawerOpen}
         preferredSourceId={selectedSourceId}
-        sourceIds={instrumentData.latestQuotesBySource.map(
-          (quote) => quote.source
-        )}
+        sourceIds={availableSourceRecordIds}
       />
     </>
   );

@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 
 import { buildApiServer } from "../../api/src/server";
 import {
+  defaultE2eApiPort,
   recordAdapterRun,
   recordGameStateObservation,
   recordQuoteObservation,
@@ -18,7 +19,7 @@ const dbPath =
   process.env.SIGNAL_CONSOLE_DB_PATH ??
   resolve(process.cwd(), "../../data/signal-console.e2e.sqlite");
 const host = process.env.HOST ?? "127.0.0.1";
-const port = Number(process.env.PORT ?? "8787");
+const port = Number(process.env.PORT ?? String(defaultE2eApiPort));
 
 function seedResearchBackend() {
   upsertGame({

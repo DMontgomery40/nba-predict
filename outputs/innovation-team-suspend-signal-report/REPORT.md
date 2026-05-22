@@ -67,7 +67,7 @@ This paper's empirical reading is consistent with that view: the signal is real 
 
 ## 3. Project history — the search for the right signal
 
-The institutional history is a steady **widening of the aperture**: from one prop, to paired props, to the trade tape, to the whole board. Each widening was a response to a specific failure of the previous, narrower idea. (Sources: `specs/06-signal-engine-spec.md`, `specs/06b-board-anomaly-model.md`, `AGENTS.md`, `MARKET_INCIDENT_HANDOFF_PROMPT.md`, `docs/market-incident-report-format.md`, and the project memory note "Board-anomaly detector 2026-05-16".)
+The institutional history is a steady **widening of the aperture**: from one prop, to paired props, to the trade tape, to the whole board. Each widening was a response to a specific failure of the previous, narrower idea. (Sources: `specs/06-signal-engine-spec.md`, `specs/06b-board-anomaly-model.md`, `PLAN.md`, `AGENTS.md`, and archival incident handoff material under `.docs-archive/2026-05-repo-audit/`.)
 
 ### 3.1 Phase 1 — Single player prop, exact-line / same-time
 
@@ -146,7 +146,7 @@ All figures from the live persisted store `data/signal-console.sqlite` (~56 GB),
 
 ### 4.2 What was *not* added in this effort, and why
 
-The spec invited pulling more prediction-market data and ingesting it. We did **not**, deliberately: the bottleneck is not Polymarket tick volume (we have 37M ticks and 100k trade events). The bottlenecks are (a) a **labeled incident set**, (b) **bet365 internal timing**, and (c) **multi-venue trade tapes** — none of which is fixed by pulling more Polymarket data. Pulling more of the data we already have plenty of would have manufactured the *appearance* of new evidence without moving the decision. (Also, live direct-API expansion via the documented Polymarket/Kalshi surfaces in `MARKET_INCIDENT_HANDOFF_PROMPT.md` requires network/auth not exercised here.)
+The spec invited pulling more prediction-market data and ingesting it. We did **not**, deliberately: the bottleneck is not Polymarket tick volume (we have 37M ticks and 100k trade events). The bottlenecks are (a) a **labeled incident set**, (b) **bet365 internal timing**, and (c) **multi-venue trade tapes** — none of which is fixed by pulling more Polymarket data. Pulling more of the data we already have plenty of would have manufactured the *appearance* of new evidence without moving the decision. (Also, live direct-API expansion via the archived incident-handoff materials under `.docs-archive/2026-05-repo-audit/` requires network/auth not exercised here.)
 
 ---
 
@@ -167,7 +167,7 @@ Both retain the as-played credit. Critically, every PBP row for a game shares **
 
 ### 5.2 Label (the thing we are missing)
 
-A "good signal" requires a ground-truth incident label: `(game, stat family, credited player, rightful player, real-world event time T0, correction time)`. Today these come from **external source material** (X.com correction accounts, prediction-market comment threads) and a handful are reconstructed in `MARKET_INCIDENT_HANDOFF_PROMPT.md`. They are **not** independently verifiable to the second from our store, because `nba_play_by_play_actions` records the *play* but the *misallocation/correction* is an off-feed editorial event. **This is the central missing primitive.** Until a labeled set exists, only timing/lead and case-study work is honest; precision/recall is not computable.
+A "good signal" requires a ground-truth incident label: `(game, stat family, credited player, rightful player, real-world event time T0, correction time)`. Today these come from **external source material** (X.com correction accounts, prediction-market comment threads) and a handful are reconstructed in the archived incident-handoff materials under `.docs-archive/2026-05-repo-audit/`. They are **not** independently verifiable to the second from our store, because `nba_play_by_play_actions` records the *play* but the *misallocation/correction* is an off-feed editorial event. **This is the central missing primitive.** Until a labeled set exists, only timing/lead and case-study work is honest; precision/recall is not computable.
 
 ### 5.3 Candidate signal (the trigger under test)
 
@@ -255,7 +255,7 @@ Not empirically fit here (no labels to fit against). The *design* recommendation
 
 ## 7. Case studies
 
-Format follows `docs/market-incident-report-format.md`: real-world event first, then venue coverage, then market reaction with `T` offsets. **All Polymarket trade rows below are second-level and verified against the persisted `market_microstructure_events` table unless marked otherwise. Kalshi rows are minute candles. bet365 internal action time is unavailable for all cases.**
+Format follows the repo market-incident analysis rules in `AGENTS.md`: real-world event first, then venue coverage, then market reaction with `T` offsets. **All Polymarket trade rows below are second-level and verified against the persisted `market_microstructure_events` table unless marked otherwise. Kalshi rows are minute candles. bet365 internal action time is unavailable for all cases.**
 
 ### 7.1 Reaves/Hayes rebound — anchored, DB-verified (the strongest case)
 
@@ -357,8 +357,8 @@ If items 1 and 2 land and the shadow-mode precision and lead distribution clear 
 ### 10.1 Methodology & provenance
 - Live store: `data/signal-console.sqlite` (~56 GB), not the schema-only packaged DB or the e2e fixture. Verified by row counts in §4.
 - Prior art reused (not rebuilt): `outputs/universal-source-trust-report/` (settled accuracy, lead-lag, microstructure) and its tested honesty math `packages/shared/src/source-trust/metrics.ts`. That report answers the *adjacent* "which source is right" question and is the trust baseline; this paper answers the *narrower* suspend-signal question.
-- Incident format and known incidents: `docs/market-incident-report-format.md`, `MARKET_INCIDENT_HANDOFF_PROMPT.md`.
-- Signal-evolution sources: `specs/06-signal-engine-spec.md`, `specs/06b-board-anomaly-model.md`, `docs/board-state-inventory.md`, `AGENTS.md`, project memory ("Board-anomaly detector 2026-05-16").
+- Incident format and known incidents: `AGENTS.md`, archival incident-handoff materials under `.docs-archive/2026-05-repo-audit/`.
+- Signal-evolution sources: `specs/06-signal-engine-spec.md`, `specs/06b-board-anomaly-model.md`, `docs/board-state-inventory.md`, `PLAN.md`, `AGENTS.md`, and `outputs/innovation-team-suspend-signal-report/research/labels.json`.
 
 ### 10.2 Repro queries (run against the live store)
 ```sql

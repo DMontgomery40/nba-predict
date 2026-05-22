@@ -12,6 +12,11 @@ import {
   type MarketAnomaliesPayload,
   type MarketAnomalyScoreConfig,
 } from "../../data/api";
+import {
+  cloneMarketAnomalyScoreConfig,
+  getLiveMarketAnomalyQueueConfig,
+  marketAnomalyScoreConfigQueryKey,
+} from "../../lib/market-anomaly-score-config";
 import { formatOperatorDateTime } from "../../lib/time-format";
 
 type MarketAnomaly = MarketAnomaliesPayload["data"][number];
@@ -59,18 +64,6 @@ function anomalyHref(alert: MarketAnomaly) {
     return `/games/${alert.gameId}/markets/${alert.instrumentId}`;
   }
   return `/settings#unmapped`;
-}
-
-function configDraftFrom(config?: MarketAnomalyScoreConfig) {
-  if (!config) {
-    return null;
-  }
-  return {
-    ...config,
-    thresholds: { ...config.thresholds },
-    toggles: { ...config.toggles },
-    weights: { ...config.weights },
-  };
 }
 
 function updateNumber<T extends Record<string, number>>(
@@ -141,15 +134,24 @@ export function MarketAnomaliesPage() {
   const queryClient = useQueryClient();
   const [source, setSource] = useState("all");
   const [family, setFamily] = useState("all");
-  const [includeUnmapped, setIncludeUnmapped] = useState(true);
-  const [requireBet365, setRequireBet365] = useState(false);
+  const [queueFilterOverrides, setQueueFilterOverrides] = useState<{
+    includeUnmapped?: boolean;
+    requireBet365?: boolean;
+  }>({});
   const config = useQuery({
-    queryKey: ["market-anomaly-score-config"],
+    queryKey: marketAnomalyScoreConfigQueryKey,
     queryFn: getMarketAnomalyScoreConfig,
   });
   const [draft, setDraft] = useState<MarketAnomalyScoreConfig | null>(null);
 
-  const activeConfig = draft ?? configDraftFrom(config.data?.data);
+  const activeConfig =
+    draft ?? cloneMarketAnomalyScoreConfig(config.data?.data);
+  const liveQueueDefaults = getLiveMarketAnomalyQueueConfig(activeConfig);
+  const includeUnmapped =
+    queueFilterOverrides.includeUnmapped ?? liveQueueDefaults.includeUnmapped;
+  const requireBet365 =
+    queueFilterOverrides.requireBet365 ?? liveQueueDefaults.requireBet365;
+  const queueConfigReady = config.data != null || config.isError;
   const anomalies = useQuery({
     queryKey: [
       "market-anomalies",
@@ -157,8 +159,10 @@ export function MarketAnomaliesPage() {
       family,
       includeUnmapped,
       requireBet365,
-      activeConfig?.minScore,
-      activeConfig?.minConfidence,
+      activeConfig?.toggles.includeHistorical ?? false,
+      activeConfig?.updatedAt ?? null,
+      liveQueueDefaults.minScore,
+      liveQueueDefaults.minConfidence,
     ],
     queryFn: () =>
       getMarketAnomalies({
@@ -166,22 +170,27 @@ export function MarketAnomaliesPage() {
         includeHistorical: activeConfig?.toggles.includeHistorical,
         includeUnmapped,
         limit: 50,
-        minConfidence: activeConfig?.minConfidence,
-        minScore: activeConfig?.minScore,
+        minConfidence: liveQueueDefaults.minConfidence,
+        minScore: liveQueueDefaults.minScore,
         requireBet365,
         source: source === "all" ? undefined : source,
       }),
+    enabled: queueConfigReady,
     refetchInterval: 5000,
   });
   const saveConfig = useMutation({
     mutationFn: (next: MarketAnomalyScoreConfig) =>
       putMarketAnomalyScoreConfig(next),
     onSuccess: (payload) => {
-      setDraft(configDraftFrom(payload.data));
-      queryClient.invalidateQueries({
-        queryKey: ["market-anomaly-score-config"],
+      setDraft(cloneMarketAnomalyScoreConfig(payload.data));
+      setQueueFilterOverrides({});
+      void queryClient.invalidateQueries({
+        queryKey: marketAnomalyScoreConfigQueryKey,
       });
-      queryClient.invalidateQueries({ queryKey: ["market-anomalies"] });
+      void queryClient.invalidateQueries({ queryKey: ["market-anomalies"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["research-market-anomalies"],
+      });
     },
   });
 
@@ -276,7 +285,12 @@ export function MarketAnomaliesPage() {
                 <span>Unmapped</span>
                 <input
                   checked={includeUnmapped}
-                  onChange={(event) => setIncludeUnmapped(event.target.checked)}
+                  onChange={(event) =>
+                    setQueueFilterOverrides((current) => ({
+                      ...current,
+                      includeUnmapped: event.target.checked,
+                    }))
+                  }
                   type="checkbox"
                 />
               </label>
@@ -284,7 +298,12 @@ export function MarketAnomaliesPage() {
                 <span>Require b365</span>
                 <input
                   checked={requireBet365}
-                  onChange={(event) => setRequireBet365(event.target.checked)}
+                  onChange={(event) =>
+                    setQueueFilterOverrides((current) => ({
+                      ...current,
+                      requireBet365: event.target.checked,
+                    }))
+                  }
                   type="checkbox"
                 />
               </label>

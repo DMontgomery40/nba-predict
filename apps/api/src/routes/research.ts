@@ -1,4 +1,7 @@
 import {
+  boardAlertEventContextQuerySchema,
+  boardAlertIncidentsQuerySchema,
+  boardAlertReplayQuerySchema,
   type MarketResearchSourceId,
   marketAnomalyScoreConfigSchema,
   marketResearchSourceIds,
@@ -246,23 +249,16 @@ export async function registerResearchRoutes(app: FastifyInstance) {
     async (
       request: FastifyRequest<{ Querystring: Record<string, string> }>
     ) => {
-      const query = request.query ?? {};
-      const date = parseDateParam(query.date);
-      if (!date) {
-        return {
-          data: [],
-          meta: {
-            generatedAt: new Date().toISOString(),
-            error: "date (YYYY-MM-DD) is required",
-          },
-        };
-      }
+      const query = parseWithSchema(
+        boardAlertIncidentsQuerySchema,
+        request.query
+      );
       return getBoardAnomalyIncidentsPayload(
         {
-          date,
-          gameId: typeof query.gameId === "string" ? query.gameId : undefined,
-          minGap: parseNumberParam(query.minGap, 0.15),
-          limit: parseIntegerParam(query.limit, 10),
+          date: query.date,
+          gameId: query.gameId,
+          minGap: query.minGap ?? 0.15,
+          limit: query.limit ?? 10,
         },
         {
           logger: request.log.child({
@@ -278,28 +274,18 @@ export async function registerResearchRoutes(app: FastifyInstance) {
     async (
       request: FastifyRequest<{ Querystring: Record<string, string> }>
     ) => {
-      const query = request.query ?? {};
-      if (typeof query.gameId !== "string" || typeof query.at !== "string") {
-        return {
-          data: null,
-          meta: {
-            generatedAt: new Date().toISOString(),
-            error: "gameId and at (ISO timestamp) are required",
-          },
-        };
-      }
+      const query = parseWithSchema(
+        boardAlertEventContextQuerySchema,
+        request.query
+      );
       return getBoardAnomalyEventContextPayload(
         {
-          alertId:
-            typeof query.alertId === "string" ? query.alertId : undefined,
+          alertId: query.alertId,
           gameId: query.gameId,
           anchorAt: query.at,
-          limit: parseIntegerParam(query.limit, 200),
-          windowSecondsBefore: parseIntegerParam(
-            query.windowSecondsBefore,
-            7200
-          ),
-          windowSecondsAfter: parseIntegerParam(query.windowSecondsAfter, 3600),
+          limit: query.limit ?? 200,
+          windowSecondsBefore: query.windowSecondsBefore ?? 7200,
+          windowSecondsAfter: query.windowSecondsAfter ?? 3600,
         },
         {
           logger: request.log.child({
@@ -315,26 +301,13 @@ export async function registerResearchRoutes(app: FastifyInstance) {
     async (
       request: FastifyRequest<{ Querystring: Record<string, string> }>
     ) => {
-      const query = request.query ?? {};
-      if (
-        typeof query.gameId !== "string" ||
-        typeof query.windowStart !== "string" ||
-        typeof query.windowEnd !== "string"
-      ) {
-        return {
-          data: null,
-          meta: {
-            error: "gameId, windowStart, and windowEnd are required",
-            generatedAt: new Date().toISOString(),
-          },
-        };
-      }
+      const query = parseWithSchema(boardAlertReplayQuerySchema, request.query);
       return getBoardAnomalyReplayPayload(
         {
           gameId: query.gameId,
           windowStart: query.windowStart,
           windowEnd: query.windowEnd,
-          stepSeconds: parseIntegerParam(query.stepSeconds, 30),
+          stepSeconds: query.stepSeconds ?? 30,
         },
         {
           logger: request.log.child({ route: "research-board-alerts-replay" }),

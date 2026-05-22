@@ -1128,6 +1128,45 @@ describe("api routes", () => {
       }),
     });
 
+    const invalidBoardAlertQueries = [
+      "/api/v1/research/board-alerts/incidents",
+      "/api/v1/research/board-alerts/incidents?date=20260421",
+      "/api/v1/research/board-alerts/incidents?date=2026-02-31",
+      "/api/v1/research/board-alerts/event-context?gameId=nba-bos-nyk-2026-04-21&at=not-a-timestamp",
+      "/api/v1/research/board-alerts/event-context?gameId=nba-bos-nyk-2026-04-21&at=2026-04-21T23:56:00",
+      "/api/v1/research/board-alerts/replay?gameId=nba-bos-nyk-2026-04-21&windowStart=bad-window&windowEnd=2026-04-21T23:56:00.000Z",
+      "/api/v1/research/board-alerts/replay?gameId=nba-bos-nyk-2026-04-21&windowStart=2026-04-21T23:56:00.000Z&windowEnd=2026-04-21T23:50:00.000Z",
+    ];
+
+    for (const url of invalidBoardAlertQueries) {
+      const response = await app.inject({
+        method: "GET",
+        url,
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        error: expect.objectContaining({
+          code: "VALIDATION_ERROR",
+        }),
+      });
+    }
+
+    for (const url of [
+      "/api/v1/research/signal-mismatches?date=2026-02-31",
+      "/api/v1/research/divergence?date=2026-02-31",
+    ]) {
+      const response = await app.inject({
+        method: "GET",
+        url,
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        error: expect.objectContaining({
+          code: "VALIDATION_ERROR",
+        }),
+      });
+    }
+
     const sourcesResponse = await app.inject({
       method: "GET",
       url: "/api/v1/admin/sources",
@@ -1321,6 +1360,39 @@ describe("api routes", () => {
 
     await app.close();
   });
+
+  it("fails readiness fast when a dependency accepts the request but never answers", async () => {
+    process.env.NBA_SIDECAR_BASE_URL = "http://127.0.0.1:9393";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => undefined))
+    );
+    const app = buildApiServer();
+    const startedAt = Date.now();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/health/ready",
+    });
+
+    expect(Date.now() - startedAt).toBeLessThan(5_000);
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({
+      checks: expect.arrayContaining([
+        expect.objectContaining({
+          details: expect.objectContaining({
+            timeoutMs: 2_500,
+          }),
+          name: "readiness-timeout",
+          status: "error",
+          summary: "Readiness checks timed out before they could return.",
+        }),
+      ]),
+      status: "error",
+    });
+
+    await app.close();
+  }, 6_000);
 
   it("marks kalshi capture ready when direct Kalshi API key is present", async () => {
     process.env.KALSHI_API_KEY = "kalshi-key";
