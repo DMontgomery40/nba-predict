@@ -38,6 +38,12 @@ type KalshiDirectMarket = {
   last_price_dollars?: string | null;
   yes_bid_dollars?: string | null;
   yes_ask_dollars?: string | null;
+  yes_bid_size_fp?: string | null;
+  yes_ask_size_fp?: string | null;
+  volume_fp?: string | null;
+  volume_24h_fp?: string | null;
+  open_interest_fp?: string | null;
+  liquidity_dollars?: string | null;
   volume?: number | string | null;
   volume_24h?: number | string | null;
   liquidity?: number | string | null;
@@ -173,6 +179,44 @@ function toNumber(value: number | string | null | undefined) {
   if (value == null || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function resolveKalshiQuoteVolume(market: KalshiDirectMarket) {
+  const candidates = [
+    {
+      source: "volume_fp" as const,
+      value: toNumber(market.volume_fp),
+    },
+    {
+      source: "volume_24h_fp" as const,
+      value: toNumber(market.volume_24h_fp),
+    },
+    {
+      source: "volume_24h" as const,
+      value: toNumber(market.volume_24h),
+    },
+    {
+      source: "volume" as const,
+      value: toNumber(market.volume),
+    },
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate.value != null) {
+      return candidate;
+    }
+  }
+
+  return {
+    source: null,
+    value: null,
+  } as const;
+}
+
+function resolveKalshiDepthScore(market: KalshiDirectMarket) {
+  return (
+    toNumber(market.liquidity_dollars) ?? toNumber(market.liquidity) ?? null
+  );
 }
 
 function buildStableId(parts: Array<string | number | null | undefined>) {
@@ -607,6 +651,7 @@ export async function syncKalshiNbaDirect(options?: {
             selection: shape.selection,
           });
 
+          const quoteVolume = resolveKalshiQuoteVolume(market);
           upsertSourceMarket({
             gameId: game.game.id,
             id: sourceMarketId,
@@ -618,11 +663,17 @@ export async function syncKalshiNbaDirect(options?: {
               customStrike: market.custom_strike ?? null,
               eventTicker: event.event_ticker,
               expectedExpirationTime: market.expected_expiration_time ?? null,
+              liquidityDollars: market.liquidity_dollars ?? null,
               marketStatus: market.status ?? null,
               marketTicker: market.ticker,
               noSubTitle: market.no_sub_title ?? null,
               result: market.result ?? null,
               seriesTicker: event.series_ticker,
+              quoteVolumeSource: quoteVolume.source,
+              volume24hFp: market.volume_24h_fp ?? null,
+              volumeFp: market.volume_fp ?? null,
+              yesAskSizeFp: market.yes_ask_size_fp ?? null,
+              yesBidSizeFp: market.yes_bid_size_fp ?? null,
               yesSubTitle: market.yes_sub_title ?? null,
             },
             source: "kalshi",
@@ -638,14 +689,14 @@ export async function syncKalshiNbaDirect(options?: {
             bestAsk,
             bestBid,
             capturedAt: startedAt,
-            depthScore: toNumber(market.liquidity) ?? null,
+            depthScore: resolveKalshiDepthScore(market),
             heartbeatAfterMs: 60_000,
             impliedProbability,
             lineRaw: shape.line,
             oddsRaw: null,
             priceRaw: toNumber(market.last_price_dollars),
             sourceMarketId,
-            volume: toNumber(market.volume_24h) ?? toNumber(market.volume),
+            volume: quoteVolume.value,
           });
           if (quote.wrote) quoteObservationsWritten += 1;
 

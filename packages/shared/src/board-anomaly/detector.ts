@@ -241,7 +241,7 @@ export function detectBoardAnomalies(
   const alerts: BoardAnomalyAlert[] = [];
   const trustedStateGate = trustedLiveStateWindow(shockSet);
   const gameStateVolatilityAlert = buildGameStateVolatilityAlert({
-    scored: shockSet,
+    scored,
     config,
     gameId: input.gameId,
     gameLabel: input.gameLabel,

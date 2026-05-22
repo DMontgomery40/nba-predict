@@ -60,13 +60,12 @@ Start here when exploring this area:
 
 | Flow | Type | Steps |
 |------|------|-------|
-| `Get_scoreboard → _now_iso` | cross_community | 7 |
+| `Get_scoreboard → _now_iso` | cross_community | 6 |
 | `Get_scoreboard → _pick` | cross_community | 6 |
-| `Get_scoreboard → _pick` | cross_community | 6 |
-| `Get_scoreboard → _coerce_int` | cross_community | 6 |
-| `Get_scoreboard → _schedule_date_matches` | cross_community | 5 |
+| `Get_scoreboard → _coerce_int` | cross_community | 5 |
 | `Normalize_stats_scoreboard_payload → _now_iso` | intra_community | 4 |
 | `Normalize_stats_scoreboard_payload → _pick` | intra_community | 4 |
+| `Get_scoreboard → _schedule_date_matches` | cross_community | 4 |
 
 ## How to Explore
 

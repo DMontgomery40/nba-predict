@@ -1,11 +1,11 @@
 ---
 name: desk
-description: "Skill for the Desk area of nba-predict. 41 symbols across 7 files."
+description: "Skill for the Desk area of nba-predict. 48 symbols across 7 files."
 ---
 
 # Desk
 
-41 symbols | 7 files | Cohesion: 81%
+48 symbols | 7 files | Cohesion: 82%
 
 ## When to Use
 
@@ -17,7 +17,7 @@ description: "Skill for the Desk area of nba-predict. 41 symbols across 7 files.
 
 | File | Symbols |
 |------|---------|
-| `apps/web/src/features/desk/TraderDeskPage.tsx` | formatProbability, formatDecimal, formatCount, formatAge, rowTone (+24) |
+| `apps/web/src/features/desk/TraderDeskPage.tsx` | isDeskBootstrapPending, formatProbability, formatDecimal, formatCount, formatAge (+31) |
 | `apps/web/src/features/desk/LeadLagOffsetChart.tsx` | tickTime, LeadLagOffsetChart, lineY, lineX |
 | `apps/web/src/data/api.ts` | isApiRequestError, shouldRetryQuery |
 | `apps/web/src/features/desk/BoardAlertsBanner.tsx` | isTransientBoardAlertError, retry |
@@ -30,35 +30,35 @@ description: "Skill for the Desk area of nba-predict. 41 symbols across 7 files.
 Start here when exploring this area:
 
 - **`formatMarketMatchLabel`** (Function) — `apps/web/src/lib/market-format.ts:29`
-- **`TraderDeskPage`** (Function) — `apps/web/src/features/desk/TraderDeskPage.tsx:388`
+- **`TraderDeskPage`** (Function) — `apps/web/src/features/desk/TraderDeskPage.tsx:468`
 - **`isApiRequestError`** (Function) — `apps/web/src/data/api.ts:53`
 - **`retry`** (Function) — `apps/web/src/features/desk/BoardAlertsBanner.tsx:23`
-- **`retry`** (Function) — `apps/web/src/features/desk/TraderDeskPage.tsx:417`
+- **`retry`** (Function) — `apps/web/src/features/desk/TraderDeskPage.tsx:497`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
 | `formatMarketMatchLabel` | Function | `apps/web/src/lib/market-format.ts` | 29 |
-| `TraderDeskPage` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 388 |
+| `TraderDeskPage` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 468 |
 | `isApiRequestError` | Function | `apps/web/src/data/api.ts` | 53 |
 | `retry` | Function | `apps/web/src/features/desk/BoardAlertsBanner.tsx` | 23 |
-| `retry` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 417 |
+| `retry` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 497 |
 | `LeadLagOffsetChart` | Function | `apps/web/src/features/desk/LeadLagOffsetChart.tsx` | 21 |
 | `lineY` | Function | `apps/web/src/features/desk/LeadLagOffsetChart.tsx` | 52 |
 | `lineX` | Function | `apps/web/src/features/desk/LeadLagOffsetChart.tsx` | 56 |
-| `reviewBet365Rows` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 598 |
-| `externalOnlyRows` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 601 |
+| `reviewBet365Rows` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 723 |
+| `externalOnlyRows` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 726 |
 | `DivergenceSparkline` | Function | `apps/web/src/features/desk/DivergenceSparkline.tsx` | 19 |
 | `toPath` | Function | `apps/web/src/features/desk/DivergenceSparkline.tsx` | 69 |
-| `formatProbability` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 82 |
-| `formatDecimal` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 90 |
-| `formatCount` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 98 |
-| `formatAge` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 106 |
-| `rowTone` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 135 |
-| `alertTone` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 148 |
-| `volatilityTone` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 161 |
-| `formatVolatilityBand` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 168 |
+| `isDeskBootstrapPending` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 82 |
+| `formatProbability` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 106 |
+| `formatDecimal` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 114 |
+| `formatCount` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 122 |
+| `formatAge` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 130 |
+| `rowTone` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 159 |
+| `alertTone` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 172 |
+| `volatilityTone` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 185 |
 
 ## Execution Flows
 
@@ -72,18 +72,19 @@ Start here when exploring this area:
 | `SettingsPage → IsApiRequestError` | cross_community | 4 |
 | `Render → IsApiRequestError` | cross_community | 4 |
 | `App → PageFrame` | cross_community | 3 |
+| `App → IsDeskBootstrapPending` | cross_community | 3 |
 | `App → LoadingState` | cross_community | 3 |
-| `App → BuildGameTriage` | cross_community | 3 |
 
 ## Connected Areas
 
 | Area | Connections |
 |------|-------------|
+| Components | 4 calls |
 | Event | 4 calls |
-| Components | 3 calls |
-| Games | 3 calls |
-| Format | 2 calls |
-| Cluster_44 | 2 calls |
+| Cluster_40 | 2 calls |
+| Games | 2 calls |
+| Cluster_47 | 2 calls |
+| Divergence | 1 calls |
 | Settings | 1 calls |
 | Alerts | 1 calls |
 

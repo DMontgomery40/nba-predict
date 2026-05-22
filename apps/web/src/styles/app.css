@@ -3113,6 +3113,32 @@ input {
   align-items: center;
 }
 
+.divergence-banner {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(255, 196, 114, 0.22);
+  border-radius: 0.55rem;
+  background: rgba(255, 196, 114, 0.08);
+}
+
+.divergence-banner strong,
+.divergence-banner span {
+  display: block;
+}
+
+.divergence-banner strong {
+  color: #ffd48d;
+  margin-bottom: 0.18rem;
+}
+
+.divergence-banner span {
+  color: var(--text-subtle);
+  line-height: 1.45;
+}
+
 .ghost-button:disabled {
   cursor: not-allowed;
   opacity: 0.45;

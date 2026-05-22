@@ -52,21 +52,22 @@ The first implementation approximates this as a weighted sum of normalized contr
 Whole-board volatility is one shared runtime model consumed by live alerts, replay, inspect, and desk surfaces. It must not be recomputed differently per consumer. The runtime flow is:
 
 ```text
-materialized observations
--> H0 residualization
--> Iter02 state gate
--> phase-aware abnormality features
--> empirical baseline lookup
--> linear Gaussian Kalman filter
--> board-level gates
+materialized quote observations
+-> drop heartbeats and exact 0.500 anchor rows
+-> per-source-market implied-probability deltas
+-> 60-second whole-board buckets of Σ |Δ implied probability| * log1p(volume)
+-> trailing median + 3*MAD over the prior 20 non-empty buckets
+-> require 8 prior buckets before a fire is allowed
+-> causal bucket-end confirmation
 -> board-first deck fold
 ```
 
 Implementation constraints:
 
 - Iter02 / `StateGate` is a hard runtime rule: when a live window is not trusted, entity/player-specific alerts are suppressed, while whole-board tripwires may still emit.
-- The live deck preserves board-first ordering for the current `#2` math pass: simultaneous player fanout that first pops inside the same shock window stays folded under the whole-board card until a later follow-up separates itself in time.
-- The filter is a standard linear Gaussian Kalman layer over normalized board-abnormality features, not a raw EKF over quotes/trades.
+- The live deck preserves board-first ordering: simultaneous player fanout that first pops inside the same shock window stays folded under the whole-board card until a later follow-up separates itself in time.
+- The whole-board tripwire is all-families and quote-history-based, not core-families-only: sportsbook and prediction-market quote rows may both contribute whenever they carry persisted implied-probability history and volume.
+- The live runtime needs a long enough context window to hold the warmup and trailing baseline. The default detector context is therefore 30 minutes rather than the old 5-minute trim.
 - `/api/v1/research/board-volatility` and `shockKind === "game-state-volatility"` alerts must derive from this same runtime output.
 
 ## 4. Residual Movement
@@ -115,34 +116,34 @@ These classes are detector internals. Operator surfaces may show them, but they 
 
 Every emitted alert chooses exactly one of these kinds, by evidence:
 
-| Kind                            | Necessary evidence (post-H0)                                                                                                                                                                                                                                                     |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| pregame availability shock      | game state is pre-tip, residual movement is coherent across moneyline / spread / team total and at least one star-player prop family                                                                                                                                             |
-| near-tip availability shock     | game state is pre-tip with `time_to_tip` under threshold (default 30 minutes); shape resembles pregame availability shock but with sportsbook suspension / removal flags or sudden line moves                                                                                    |
-| game-state volatility shock     | prediction-market residual movement is abnormal for the current phase, is confirmed by the core game-state families (`moneyline`, `spread`, `total`, `team-prop`), and survives the shared board-stress filter; player props remain supporting evidence, not the headline entity |
-| attribution-shaped incident     | game state is in-play; residual fanout concentrated around one player or paired-player stat family (rebound / assist / made-shot) with compound-stat children moving in the same direction                                                                                       |
-| market-structure shock          | residual driven primarily by off-price trades, volume share, spread / depth stress, or sustained repricing without a clear player or game-event handle                                                                                                                           |
-| cross-surface disagreement      | residual is concentrated in cross-venue disagreement after latency, liquidity, and vig adjustment, with both surfaces present and fresh                                                                                                                                          |
-| coverage / mapping / timing gap | peers are moving but at least one expected source is silent, stale beyond threshold, or unmapped on a game where mapped peers fired                                                                                                                                              |
+| Kind                            | Necessary evidence (post-H0)                                                                                                                                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| pregame availability shock      | game state is pre-tip, residual movement is coherent across moneyline / spread / team total and at least one star-player prop family                                                          |
+| near-tip availability shock     | game state is pre-tip with `time_to_tip` under threshold (default 30 minutes); shape resembles pregame availability shock but with sportsbook suspension / removal flags or sudden line moves |
+| game-state volatility shock     | the whole-board volume-weighted quote bucket `Σ                                                                                                                                               | Δ implied probability | * log1p(volume)`exceeds the trailing`median + 3*MAD` over the prior 20 non-empty 60-second buckets after an 8-bucket warmup; player/entity follow-up remains separate from the whole-board headline |
+| attribution-shaped incident     | game state is in-play; residual fanout concentrated around one player or paired-player stat family (rebound / assist / made-shot) with compound-stat children moving in the same direction    |
+| market-structure shock          | residual driven primarily by off-price trades, volume share, spread / depth stress, or sustained repricing without a clear player or game-event handle                                        |
+| cross-surface disagreement      | residual is concentrated in cross-venue disagreement after latency, liquidity, and vig adjustment, with both surfaces present and fresh                                                       |
+| coverage / mapping / timing gap | peers are moving but at least one expected source is silent, stale beyond threshold, or unmapped on a game where mapped peers fired                                                           |
 
 Classification is conservative: when evidence does not clearly distinguish two kinds, the detector prefers the more general kind (market-structure shock or coverage gap) over the more specific kind (attribution-shaped). False-precision attribution is worse than honest market-structure. However, if a broad tripwire fires first and player-specific follow-up appears moments later, the operator-facing flow should preserve that sequence: fastest warning first, actionable fanout immediately after. In the live deck, simultaneous player fanout that first pops inside the same shock window stays folded under the whole-game card; it should re-emerge as its own card only once the follow-up separates itself in time.
 
 ## 8. Alerting And Suppression
 
-- Rolling windows are short (default 60 seconds shock window, 5 minutes context window).
+- Rolling windows are short in alert semantics (default 60-second shock window) but the board-vw detector keeps a 30-minute default context so the 8-bucket warmup and 20-bucket trailing baseline have room to exist.
 - Each emitted alert carries the `first_pop_at` timestamp to the second.
 - Alerts are de-duplicated by `(game_id, shock_kind, primary_entity_key)`; a noisy stream of similar residuals collapses into one card.
 - A new alert is allowed for the same game / kind only when the residual shape or confidence changes materially (default: confidence rises by at least 0.15 or the primary entity changes).
 - Online detection must never use `event_timestamp > now` rows to decide whether an alert would have fired.
 
-For `game-state-volatility`, score bands are phase-aware and gate-aware rather than static legends:
+For `game-state-volatility`, score bands are derived from the board-vw bucket state rather than a separate hidden model:
 
-- `normal`: within ordinary cohort range for the current phase.
-- `elevated`: above ordinary range or a brief open/restart burst without strong persistence.
-- `alert`: at least the live-phase `p90` cohort with breadth/source confirmation.
-- `critical`: at least the live-phase `p99` cohort, plus persistence and multi-family confirmation.
+- `insufficient-data`: fewer than 8 prior non-empty buckets are available for the current completed bucket.
+- `normal`: enough history exists and the latest evaluated bucket stays below the fire threshold.
+- `elevated`: enough history exists and the latest evaluated bucket is warm, but it does not cross the fire threshold.
+- `alert`: a completed 60-second bucket crosses the trailing `median + 3*MAD` threshold and is still inside the live shock window.
 
-The runtime must expose the phase, empirical percentile/range, filter state, gates, and supporting drivers so operator surfaces can explain why the board is hot without inlining a threshold key next to live values.
+The runtime must expose the phase, trailing-window summary, latest evaluated bucket, recent-fire state, and supporting evidence so operator surfaces can explain why the board is hot without inventing a different threshold legend client-side.
 
 ## 9. History Replay
 

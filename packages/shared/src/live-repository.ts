@@ -1420,7 +1420,7 @@ function selectFilteredGameBundles(
   db: Database.Database,
   filters: Pick<
     GamesFilters,
-    "date" | "league" | "limit" | "referenceNow" | "sport"
+    "date" | "gameId" | "league" | "limit" | "referenceNow" | "sport"
   > & {
     family?: MarketFamily;
     order?: "currentSlate" | "scheduledAsc";
@@ -1477,6 +1477,10 @@ function selectFilteredGameBundles(
       "EXISTS (SELECT 1 FROM market_instruments mi WHERE mi.game_id = games.id AND mi.family = ?)"
     );
     params.push(filters.family);
+  }
+  if (filters.gameId) {
+    clauses.push("id = ?");
+    params.push(filters.gameId);
   }
 
   const orderBy =
@@ -1752,11 +1756,12 @@ function buildResearchDivergenceEntries(filters: DivergenceFilters = {}) {
   const bundles = selectFilteredGameBundles(db, {
     date: filters.date,
     family: filters.family,
+    gameId: filters.gameId,
     league: filters.league,
     limit: currentSlateGameLimit,
     order: filters.date ? "scheduledAsc" : "currentSlate",
     sport: filters.sport,
-  }).filter((bundle) => !filters.gameId || bundle.game.id === filters.gameId);
+  });
   const candidateInstrumentIds = bundles.flatMap((bundle) =>
     bundle.instruments
       .filter((instrument) => {

@@ -101,12 +101,18 @@ export async function getBoardAnomalyIncidentsPayload(
     replay
   );
   if (missingPlayByPlayGameIds.length > 0) {
-    await hydrateMissingBoardIncidentPlayByPlay(
+    logger.info(
+      {
+        date: query.date,
+        gameCount: missingPlayByPlayGameIds.length,
+        gameIds: missingPlayByPlayGameIds,
+      },
+      "Historical trader incidents are missing play-by-play context; hydrating in the background."
+    );
+    void hydrateMissingBoardIncidentPlayByPlay(
       missingPlayByPlayGameIds,
       logger
     );
-    forensic = listForensicFinishedGameIncidents(queryForLimit);
-    replay = listFinishedGameIncidents(queryForLimit);
   }
 
   const data = dedupeAndSortBoardIncidents(forensic, replay, limit);

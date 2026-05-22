@@ -17,6 +17,10 @@ function logit(probability: number): number {
   return Math.log(clamped / (1 - clamped));
 }
 
+function clampProbability(probability: number) {
+  return Math.min(0.95, Math.max(0.05, probability));
+}
+
 function defaultFlags(
   overrides: Partial<BoardObservationFlags> = {}
 ): BoardObservationFlags {
@@ -223,10 +227,15 @@ function attributionFanout(): BoardObservation[] {
   ];
 }
 
-function gameStateVolatilityFanout(): BoardObservation[] {
-  const baseTs = Date.parse("2026-05-15T20:00:00.000Z");
-  const ts = (offsetSec: number) =>
-    new Date(baseTs + offsetSec * 1000).toISOString();
+function gameStateVolatilityFanout(options?: {
+  finalJump?: number;
+  finalVolume?: number;
+  quietJump?: number;
+  quietVolume?: number;
+}): BoardObservation[] {
+  const baseTs = Date.parse("2026-05-15T19:51:05.000Z");
+  const ts = (minuteOffset: number) =>
+    new Date(baseTs + minuteOffset * 60_000).toISOString();
   const gameState = {
     status: "in-play" as const,
     period: 2,
@@ -236,22 +245,16 @@ function gameStateVolatilityFanout(): BoardObservation[] {
     scoreMargin: 12,
     minutesToTip: null,
   };
-  const move = (from: number, to: number) => logit(to) - logit(from);
+  const quietJump = options?.quietJump ?? 0.004;
+  const quietVolume = options?.quietVolume ?? 8;
+  const finalJump = options?.finalJump ?? 0.12;
+  const finalVolume = options?.finalVolume ?? 550;
+  const makeMove = (from: number, to: number) => logit(to) - logit(from);
 
-  return [
-    makeObservation("game-vol-kalshi-moneyline", {
-      source: "kalshi",
-      sourceKind: "prediction-market",
-      family: "moneyline",
-      selection: "cavaliers",
-      impliedProbability: 0.76,
-      previousImpliedProbability: 0.52,
-      logitMove: move(0.52, 0.76),
-      tradePrice: 0.82,
-      tradeSize: 1200,
-      volumeShare: 0.24,
-      finalMarketVolume: 5000,
-      displayLabel: "Cavaliers win",
+  const markets = [
+    {
+      family: "moneyline" as const,
+      id: "game-vol-kalshi-moneyline",
       labels: {
         rawFamily: "moneyline",
         rawLabel: "Cavaliers to win",
@@ -259,23 +262,17 @@ function gameStateVolatilityFanout(): BoardObservation[] {
         participantHints: [],
         statFamilyHints: [],
       },
-      gameState,
-      eventTimestamp: ts(5),
-      capturedAt: ts(5),
-    }),
-    makeObservation("game-vol-poly-spread", {
-      source: "polymarket",
-      sourceKind: "prediction-market",
-      family: "spread",
-      selection: "pistons-plus",
-      impliedProbability: 0.27,
-      previousImpliedProbability: 0.51,
-      logitMove: move(0.51, 0.27),
-      tradePrice: 0.2,
-      tradeSize: 900,
-      volumeShare: 0.21,
-      finalMarketVolume: 4300,
-      displayLabel: "Pistons +7.5",
+      line: null,
+      participantKey: null,
+      selection: "cavaliers",
+      source: "kalshi" as const,
+      startProbability: 0.58,
+      direction: 1,
+      displayLabel: "Cavaliers win",
+    },
+    {
+      family: "spread" as const,
+      id: "game-vol-poly-spread",
       labels: {
         rawFamily: "spread",
         rawLabel: "Pistons +7.5",
@@ -283,23 +280,17 @@ function gameStateVolatilityFanout(): BoardObservation[] {
         participantHints: [],
         statFamilyHints: [],
       },
-      gameState,
-      eventTimestamp: ts(15),
-      capturedAt: ts(15),
-    }),
-    makeObservation("game-vol-kalshi-total", {
-      source: "kalshi",
-      sourceKind: "prediction-market",
-      family: "total",
-      selection: "over",
-      impliedProbability: 0.71,
-      previousImpliedProbability: 0.48,
-      logitMove: move(0.48, 0.71),
-      tradePrice: 0.77,
-      tradeSize: 700,
-      volumeShare: 0.19,
-      finalMarketVolume: 3600,
-      displayLabel: "Total over 214.5",
+      line: 7.5,
+      participantKey: null,
+      selection: "pistons-plus",
+      source: "polymarket" as const,
+      startProbability: 0.46,
+      direction: -1,
+      displayLabel: "Pistons +7.5",
+    },
+    {
+      family: "total" as const,
+      id: "game-vol-kalshi-total",
       labels: {
         rawFamily: "total",
         rawLabel: "Total over 214.5",
@@ -307,23 +298,17 @@ function gameStateVolatilityFanout(): BoardObservation[] {
         participantHints: [],
         statFamilyHints: [],
       },
-      gameState,
-      eventTimestamp: ts(25),
-      capturedAt: ts(25),
-    }),
-    makeObservation("game-vol-poly-team-total", {
-      source: "polymarket",
-      sourceKind: "prediction-market",
-      family: "team-prop",
+      line: 214.5,
+      participantKey: null,
       selection: "over",
-      impliedProbability: 0.7,
-      previousImpliedProbability: 0.5,
-      logitMove: move(0.5, 0.7),
-      tradePrice: 0.74,
-      tradeSize: 650,
-      volumeShare: 0.2,
-      finalMarketVolume: 3200,
-      displayLabel: "Cavaliers team total over 111.5",
+      source: "kalshi" as const,
+      startProbability: 0.55,
+      direction: 1,
+      displayLabel: "Total over 214.5",
+    },
+    {
+      family: "team-prop" as const,
+      id: "game-vol-poly-team-total",
       labels: {
         rawFamily: "team-prop",
         rawLabel: "Cavaliers team total over 111.5",
@@ -331,25 +316,17 @@ function gameStateVolatilityFanout(): BoardObservation[] {
         participantHints: [],
         statFamilyHints: ["team-total"],
       },
-      gameState,
-      eventTimestamp: ts(35),
-      capturedAt: ts(35),
-    }),
-    makeObservation("game-vol-kalshi-player-prop", {
-      source: "kalshi",
-      sourceKind: "prediction-market",
-      family: "player-prop",
-      participantKey: "donovan-mitchell",
+      line: 111.5,
+      participantKey: null,
       selection: "over",
-      line: 29.5,
-      impliedProbability: 0.73,
-      previousImpliedProbability: 0.49,
-      logitMove: move(0.49, 0.73),
-      tradePrice: 0.79,
-      tradeSize: 550,
-      volumeShare: 0.23,
-      finalMarketVolume: 2400,
-      displayLabel: "Donovan Mitchell Over 29.5 Points",
+      source: "polymarket" as const,
+      startProbability: 0.53,
+      direction: 1,
+      displayLabel: "Cavaliers team total over 111.5",
+    },
+    {
+      family: "player-prop" as const,
+      id: "game-vol-kalshi-player-prop",
       labels: {
         rawFamily: "player-prop",
         rawLabel: "Donovan Mitchell Over 29.5 Points",
@@ -357,11 +334,78 @@ function gameStateVolatilityFanout(): BoardObservation[] {
         participantHints: ["donovan-mitchell"],
         statFamilyHints: ["points"],
       },
-      gameState,
-      eventTimestamp: ts(45),
-      capturedAt: ts(45),
-    }),
+      line: 29.5,
+      participantKey: "donovan-mitchell",
+      selection: "over",
+      source: "kalshi" as const,
+      startProbability: 0.54,
+      direction: 1,
+      displayLabel: "Donovan Mitchell Over 29.5 Points",
+    },
   ];
+
+  return markets.flatMap((market, marketIndex) => {
+    const rows: BoardObservation[] = [];
+    let previousProbability = market.startProbability;
+    rows.push(
+      makeObservation(`${market.id}-seed`, {
+        source: market.source,
+        sourceKind: "prediction-market",
+        sourceMarketId: `sm-${market.id}`,
+        instrumentId: `instr-${market.id}`,
+        family: market.family,
+        participantKey: market.participantKey,
+        selection: market.selection,
+        line: market.line,
+        impliedProbability: previousProbability,
+        previousImpliedProbability: null,
+        logitMove: 0,
+        volume: quietVolume,
+        displayLabel: market.displayLabel,
+        labels: market.labels,
+        gameState,
+        eventTimestamp: ts(0),
+        capturedAt: ts(0),
+        missing: { line: market.line == null, volume: false },
+      })
+    );
+
+    for (let minuteIndex = 1; minuteIndex <= 9; minuteIndex += 1) {
+      const isFinalBucket = minuteIndex === 9;
+      const jumpMagnitude = isFinalBucket ? finalJump : quietJump;
+      const nextProbability = clampProbability(
+        previousProbability + jumpMagnitude * market.direction
+      );
+      const volume = isFinalBucket
+        ? finalVolume
+        : quietVolume + ((minuteIndex + marketIndex) % 3);
+      rows.push(
+        makeObservation(`${market.id}-${minuteIndex}`, {
+          source: market.source,
+          sourceKind: "prediction-market",
+          sourceMarketId: `sm-${market.id}`,
+          instrumentId: `instr-${market.id}`,
+          family: market.family,
+          participantKey: market.participantKey,
+          selection: market.selection,
+          line: market.line,
+          impliedProbability: nextProbability,
+          previousImpliedProbability: previousProbability,
+          logitMove: makeMove(previousProbability, nextProbability),
+          volume,
+          displayLabel: market.displayLabel,
+          labels: market.labels,
+          gameState,
+          eventTimestamp: ts(minuteIndex),
+          capturedAt: ts(minuteIndex),
+          missing: { line: market.line == null, volume: false },
+        })
+      );
+      previousProbability = nextProbability;
+    }
+
+    return rows;
+  });
 }
 
 function trustedLiveContextRows(
@@ -442,9 +486,6 @@ describe("detectBoardAnomalies", () => {
     expect(attributionAlert?.score).toBeGreaterThanOrEqual(60);
     expect(attributionAlert?.primaryEntityKey).toBe("cade-cunningham");
     expect(attributionAlert?.evidence.length).toBeGreaterThanOrEqual(2);
-    expect(
-      alerts.some((alert) => alert.shockKind === "game-state-volatility")
-    ).toBe(true);
   });
 
   it("promotes broad prediction-market movement to whole-game implied volatility", () => {
@@ -460,9 +501,9 @@ describe("detectBoardAnomalies", () => {
     expect(top.shockKind).toBe("game-state-volatility");
     expect(top.primaryEntityKey).toBeNull();
     expect(top.primaryFamily).toBeNull();
-    expect(top.reason).toContain("board stress across");
+    expect(top.reason).toContain("board-vw 60s bucket fired");
     expect(top.inspect.relationFamilies).toContain("game-state-volatility");
-    expect(top.evidence[0]?.family).toBe("moneyline");
+    expect(top.evidence[0]?.reason).toContain("board-vw");
     expect(top.evidence.some((row) => row.family === "player-prop")).toBe(true);
   });
 
@@ -486,29 +527,39 @@ describe("detectBoardAnomalies", () => {
     expect(boardAlerts[0]?.shockKind).toBe("game-state-volatility");
   });
 
-  it("treats volume-share-only prediction market prints as live board signal", () => {
-    const observations = gameStateVolatilityFanout()
-      .slice(0, 4)
-      .map((observation) => ({
-        ...observation,
-        logitMove: 0,
-        previousImpliedProbability: observation.impliedProbability,
-        tradePrice: observation.impliedProbability,
-        volumeShare: 0.3,
-      }));
+  it("ignores 0.500 anchor rows when building board-vw warmup history", () => {
+    const observations = gameStateVolatilityFanout().map((observation) => {
+      if (observation.observationId.endsWith("-seed")) {
+        return {
+          ...observation,
+          impliedProbability: 0.5,
+        };
+      }
+      if (observation.observationId.endsWith("-1")) {
+        return {
+          ...observation,
+          previousImpliedProbability: 0.5,
+          logitMove:
+            observation.impliedProbability != null
+              ? logit(observation.impliedProbability) - logit(0.5)
+              : 0,
+        };
+      }
+      return observation;
+    });
 
-    const alerts = detectBoardAnomalies({
+    const measurement = measureBoardGameStateVolatility({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
       observations,
       now: "2026-05-15T20:01:00.000Z",
     });
 
-    const volatility = alerts.find(
-      (alert) => alert.shockKind === "game-state-volatility"
-    );
-    expect(volatility).toBeDefined();
-    expect(volatility?.evidence[0].reason).toContain("vol-share");
+    expect(measurement).toMatchObject({
+      band: "insufficient-data",
+      score: 0,
+      state: "insufficient-data",
+    });
   });
 
   it("measures whole-game volatility as a live score before UI thresholding", () => {
@@ -521,7 +572,7 @@ describe("detectBoardAnomalies", () => {
 
     expect(measurement).toMatchObject({
       alertId: expect.any(String),
-      band: expect.stringMatching(/alert|critical/),
+      band: "alert",
       gameLabel: "Cavaliers @ Pistons",
       thresholds: {
         alertMinScore: 55,
@@ -537,7 +588,68 @@ describe("detectBoardAnomalies", () => {
     expect(measurement?.score).toBeGreaterThanOrEqual(
       measurement?.thresholds.alertMinScore ?? 55
     );
-    expect(measurement?.baseline.percentile).toBeGreaterThanOrEqual(0.9);
+    expect(measurement?.baseline.sampleSize).toBeGreaterThanOrEqual(8);
+    expect(measurement?.signals.corePriceShock).toBeGreaterThan(
+      measurement?.baseline.expectedRange.p90 ?? 0
+    );
+  });
+
+  it("uses stored-volume weighting when quote volume is sourced from persisted market metadata", () => {
+    const observations = gameStateVolatilityFanout().map((observation) => ({
+      ...observation,
+      volume: 2400,
+      volumeSource: "source-market-metadata" as const,
+      missing: {
+        ...observation.missing,
+        volume: false,
+      },
+    }));
+
+    const measurement = measureBoardGameStateVolatility({
+      gameId: "game-1",
+      gameLabel: "Cavaliers @ Pistons",
+      observations,
+      now: "2026-05-15T20:01:00.000Z",
+    });
+
+    expect(measurement).toMatchObject({
+      band: "alert",
+      sample: {
+        ready: true,
+      },
+    });
+    expect(measurement?.evidence[0]?.reason).toContain(
+      "log1p(stored vol 2400)"
+    );
+  });
+
+  it("falls back to equal-weight buckets when both quote and stored volume are missing", () => {
+    const observations = gameStateVolatilityFanout().map((observation) => ({
+      ...observation,
+      volume: null,
+      volumeSource: null,
+      missing: {
+        ...observation.missing,
+        volume: true,
+      },
+    }));
+
+    const measurement = measureBoardGameStateVolatility({
+      gameId: "game-1",
+      gameLabel: "Cavaliers @ Pistons",
+      observations,
+      now: "2026-05-15T20:01:00.000Z",
+    });
+
+    expect(measurement).toMatchObject({
+      band: "alert",
+      sample: {
+        ready: true,
+      },
+    });
+    expect(measurement?.evidence[0]?.reason).toContain(
+      "weight 1 (missing volume)"
+    );
   });
 
   it("marks final-game board volatility as final phase instead of live", () => {
@@ -561,31 +673,12 @@ describe("detectBoardAnomalies", () => {
   });
 
   it("treats calm live prediction-market coverage as a normal sample instead of no sample", () => {
-    const stableRows = [
-      makeObservation("stable-ml", {
-        family: "moneyline",
-        source: "kalshi",
-        selection: "nyk",
-      }),
-      makeObservation("stable-spread", {
-        family: "spread",
-        source: "kalshi",
-        selection: "nyk",
-        line: -2.5,
-      }),
-      makeObservation("stable-total", {
-        family: "total",
-        source: "kalshi",
-        selection: "over",
-        line: 218.5,
-      }),
-      makeObservation("stable-team-total", {
-        family: "team-prop",
-        source: "kalshi",
-        selection: "over",
-        line: 111.5,
-      }),
-    ];
+    const stableRows = gameStateVolatilityFanout({
+      finalJump: 0.002,
+      finalVolume: 4,
+      quietJump: 0.004,
+      quietVolume: 8,
+    });
 
     const measurement = measureBoardGameStateVolatility({
       gameId: "game-1",
@@ -598,7 +691,6 @@ describe("detectBoardAnomalies", () => {
       band: "normal",
       gameLabel: "Cavaliers @ Pistons",
       sample: {
-        predictionMarketRows: 4,
         ready: true,
       },
     });
@@ -619,13 +711,10 @@ describe("detectBoardAnomalies", () => {
   });
 
   it("zeros the headline score when the board sample is insufficient", () => {
-    const sparseRows = [
-      makeObservation("sparse-ml", {
-        family: "moneyline",
-        source: "kalshi",
-        selection: "nyk",
-      }),
-    ];
+    const sparseRows = gameStateVolatilityFanout().filter((observation) => {
+      const eventMs = Date.parse(observation.eventTimestamp);
+      return eventMs < Date.parse("2026-05-15T19:58:00.000Z");
+    });
 
     const measurement = measureBoardGameStateVolatility({
       gameId: "game-1",
@@ -650,22 +739,22 @@ describe("detectBoardAnomalies", () => {
       previousImpliedProbability: 0.5,
       logitMove: logit(0.91) - logit(0.5),
       tradePrice: 0.95,
-      eventTimestamp: "2026-05-15T20:00:50.000Z",
-      capturedAt: "2026-05-15T20:00:50.000Z",
+      eventTimestamp: "2026-05-15T20:01:10.000Z",
+      capturedAt: "2026-05-15T20:01:10.000Z",
     }));
 
     const alerts = detectBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
       observations: [...gameStateVolatilityFanout(), ...propFanout],
-      now: "2026-05-15T20:01:00.000Z",
+      now: "2026-05-15T20:01:20.000Z",
     });
 
     expect(alerts).toHaveLength(1);
     expect(alerts[0].shockKind).toBe("game-state-volatility");
   });
 
-  it("keeps later player follow-up once it separates from the board tripwire window", () => {
+  it("keeps later player follow-up once the board tripwire ages out", () => {
     const propFanout = attributionFanout().map((observation, index) => ({
       ...observation,
       observationId: `separated-prop-${index}`,
@@ -674,28 +763,30 @@ describe("detectBoardAnomalies", () => {
       previousImpliedProbability: 0.5,
       logitMove: logit(0.91) - logit(0.5),
       tradePrice: 0.95,
-      eventTimestamp: "2026-05-15T20:01:20.000Z",
-      capturedAt: "2026-05-15T20:01:20.000Z",
+      eventTimestamp: "2026-05-15T20:02:20.000Z",
+      capturedAt: "2026-05-15T20:02:20.000Z",
     }));
 
     const alerts = detectBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
       observations: [
-        ...trustedLiveContextRows("2026-05-15T20:01:05.000Z"),
+        ...trustedLiveContextRows("2026-05-15T20:02:05.000Z"),
         ...gameStateVolatilityFanout(),
         ...propFanout,
       ],
-      now: "2026-05-15T20:02:00.000Z",
+      now: "2026-05-15T20:03:00.000Z",
     });
 
-    expect(alerts[0].shockKind).toBe("game-state-volatility");
     expect(
       alerts.some((alert) => alert.shockKind === "attribution-shaped")
     ).toBe(true);
+    expect(
+      alerts.some((alert) => alert.shockKind === "game-state-volatility")
+    ).toBe(false);
   });
 
-  it("keeps measuring whole-game volatility after the initial shock window", () => {
+  it("drops the board tripwire once the fired bucket ages beyond the shock window", () => {
     const alerts = detectBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
@@ -703,21 +794,39 @@ describe("detectBoardAnomalies", () => {
       now: "2026-05-15T20:03:00.000Z",
     });
 
-    expect(alerts[0].shockKind).toBe("game-state-volatility");
-    expect(alerts[0].reason).toContain("board stress across");
+    expect(
+      alerts.some((alert) => alert.shockKind === "game-state-volatility")
+    ).toBe(false);
   });
 
-  it("does not promote an isolated prop bucket to game-state volatility", () => {
-    const observations = gameStateVolatilityFanout().map((observation) => ({
-      ...observation,
-      family: "player-prop" as const,
-      participantKey: observation.participantKey ?? "shared-player",
-      labels: {
-        ...observation.labels,
-        rawFamily: "player-prop",
-        participantHints: [observation.participantKey ?? "shared-player"],
-      },
-    }));
+  it("ignores large final jumps when the previous quote is older than the fresh-cap", () => {
+    const observations = gameStateVolatilityFanout({
+      finalJump: 0.002,
+      finalVolume: 4,
+      quietJump: 0.004,
+      quietVolume: 8,
+    })
+      .filter(
+        (observation) =>
+          ![
+            "game-vol-kalshi-moneyline-4",
+            "game-vol-kalshi-moneyline-5",
+            "game-vol-kalshi-moneyline-6",
+            "game-vol-kalshi-moneyline-7",
+            "game-vol-kalshi-moneyline-8",
+          ].includes(observation.observationId)
+      )
+      .map((observation) =>
+        observation.observationId === "game-vol-kalshi-moneyline-9"
+          ? {
+              ...observation,
+              impliedProbability: 0.9,
+              previousImpliedProbability: 0.55,
+              logitMove: logit(0.9) - logit(0.55),
+              volume: 10_000,
+            }
+          : observation
+      );
 
     const alerts = detectBoardAnomalies({
       gameId: "game-1",
@@ -1220,16 +1329,13 @@ describe("coverage is a confidence penalty, not a positive score boost", () => {
 
 describe("replayBoardAnomalies", () => {
   it("returns timestamp-ordered alerts with no future leakage", () => {
-    const observations = [
-      ...trustedLiveContextRows("2026-05-15T19:59:15.000Z"),
-      ...attributionFanout(),
-    ];
+    const observations = gameStateVolatilityFanout();
     const replay = replayBoardAnomalies({
       gameId: "game-1",
       gameLabel: "Cavaliers @ Pistons",
       observations,
-      windowStart: "2026-05-15T19:55:00.000Z",
-      windowEnd: "2026-05-15T20:10:00.000Z",
+      windowStart: "2026-05-15T19:51:00.000Z",
+      windowEnd: "2026-05-15T20:02:00.000Z",
       stepSeconds: 15,
     });
 

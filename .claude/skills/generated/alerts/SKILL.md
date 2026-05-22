@@ -72,7 +72,6 @@ Start here when exploring this area:
 | `TraderReadSection → AsIncidentPlayByPlayContext` | cross_community | 4 |
 | `App → IsDateInputValue` | cross_community | 3 |
 | `App → UtcIsoDate` | cross_community | 3 |
-| `BoardAlertsReplayPage → Cx` | cross_community | 3 |
 
 ## Connected Areas
 
@@ -80,7 +79,7 @@ Start here when exploring this area:
 |------|-------------|
 | Components | 6 calls |
 | Event | 2 calls |
-| Format | 1 calls |
+| Games | 1 calls |
 
 ## How to Explore
 

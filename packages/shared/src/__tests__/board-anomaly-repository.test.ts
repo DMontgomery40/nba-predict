@@ -24,6 +24,100 @@ import {
 
 let tempDir = "";
 
+function clampProbability(probability: number) {
+  return Math.min(0.95, Math.max(0.05, probability));
+}
+
+function recordBoardVwQuoteHistory(input: {
+  direction: 1 | -1;
+  finalJump?: number;
+  finalVolume?: number;
+  lineRaw: number | null;
+  sourceMarketId: string;
+  startProbability: number;
+}) {
+  const baseMs = Date.parse("2026-05-20T01:25:05.000Z");
+  let probability = input.startProbability;
+  const quietJump = 0.004;
+  const finalJump = input.finalJump ?? 0.12;
+  const finalVolume = input.finalVolume ?? 550;
+
+  recordQuoteObservation({
+    bestAsk: probability + 0.01,
+    bestBid: probability - 0.01,
+    capturedAt: new Date(baseMs).toISOString(),
+    depthScore: 80,
+    heartbeatAfterMs: 60_000,
+    impliedProbability: probability,
+    lineRaw: input.lineRaw,
+    oddsRaw: null,
+    priceRaw: probability,
+    sourceMarketId: input.sourceMarketId,
+    volume: 8,
+  });
+
+  for (let minuteIndex = 1; minuteIndex <= 9; minuteIndex += 1) {
+    const jump = minuteIndex === 9 ? finalJump : quietJump;
+    probability = clampProbability(probability + jump * input.direction);
+    recordQuoteObservation({
+      bestAsk: Math.min(0.99, probability + 0.01),
+      bestBid: Math.max(0.01, probability - 0.01),
+      capturedAt: new Date(baseMs + minuteIndex * 60_000).toISOString(),
+      depthScore: 80,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: probability,
+      lineRaw: input.lineRaw,
+      oddsRaw: null,
+      priceRaw: probability,
+      sourceMarketId: input.sourceMarketId,
+      volume: minuteIndex === 9 ? finalVolume : 8 + (minuteIndex % 3),
+    });
+  }
+}
+
+function recordBoardVwQuoteHistoryWithoutVolume(input: {
+  direction: 1 | -1;
+  lineRaw: number | null;
+  sourceMarketId: string;
+  startProbability: number;
+}) {
+  const baseMs = Date.parse("2026-05-20T01:25:05.000Z");
+  let probability = input.startProbability;
+  const quietJump = 0.004;
+
+  recordQuoteObservation({
+    bestAsk: probability + 0.01,
+    bestBid: probability - 0.01,
+    capturedAt: new Date(baseMs).toISOString(),
+    depthScore: 80,
+    heartbeatAfterMs: 60_000,
+    impliedProbability: probability,
+    lineRaw: input.lineRaw,
+    oddsRaw: null,
+    priceRaw: probability,
+    sourceMarketId: input.sourceMarketId,
+    volume: null,
+  });
+
+  for (let minuteIndex = 1; minuteIndex <= 9; minuteIndex += 1) {
+    const jump = minuteIndex === 9 ? 0.12 : quietJump;
+    probability = clampProbability(probability + jump * input.direction);
+    recordQuoteObservation({
+      bestAsk: Math.min(0.99, probability + 0.01),
+      bestBid: Math.max(0.01, probability - 0.01),
+      capturedAt: new Date(baseMs + minuteIndex * 60_000).toISOString(),
+      depthScore: 80,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: probability,
+      lineRaw: input.lineRaw,
+      oddsRaw: null,
+      priceRaw: probability,
+      sourceMarketId: input.sourceMarketId,
+      volume: null,
+    });
+  }
+}
+
 function seedBoardReplayGame() {
   upsertGame({
     awayParticipant: {
@@ -195,7 +289,7 @@ describe("board anomaly repository", () => {
 
     recordGameStateObservation({
       awayScore: 50,
-      capturedAt: "2026-05-20T01:35:00.000Z",
+      capturedAt: "2026-05-20T01:25:00.000Z",
       clock: "PT10M27.00S",
       finalAt: null,
       gameId: "nba-board-live-sample-test",
@@ -253,18 +347,18 @@ describe("board anomaly repository", () => {
         sourceMarketKey: `kalshi-${instrument.id}`,
         sourceSelectionKey: instrument.selection,
       });
-      recordQuoteObservation({
-        bestAsk: 0.56,
-        bestBid: 0.54,
-        capturedAt: "2026-05-20T01:34:00.000Z",
-        depthScore: 80,
-        heartbeatAfterMs: 60_000,
-        impliedProbability: 0.55,
+      recordBoardVwQuoteHistory({
+        direction: instrument.family === "spread" ? -1 : 1,
+        finalJump: 0.002,
+        finalVolume: 4,
         lineRaw: instrument.line,
-        oddsRaw: null,
-        priceRaw: 0.55,
         sourceMarketId: `sm-${instrument.id}`,
-        volume: 10,
+        startProbability:
+          instrument.family === "moneyline"
+            ? 0.58
+            : instrument.family === "spread"
+              ? 0.46
+              : 0.55,
       });
     }
 
@@ -274,7 +368,7 @@ describe("board anomaly repository", () => {
       windowEnd: "2026-05-20T01:35:38.000Z",
     });
 
-    expect(materialized?.observations).toHaveLength(3);
+    expect(materialized?.observations).toHaveLength(30);
     expect(
       materialized?.observations.every(
         (row) => row.sourceKind === "prediction-market"
@@ -296,6 +390,128 @@ describe("board anomaly repository", () => {
           predictionMarketRows: 3,
           ready: true,
         }),
+      }),
+    ]);
+  });
+
+  it("uses stored Kalshi volume metadata when the quote tick volume is missing", () => {
+    upsertGame({
+      awayParticipant: {
+        abbreviation: "CLE",
+        key: "cle",
+        name: "Cleveland Cavaliers",
+        shortName: "Cavaliers",
+        side: "away",
+      },
+      homeParticipant: {
+        abbreviation: "NYK",
+        key: "nyk",
+        name: "New York Knicks",
+        shortName: "Knicks",
+        side: "home",
+      },
+      id: "nba-board-stored-volume-test",
+      league: "NBA",
+      scheduledStart: "2026-05-20T00:00:00.000Z",
+      sourceGameKeyNba: "0042500301",
+      sport: "basketball",
+    });
+
+    recordGameStateObservation({
+      awayScore: 50,
+      capturedAt: "2026-05-20T01:25:00.000Z",
+      clock: "PT10M27.00S",
+      finalAt: null,
+      gameId: "nba-board-stored-volume-test",
+      homeScore: 49,
+      isFinal: false,
+      period: 3,
+      startedAt: "2026-05-20T00:00:00.000Z",
+      status: "in-play",
+    });
+
+    for (const instrument of [
+      {
+        displayLabel: "Cleveland moneyline",
+        family: "moneyline" as const,
+        id: "stored-vol-moneyline",
+        line: null,
+        selection: "cle",
+      },
+      {
+        displayLabel: "Cleveland -2.5",
+        family: "spread" as const,
+        id: "stored-vol-spread",
+        line: -2.5,
+        selection: "cle",
+      },
+      {
+        displayLabel: "Over 218.5",
+        family: "total" as const,
+        id: "stored-vol-total",
+        line: 218.5,
+        selection: "over",
+      },
+    ]) {
+      upsertMarketInstrument({
+        displayLabel: instrument.displayLabel,
+        family: instrument.family,
+        gameId: "nba-board-stored-volume-test",
+        id: instrument.id,
+        inPlay: true,
+        line: instrument.line,
+        participantKey: null,
+        selection: instrument.selection,
+      });
+      upsertSourceMarket({
+        gameId: "nba-board-stored-volume-test",
+        id: `sm-${instrument.id}`,
+        instrumentId: instrument.id,
+        mappingStatus: "auto",
+        rawFamily: instrument.family,
+        rawLabel: instrument.displayLabel,
+        rawMetadata: {
+          quoteVolumeSource: "volume_fp",
+          volumeFp: "2400.00",
+          source: "kalshi",
+        },
+        source: "kalshi",
+        sourceMarketKey: `kalshi-${instrument.id}`,
+        sourceSelectionKey: instrument.selection,
+      });
+      recordBoardVwQuoteHistoryWithoutVolume({
+        direction: instrument.family === "spread" ? -1 : 1,
+        lineRaw: instrument.line,
+        sourceMarketId: `sm-${instrument.id}`,
+        startProbability:
+          instrument.family === "moneyline"
+            ? 0.58
+            : instrument.family === "spread"
+              ? 0.46
+              : 0.55,
+      });
+    }
+
+    const measurements = listGameStateVolatilityAcrossGames({
+      contextWindowMinutes: 60,
+      gameIds: ["nba-board-stored-volume-test"],
+      limit: 5,
+      now: "2026-05-20T01:35:38.000Z",
+    });
+
+    expect(measurements).toEqual([
+      expect.objectContaining({
+        band: "alert",
+        gameId: "nba-board-stored-volume-test",
+        sample: expect.objectContaining({
+          predictionMarketRows: 3,
+          ready: true,
+        }),
+        evidence: expect.arrayContaining([
+          expect.objectContaining({
+            reason: expect.stringContaining("log1p(stored vol 2400)"),
+          }),
+        ]),
       }),
     ]);
   });
@@ -325,7 +541,7 @@ describe("board anomaly repository", () => {
 
     recordGameStateObservation({
       awayScore: 50,
-      capturedAt: "2026-05-20T01:35:00.000Z",
+      capturedAt: "2026-05-20T01:25:00.000Z",
       clock: "PT10M27.00S",
       finalAt: null,
       gameId: "nba-board-live-priority-test",
@@ -381,18 +597,18 @@ describe("board anomaly repository", () => {
         sourceMarketKey: `kalshi-${instrument.id}`,
         sourceSelectionKey: instrument.selection,
       });
-      recordQuoteObservation({
-        bestAsk: 0.56,
-        bestBid: 0.54,
-        capturedAt: "2026-05-20T01:34:00.000Z",
-        depthScore: 80,
-        heartbeatAfterMs: 60_000,
-        impliedProbability: 0.55,
+      recordBoardVwQuoteHistory({
+        direction: instrument.family === "spread" ? -1 : 1,
+        finalJump: 0.002,
+        finalVolume: 4,
         lineRaw: instrument.line,
-        oddsRaw: null,
-        priceRaw: 0.55,
         sourceMarketId: `sm-${instrument.id}`,
-        volume: 10,
+        startProbability:
+          instrument.family === "moneyline"
+            ? 0.58
+            : instrument.family === "spread"
+              ? 0.46
+              : 0.55,
       });
     }
 

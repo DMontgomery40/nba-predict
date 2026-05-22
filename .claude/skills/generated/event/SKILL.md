@@ -1,11 +1,11 @@
 ---
 name: event
-description: "Skill for the Event area of nba-predict. 34 symbols across 12 files."
+description: "Skill for the Event area of nba-predict. 33 symbols across 11 files."
 ---
 
 # Event
 
-34 symbols | 12 files | Cohesion: 67%
+33 symbols | 11 files | Cohesion: 66%
 
 ## When to Use
 
@@ -32,7 +32,7 @@ description: "Skill for the Event area of nba-predict. 34 symbols across 12 file
 
 Start here when exploring this area:
 
-- **`getInstrumentTimelineExportUrl`** (Function) — `apps/web/src/data/api.ts:1793`
+- **`getInstrumentTimelineExportUrl`** (Function) — `apps/web/src/data/api.ts:1869`
 - **`setSourceValue`** (Function) — `apps/web/src/features/event/timeline-chart.ts:19`
 - **`formatTimelineChartData`** (Function) — `apps/web/src/features/event/timeline-chart.ts:30`
 - **`formatDivergenceChartData`** (Function) — `apps/web/src/features/event/timeline-chart.ts:81`
@@ -42,7 +42,7 @@ Start here when exploring this area:
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
-| `getInstrumentTimelineExportUrl` | Function | `apps/web/src/data/api.ts` | 1793 |
+| `getInstrumentTimelineExportUrl` | Function | `apps/web/src/data/api.ts` | 1869 |
 | `setSourceValue` | Function | `apps/web/src/features/event/timeline-chart.ts` | 19 |
 | `formatTimelineChartData` | Function | `apps/web/src/features/event/timeline-chart.ts` | 30 |
 | `formatDivergenceChartData` | Function | `apps/web/src/features/event/timeline-chart.ts` | 81 |
@@ -59,8 +59,8 @@ Start here when exploring this area:
 | `keys` | Function | `apps/web/src/features/event/SignalQualityStrip.tsx` | 62 |
 | `formatDuration` | Function | `apps/web/src/components/DivergenceMiniChart.tsx` | 8 |
 | `pathForValues` | Function | `apps/web/src/components/DivergenceMiniChart.tsx` | 18 |
-| `formatDuration` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 122 |
-| `InstrumentTrace` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 348 |
+| `formatDuration` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 146 |
+| `InstrumentTrace` | Function | `apps/web/src/features/desk/TraderDeskPage.tsx` | 428 |
 | `toneForMappingStatus` | Function | `apps/web/src/features/event/EventWorkspacePage.tsx` | 50 |
 
 ## Execution Flows
@@ -78,8 +78,8 @@ Start here when exploring this area:
 |------|-------------|
 | Components | 6 calls |
 | Settings | 1 calls |
-| Games | 1 calls |
-| Cluster_76 | 1 calls |
+| Cluster_40 | 1 calls |
+| Cluster_83 | 1 calls |
 | Alerts | 1 calls |
 
 ## How to Explore

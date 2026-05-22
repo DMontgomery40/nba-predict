@@ -1202,6 +1202,61 @@ describe("App routes", () => {
     ).toBeNull();
   });
 
+  it("stages low-priority desk support feeds after the ranked queue is live", async () => {
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      if (
+        url.startsWith("/api/v1/research/signal-quality") ||
+        url.startsWith("/api/v1/research/closed-games") ||
+        url === "/api/v1/admin/sources" ||
+        url === "/api/v1/admin/capture/runs" ||
+        url === "/api/v1/admin/storage/coverage" ||
+        url === "/health/ready"
+      ) {
+        return new Promise<Response>(() => {});
+      }
+
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Volatility now",
+      })
+    ).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByText(/supporting desk feed/i)).not.toBeInTheDocument();
+    expect(
+      requestedUrls.some((url) =>
+        url.startsWith("/api/v1/research/signal-quality")
+      )
+    ).toBe(false);
+    expect(requestedUrls).not.toContain("/api/v1/admin/capture/runs");
+    expect(
+      requestedUrls.some((url) =>
+        url.startsWith("/api/v1/research/signal-mismatches")
+      )
+    ).toBe(false);
+
+    await new Promise((resolve) => setTimeout(resolve, 2300));
+
+    await waitFor(() => {
+      expect(
+        requestedUrls.some((url) =>
+          url.startsWith("/api/v1/research/signal-quality")
+        )
+      ).toBe(true);
+      expect(requestedUrls).toContain("/api/v1/admin/capture/runs");
+    });
+    expect(screen.queryByText(/supporting desk feed/i)).not.toBeInTheDocument();
+  }, 9000);
+
   it("prefers a ready final/live board-volatility row over a higher-scored insufficient-data row", async () => {
     fetchMock.mockImplementation(
       createSettingsFetchImplementation({
@@ -3418,6 +3473,81 @@ describe("App routes", () => {
     expect(screen.getByLabelText("slate date")).toHaveValue("2026-04-21");
     expect(screen.getByLabelText("market match")).toHaveValue("");
     expect(screen.getByLabelText("severity")).toHaveValue("");
+  });
+
+  it("warns when a divergence slate has no comparisons updated in the last hour", async () => {
+    window.history.replaceState({}, "", "/divergence?date=2026-05-21");
+    const requestedUrls: string[] = [];
+    const baseFetch = createSettingsFetchImplementation({
+      divergenceRows: [
+        {
+          captureRecencyMs: 76_000_000,
+          comparableState: "comparable",
+          comparisonSummary: {
+            aboveThresholdDurationMs: 3_712_000,
+            comparisonCount: 60,
+            firstAboveThresholdAt: "2026-05-20T16:03:49.000Z",
+            firstComparisonAt: "2026-05-20T16:03:49.000Z",
+            latestComparisonAt: "2026-05-21T00:14:43.000Z",
+            latestGap: 0.06488372093023259,
+            latestSignedGap: 0.06488372093023259,
+            latestSourceProbabilities: {
+              bet365: 0.46511627906976744,
+              polymarket: 0.53,
+            },
+            maxGap: 0.22988372093023252,
+            maxGapAt: "2026-05-20T17:01:39.000Z",
+            maxGapSourceProbabilities: {
+              bet365: 0.46511627906976744,
+              polymarket: 0.695,
+            },
+            minGap: 0.03511627906976744,
+            threshold: 0.15,
+          },
+          displayLabel: "Luguentz Dort assists under 0.5",
+          family: "player-prop",
+          gameId: "nba-0042500312",
+          gameStatus: "final",
+          impliedProbabilityGap: 0.22988372093023252,
+          inPlay: false,
+          instrumentId:
+            "nba-0042500312-player-prop-assists-luguentz-dort-under-0-5",
+          lineMismatch: false,
+          mappingStatus: "auto",
+          scheduledStart: "2026-05-21T00:30:00Z",
+          severity: "critical",
+          signalPriority: 240,
+          sources: ["bet365", "polymarket"],
+        },
+      ],
+    });
+    fetchMock.mockImplementation(async (input) => {
+      requestedUrls.push(String(input));
+      return baseFetch(input);
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByText("0 updated in last hour")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/No persisted comparisons updated in the last hour/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Showing older persisted comparisons from the 2026-05-21 UTC slate below/i
+      )
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show live comparisons" })
+    );
+
+    await waitFor(() => {
+      expect(requestedUrls).toContain("/api/v1/divergence?sort=divergence");
+    });
+    expect(screen.getByLabelText("slate date")).toHaveValue("");
   });
 
   it("renders the player prop alert monitor and saved checks", async () => {

@@ -155,6 +155,7 @@ function rowLatestGap(row: DivergencePayload["data"][number]) {
 
 export function DivergenceExplorerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const recentWindowMs = 60 * 60_000;
 
   const filters: DivergenceQuery = {
     date: searchParams.get("date") ?? undefined,
@@ -204,12 +205,31 @@ export function DivergenceExplorerPage() {
     );
   }
 
+  function showLiveComparisons() {
+    setSearchParams(
+      buildSearchParams({
+        family: filters.family ?? "",
+        freshness: filters.freshness ?? "",
+        mappedState: filters.mappedState ?? "",
+        severity: filters.severity ?? "",
+        sort: filters.sort ?? "divergence",
+      })
+    );
+  }
+
   const rows = divergence.data?.data ?? [];
+  const recentRows = rows.filter(
+    (row) =>
+      (row.captureRecencyMs ?? Number.POSITIVE_INFINITY) <= recentWindowMs
+  );
   const rowSummary = !divergence.data
     ? divergence.isError
       ? "Comparisons unavailable"
       : "Loading comparisons"
     : `${rows.length} comparison${rows.length === 1 ? "" : "s"}`;
+  const recentSummary = !divergence.data
+    ? null
+    : `${recentRows.length} updated in last hour`;
   const activeFilters = [
     filters.family,
     filters.severity,
@@ -217,6 +237,8 @@ export function DivergenceExplorerPage() {
     filters.mappedState,
   ].filter(Boolean).length;
   const canResetFilters = activeFilters > 0 || filters.sort !== "divergence";
+  const showStaleWindowWarning =
+    divergence.data != null && rows.length > 0 && recentRows.length === 0;
 
   return (
     <div className="divergence-surface">
@@ -229,6 +251,7 @@ export function DivergenceExplorerPage() {
             <span>
               {activeFilters} active filter{activeFilters === 1 ? "" : "s"}
             </span>
+            {recentSummary ? <span>{recentSummary}</span> : null}
             {divergence.data?.meta.generatedAt ? (
               <span className="mono">
                 loaded{" "}
@@ -343,6 +366,28 @@ export function DivergenceExplorerPage() {
           </select>
         </label>
       </div>
+
+      {showStaleWindowWarning ? (
+        <div className="divergence-banner" role="status">
+          <div>
+            <strong>No persisted comparisons updated in the last hour.</strong>
+            <span>
+              {filters.date
+                ? `Showing older persisted comparisons from the ${filters.date} UTC slate below.`
+                : "Showing older persisted comparisons below."}
+            </span>
+          </div>
+          {filters.date ? (
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={showLiveComparisons}
+            >
+              Show live comparisons
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {divergence.isLoading ? (
         <div className="loading-panel">Loading persisted comparisons…</div>

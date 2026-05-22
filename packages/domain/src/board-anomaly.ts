@@ -87,6 +87,7 @@ export type BoardObservation = {
   spread?: number | null;
   depthScore?: number | null;
   volume?: number | null;
+  volumeSource?: "quote-tick" | "source-market-metadata" | null;
   tradePrice?: number | null;
   tradeSize?: number | null;
   notional?: number | null;
@@ -349,7 +350,7 @@ export type BoardAnomalyDetectorConfig = {
 
 export const defaultBoardAnomalyDetectorConfig: BoardAnomalyDetectorConfig = {
   shockWindowSeconds: 60,
-  contextWindowMinutes: 5,
+  contextWindowMinutes: 30,
   minScore: 55,
   minConfidence: 0.55,
   thresholds: {

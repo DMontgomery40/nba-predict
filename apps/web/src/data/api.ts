@@ -1422,11 +1422,19 @@ export function getDivergence(filters: DivergenceQuery = {}) {
 }
 
 export function getAdminSources() {
-  return request<AdminSourcesPayload>("/api/v1/admin/sources");
+  return request<AdminSourcesPayload>("/api/v1/admin/sources", undefined, {
+    timeoutMs: 15_000,
+  });
 }
 
 export function getAdminCaptureRuns() {
-  return request<AdminCaptureRunsPayload>("/api/v1/admin/capture/runs");
+  return request<AdminCaptureRunsPayload>(
+    "/api/v1/admin/capture/runs",
+    undefined,
+    {
+      timeoutMs: 20_000,
+    }
+  );
 }
 
 export function getAdminRuntimeConfig() {
@@ -1434,7 +1442,13 @@ export function getAdminRuntimeConfig() {
 }
 
 export function getAdminStorageCoverage() {
-  return request<AdminStorageCoveragePayload>("/api/v1/admin/storage/coverage");
+  return request<AdminStorageCoveragePayload>(
+    "/api/v1/admin/storage/coverage",
+    undefined,
+    {
+      timeoutMs: 20_000,
+    }
+  );
 }
 
 export function getAdminUnmappedMarkets() {
@@ -1783,7 +1797,11 @@ export function getSignalQualityReport(options?: {
   if (options?.until) params.set("until", options.until);
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
   return request<SignalQualityReportPayload>(
-    `/api/v1/research/signal-quality${suffix}`
+    `/api/v1/research/signal-quality${suffix}`,
+    undefined,
+    {
+      timeoutMs: 20_000,
+    }
   );
 }
 
@@ -1802,7 +1820,13 @@ export function getClosedGames(options?: {
   if (options?.since) params.set("since", options.since);
   if (options?.until) params.set("until", options.until);
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
-  return request<ClosedGamesPayload>(`/api/v1/research/closed-games${suffix}`);
+  return request<ClosedGamesPayload>(
+    `/api/v1/research/closed-games${suffix}`,
+    undefined,
+    {
+      timeoutMs: 20_000,
+    }
+  );
 }
 
 export function getInstrumentDeltaSeries(
@@ -1864,6 +1888,7 @@ export function getLiveHealth() {
 export function getReadyHealth() {
   return request<ReadinessPayload>("/health/ready", undefined, {
     allowStatuses: [503],
+    timeoutMs: 20_000,
   });
 }
 

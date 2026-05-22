@@ -57,8 +57,13 @@ const eventPayloads: Record<string, unknown> = {
           last_price_dollars: "0.1300",
           yes_bid_dollars: "0.1200",
           yes_ask_dollars: "0.1600",
+          yes_bid_size_fp: "8.25",
+          yes_ask_size_fp: "7.75",
           floor_strike: 20,
+          liquidity_dollars: "123.45",
+          open_interest_fp: "31.00",
           volume_24h: "14",
+          volume_fp: "18.00",
           primary_participant_key: "basketball_player",
         },
       ],
@@ -82,7 +87,32 @@ const eventPayloads: Record<string, unknown> = {
           yes_bid_dollars: "0.5200",
           yes_ask_dollars: "0.5600",
           floor_strike: 200.5,
-          volume_24h: "22",
+          open_interest_fp: "44.00",
+          volume_24h_fp: "22.00",
+        },
+      ],
+    },
+  },
+  "KXNBAREB-26MAY03ORLDET": {
+    event: {
+      category: "Sports",
+      event_ticker: "KXNBAREB-26MAY03ORLDET",
+      series_ticker: "KXNBAREB",
+      title: "Orlando at Detroit: Rebounds",
+      sub_title: "ORL vs DET (May 3)",
+      markets: [
+        {
+          ticker: "KXNBAREB-26MAY03ORLDET-DETJDUREN0-12",
+          title: "Jalen Duren: 12+ rebounds",
+          yes_sub_title: "Jalen Duren: 12+",
+          no_sub_title: "Jalen Duren: 12+",
+          status: "active",
+          last_price_dollars: "0.4100",
+          yes_bid_dollars: "0.3900",
+          yes_ask_dollars: "0.4300",
+          floor_strike: 12,
+          open_interest: "27",
+          volume_24h: "9",
         },
       ],
     },
@@ -148,7 +178,9 @@ describe("kalshi direct adapter", () => {
                  mi.selection AS selection,
                  mi.line AS line,
                  sm.raw_family AS rawFamily,
-                 qt.implied_probability AS impliedProbability
+                 qt.implied_probability AS impliedProbability,
+                 qt.volume AS volume,
+                 json_extract(sm.raw_metadata_json, '$.quoteVolumeSource') AS quoteVolumeSource
           FROM market_instruments mi
           JOIN source_markets sm ON sm.instrument_id = mi.id
           JOIN quote_ticks qt ON qt.source_market_id = sm.id
@@ -161,8 +193,10 @@ describe("kalshi direct adapter", () => {
       impliedProbability: number;
       line: number | null;
       participantKey: string | null;
+      quoteVolumeSource: string | null;
       rawFamily: string;
       selection: string;
+      volume: number | null;
     }>;
 
     expect(rows).toEqual(
@@ -171,14 +205,18 @@ describe("kalshi direct adapter", () => {
           family: "player-prop",
           line: 20,
           participantKey: "jalen-duren",
+          quoteVolumeSource: "volume_fp",
           rawFamily: "points",
           selection: "over",
+          volume: 18,
         }),
         expect.objectContaining({
           family: "total",
           line: 200.5,
+          quoteVolumeSource: "volume_24h_fp",
           rawFamily: "total",
           selection: "over",
+          volume: 22,
         }),
       ])
     );
@@ -225,5 +263,39 @@ describe("kalshi direct adapter", () => {
         }),
       ])
     );
+  });
+
+  it("falls back to legacy Kalshi volume fields when fixed-point fields are absent", async () => {
+    seedGame();
+
+    const result = await syncKalshiNbaDirect({
+      eventTickers: ["KXNBAREB-26MAY03ORLDET"],
+      fetchImpl: buildFetchImpl(),
+      now: () => new Date("2026-05-02T20:00:00.000Z"),
+    });
+
+    expect(result.ok).toBe(true);
+    const row = getDatabase()
+      .prepare(
+        `
+          SELECT
+            qt.volume AS volume,
+            json_extract(sm.raw_metadata_json, '$.quoteVolumeSource') AS quoteVolumeSource
+          FROM source_markets sm
+          JOIN quote_ticks qt ON qt.source_market_id = sm.id
+          WHERE sm.source_market_key = 'KXNBAREB-26MAY03ORLDET-DETJDUREN0-12'
+        `
+      )
+      .get() as
+      | {
+          quoteVolumeSource: string | null;
+          volume: number | null;
+        }
+      | undefined;
+
+    expect(row).toMatchObject({
+      quoteVolumeSource: "volume_24h",
+      volume: 9,
+    });
   });
 });

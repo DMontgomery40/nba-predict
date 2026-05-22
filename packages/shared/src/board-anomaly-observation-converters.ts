@@ -33,6 +33,7 @@ export type QuoteRow = {
   bestBid: number | null;
   bestAsk: number | null;
   volume: number | null;
+  volumeSource: "quote-tick" | "source-market-metadata" | null;
   depthScore: number | null;
   isHeartbeat: number;
 };
@@ -146,6 +147,7 @@ export function quoteRowToObservation(
         : null,
     depthScore: row.depthScore,
     volume: row.volume,
+    volumeSource: row.volumeSource,
     tradePrice: null,
     tradeSize: null,
     notional: null,

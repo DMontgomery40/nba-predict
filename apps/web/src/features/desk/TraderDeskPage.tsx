@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { BoardAlertsBanner } from "./BoardAlertsBanner";
@@ -21,7 +21,6 @@ import {
   getMarketAnomalies,
   getReadyHealth,
   getSignalQualityReport,
-  getSignalMismatches,
   isApiRequestError,
   type AdminCaptureRunsPayload,
   type AdminSourcesPayload,
@@ -470,6 +469,7 @@ export function TraderDeskPage() {
   const [dismissedAnomalyAlertId, setDismissedAnomalyAlertId] = useState<
     string | null
   >(null);
+  const [deskSupportPhase, setDeskSupportPhase] = useState<0 | 1 | 2>(0);
   const games = useQuery({
     queryKey: ["games", { limit: 25 }],
     queryFn: () => getGames({ limit: 25 }),
@@ -489,6 +489,32 @@ export function TraderDeskPage() {
     staleTime: 5_000,
   });
   const primarySurfacesReady = Boolean(games.data && divergence.data);
+  const supportingQueriesEnabled = primarySurfacesReady;
+  const analyticsQueriesEnabled =
+    supportingQueriesEnabled && deskSupportPhase >= 1;
+  const diagnosticsQueriesEnabled =
+    supportingQueriesEnabled && deskSupportPhase >= 2;
+
+  useEffect(() => {
+    if (!supportingQueriesEnabled) {
+      setDeskSupportPhase(0);
+      return;
+    }
+
+    setDeskSupportPhase(0);
+    const analyticsTimer = window.setTimeout(() => {
+      setDeskSupportPhase(1);
+    }, 800);
+    const diagnosticsTimer = window.setTimeout(() => {
+      setDeskSupportPhase(2);
+    }, 2000);
+
+    return () => {
+      window.clearTimeout(analyticsTimer);
+      window.clearTimeout(diagnosticsTimer);
+    };
+  }, [supportingQueriesEnabled]);
+
   const boardVolatility = useQuery({
     queryKey: ["research-board-volatility", "live", 5],
     queryFn: () => getBoardVolatility({ contextWindowMinutes: 30, limit: 5 }),
@@ -517,26 +543,34 @@ export function TraderDeskPage() {
     retryDelay: deskRetryDelay,
     staleTime: 10_000,
   });
-  const supportingQueriesEnabled = primarySurfacesReady;
   const deskReviewAnalyticsEnabled = true;
   const topCandidate = divergence.data?.data[0];
   const pregameSignalQuality = useQuery({
-    enabled: supportingQueriesEnabled && deskReviewAnalyticsEnabled,
+    enabled: analyticsQueriesEnabled && deskReviewAnalyticsEnabled,
     queryKey: ["research", "signal-quality", "pregame"],
     queryFn: () => getSignalQualityReport({ closingCutoff: "pregame" }),
+    retry: (failureCount, error) =>
+      isTransientDeskError(error) && failureCount < 1,
+    retryDelay: deskRetryDelay,
   });
   const liveFinalSignalQuality = useQuery({
-    enabled: supportingQueriesEnabled && deskReviewAnalyticsEnabled,
+    enabled: analyticsQueriesEnabled && deskReviewAnalyticsEnabled,
     queryKey: ["research", "signal-quality", "live-final"],
     queryFn: () => getSignalQualityReport({ closingCutoff: "live-final" }),
+    retry: (failureCount, error) =>
+      isTransientDeskError(error) && failureCount < 1,
+    retryDelay: deskRetryDelay,
   });
   const closedGames = useQuery({
-    enabled: supportingQueriesEnabled && deskReviewAnalyticsEnabled,
+    enabled: analyticsQueriesEnabled && deskReviewAnalyticsEnabled,
     queryKey: ["research", "closed-games", "pregame", 6],
     queryFn: () => getClosedGames({ closingCutoff: "pregame", limit: 6 }),
+    retry: (failureCount, error) =>
+      isTransientDeskError(error) && failureCount < 1,
+    retryDelay: deskRetryDelay,
   });
   const topLeadLag = useQuery({
-    enabled: Boolean(topCandidate),
+    enabled: Boolean(topCandidate) && analyticsQueriesEnabled,
     queryKey: [
       "desk-top-lead-lag",
       topCandidate?.gameId,
@@ -555,31 +589,41 @@ export function TraderDeskPage() {
         }
       );
     },
-  });
-  const signalMismatches = useQuery({
-    enabled: supportingQueriesEnabled,
-    queryKey: ["research-signal-mismatches"],
-    queryFn: () => getSignalMismatches(),
+    retry: (failureCount, error) =>
+      isTransientDeskError(error) && failureCount < 1,
+    retryDelay: deskRetryDelay,
   });
   const sourceHealth = useQuery({
-    enabled: supportingQueriesEnabled,
+    enabled: diagnosticsQueriesEnabled,
     queryKey: ["admin-sources"],
     queryFn: getAdminSources,
+    retry: (failureCount, error) =>
+      isTransientDeskError(error) && failureCount < 1,
+    retryDelay: deskRetryDelay,
   });
   const captureRuns = useQuery({
-    enabled: supportingQueriesEnabled,
+    enabled: diagnosticsQueriesEnabled,
     queryKey: ["admin-capture-runs"],
     queryFn: getAdminCaptureRuns,
+    retry: (failureCount, error) =>
+      isTransientDeskError(error) && failureCount < 1,
+    retryDelay: deskRetryDelay,
   });
   const storageCoverage = useQuery({
-    enabled: supportingQueriesEnabled,
+    enabled: diagnosticsQueriesEnabled,
     queryKey: ["admin-storage-coverage"],
     queryFn: getAdminStorageCoverage,
+    retry: (failureCount, error) =>
+      isTransientDeskError(error) && failureCount < 1,
+    retryDelay: deskRetryDelay,
   });
   const readiness = useQuery({
-    enabled: supportingQueriesEnabled,
+    enabled: diagnosticsQueriesEnabled,
     queryKey: ["health-ready"],
     queryFn: getReadyHealth,
+    retry: (failureCount, error) =>
+      isTransientDeskError(error) && failureCount < 1,
+    retryDelay: deskRetryDelay,
   });
 
   const primaryLoadError =
@@ -747,9 +791,11 @@ export function TraderDeskPage() {
   );
   const readinessLabel = readiness.isLoading
     ? "loading"
-    : readiness.isError
-      ? "error"
-      : (readiness.data?.status ?? "unknown");
+    : readiness.fetchStatus === "idle" && readiness.data == null
+      ? "warming up"
+      : readiness.isError
+        ? "error"
+        : (readiness.data?.status ?? "unknown");
   const primaryRefreshErrors = [
     {
       error: games.error,
@@ -769,7 +815,6 @@ export function TraderDeskPage() {
     liveFinalSignalQuality,
     closedGames,
     topLeadLag,
-    signalMismatches,
     sourceHealth,
     captureRuns,
     storageCoverage,
@@ -1393,6 +1438,13 @@ export function TraderDeskPage() {
                         Open Research for deeper finished-game grading.
                       </td>
                     </tr>
+                  ) : pregameSignalQuality.fetchStatus === "idle" &&
+                    pregameSignalQuality.data == null ? (
+                    <tr>
+                      <td colSpan={6}>
+                        Finished-game trust check warming up...
+                      </td>
+                    </tr>
                   ) : pregameSignalQuality.isLoading ? (
                     <tr>
                       <td colSpan={6}>Loading finished-game trust check...</td>
@@ -1619,6 +1671,9 @@ export function TraderDeskPage() {
                 <p className="desk-note">
                   Open History for finished-game review.
                 </p>
+              ) : closedGames.fetchStatus === "idle" &&
+                closedGames.data == null ? (
+                <p className="desk-note">Closed-game grading warming up...</p>
               ) : closedGames.isLoading ? (
                 <p className="desk-note">Loading closed-game grading...</p>
               ) : null}

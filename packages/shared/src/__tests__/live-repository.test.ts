@@ -1621,6 +1621,104 @@ describe("live repository", () => {
       ])
     );
     expect(listSignalMismatches({ date: "2026-04-22" })).toEqual([]);
+
+    upsertGame({
+      awayParticipant: {
+        abbreviation: "LAL",
+        key: "lal",
+        name: "Los Angeles Lakers",
+        shortName: "Lakers",
+        side: "away",
+      },
+      homeParticipant: {
+        abbreviation: "DEN",
+        key: "den",
+        name: "Denver Nuggets",
+        shortName: "Nuggets",
+        side: "home",
+      },
+      id: "nba-lal-den-2026-04-21",
+      league: "NBA",
+      scheduledStart: "2026-04-21T21:00:00.000Z",
+      sourceGameKeyNba: "0022600003",
+      sport: "basketball",
+    });
+    upsertMarketInstrument({
+      displayLabel: "Denver moneyline",
+      family: "moneyline",
+      gameId: "nba-lal-den-2026-04-21",
+      id: "den-moneyline",
+      inPlay: true,
+      line: null,
+      participantKey: "den",
+      selection: "den",
+    });
+    upsertSourceMarket({
+      gameId: "nba-lal-den-2026-04-21",
+      id: "sm-bet365-den-moneyline",
+      instrumentId: "den-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "Denver Nuggets",
+      rawMetadata: { source: "bet365" },
+      source: "bet365",
+      sourceMarketKey: "b365-den-ml",
+      sourceSelectionKey: "den",
+    });
+    upsertSourceMarket({
+      gameId: "nba-lal-den-2026-04-21",
+      id: "sm-kalshi-den-moneyline",
+      instrumentId: "den-moneyline",
+      mappingStatus: "auto",
+      rawFamily: "moneyline",
+      rawLabel: "DEN win",
+      rawMetadata: { source: "kalshi" },
+      source: "kalshi",
+      sourceMarketKey: "kal-den-ml",
+      sourceSelectionKey: "den",
+    });
+    recordQuoteObservation({
+      bestAsk: null,
+      bestBid: null,
+      capturedAt: "2026-04-21T21:40:00.000Z",
+      depthScore: 92,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.72,
+      lineRaw: null,
+      oddsRaw: "-257",
+      priceRaw: null,
+      sourceMarketId: "sm-bet365-den-moneyline",
+      volume: 55,
+    });
+    recordQuoteObservation({
+      bestAsk: 0.43,
+      bestBid: 0.42,
+      capturedAt: "2026-04-21T21:40:05.000Z",
+      depthScore: 73,
+      heartbeatAfterMs: 60_000,
+      impliedProbability: 0.42,
+      lineRaw: null,
+      oddsRaw: null,
+      priceRaw: 0.42,
+      sourceMarketId: "sm-kalshi-den-moneyline",
+      volume: 33,
+    });
+
+    const denOnlyRows = listSignalMismatches({
+      date: "2026-04-21",
+      gameId: "nba-lal-den-2026-04-21",
+    });
+    expect(denOnlyRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayLabel: "Denver moneyline",
+          gameId: "nba-lal-den-2026-04-21",
+        }),
+      ])
+    );
+    expect(
+      denOnlyRows.every((row) => row.gameId === "nba-lal-den-2026-04-21")
+    ).toBe(true);
   });
 
   it("applies signal mismatch limits after filtering non-mismatches", () => {

@@ -992,10 +992,29 @@ describe("api routes", () => {
       }),
     });
 
-    const boardIncidentsResponse = await app.inject({
-      method: "GET",
-      url: "/api/v1/research/board-alerts/incidents?date=2026-04-21&limit=3",
+    process.env.NBA_SIDECAR_BASE_URL = "http://127.0.0.1:9393";
+    let releaseBoardIncidentsFetch: ((value: Response) => void) | null = null;
+    const pendingBoardIncidentsFetch = new Promise<Response>((resolve) => {
+      releaseBoardIncidentsFetch = resolve;
     });
+    const boardIncidentsFetch = vi.fn(
+      async () => pendingBoardIncidentsFetch
+    ) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", boardIncidentsFetch);
+
+    const boardIncidentsResponse = await Promise.race([
+      app.inject({
+        method: "GET",
+        url: "/api/v1/research/board-alerts/incidents?date=2026-04-21&gameId=nba-bos-nyk-2026-04-21&limit=3",
+      }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(
+            new Error("board incidents route waited on play-by-play hydration")
+          );
+        }, 200);
+      }),
+    ]);
     expect(boardIncidentsResponse.statusCode).toBe(200);
     expect(boardIncidentsResponse.json()).toMatchObject({
       data: expect.any(Array),
@@ -1010,6 +1029,23 @@ describe("api routes", () => {
     expect(JSON.stringify(boardIncidentsResponse.json().data)).toContain(
       "volume share"
     );
+    expect(boardIncidentsFetch).toHaveBeenCalledTimes(1);
+    releaseBoardIncidentsFetch?.({
+      headers: new Headers(),
+      json: async () => ({
+        data: {
+          actions: [],
+          gameId: "0022600001",
+          generatedAt: "2026-04-21T23:55:45.000Z",
+        },
+      }),
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } satisfies Partial<Response> as Response);
+
+    vi.unstubAllGlobals();
+    delete process.env.NBA_SIDECAR_BASE_URL;
 
     const boardContextResponse = await app.inject({
       method: "GET",

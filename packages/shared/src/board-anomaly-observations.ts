@@ -60,7 +60,21 @@ export function materializeBoardObservations(
              qt.line_raw AS lineRaw,
              qt.best_bid AS bestBid,
              qt.best_ask AS bestAsk,
-             qt.volume AS volume,
+             CAST(
+               COALESCE(
+                 qt.volume,
+                 json_extract(sm.raw_metadata_json, '$.volumeFp'),
+                 json_extract(sm.raw_metadata_json, '$.volume24hFp')
+               ) AS REAL
+             ) AS volume,
+             CASE
+               WHEN qt.volume IS NOT NULL THEN 'quote-tick'
+               WHEN COALESCE(
+                 json_extract(sm.raw_metadata_json, '$.volumeFp'),
+                 json_extract(sm.raw_metadata_json, '$.volume24hFp')
+               ) IS NOT NULL THEN 'source-market-metadata'
+               ELSE NULL
+             END AS volumeSource,
              qt.depth_score AS depthScore,
              qt.is_heartbeat AS isHeartbeat
            FROM quote_ticks qt

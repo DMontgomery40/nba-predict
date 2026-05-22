@@ -60,7 +60,7 @@ Start here when exploring this area:
 | Components | 6 calls |
 | Event | 3 calls |
 | Settings | 2 calls |
-| Cluster_44 | 2 calls |
+| Cluster_47 | 2 calls |
 | Desk | 1 calls |
 
 ## How to Explore

@@ -72,7 +72,6 @@ export function replayBoardAnomalies(
   let nextObservationIndex = 0;
 
   for (let clockMs = startMs; clockMs <= cappedEndMs; clockMs += stepMs) {
-    const startObservationIndex = nextObservationIndex;
     while (
       nextObservationIndex < inOperationalWindow.length &&
       observationTimestampMs(inOperationalWindow[nextObservationIndex]) <=
@@ -80,7 +79,6 @@ export function replayBoardAnomalies(
     ) {
       nextObservationIndex += 1;
     }
-    if (nextObservationIndex === startObservationIndex) continue;
     if (nextObservationIndex < 2) continue;
     while (
       firstObservationIndex < nextObservationIndex &&
