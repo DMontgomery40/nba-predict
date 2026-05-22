@@ -27,6 +27,7 @@ type RequestOptions = {
 type RuntimeImportMetaEnv = {
   DEV?: boolean;
   MODE?: string;
+  SIGNAL_CONSOLE_API_TARGET?: string;
   VITE_API_BASE_URL?: string;
 };
 
@@ -52,16 +53,25 @@ export function resolveApiRequestPath(
     apiBaseUrl?: string;
     isDev?: boolean;
     mode?: string;
+    signalConsoleApiTarget?: string;
   }
 ) {
   const apiBaseUrl =
     options?.apiBaseUrl ?? runtimeImportMetaEnv?.VITE_API_BASE_URL;
   const isDev = options?.isDev ?? runtimeImportMetaEnv?.DEV;
   const mode = options?.mode ?? runtimeImportMetaEnv?.MODE;
+  const signalConsoleApiTarget =
+    options?.signalConsoleApiTarget ??
+    runtimeImportMetaEnv?.SIGNAL_CONSOLE_API_TARGET;
   const normalizedBaseUrl = apiBaseUrl?.trim();
+  const normalizedSignalConsoleApiTarget = signalConsoleApiTarget?.trim();
 
   if (normalizedBaseUrl) {
     return `${normalizedBaseUrl.replace(/\/$/, "")}${path}`;
+  }
+
+  if (normalizedSignalConsoleApiTarget) {
+    return `${normalizedSignalConsoleApiTarget.replace(/\/$/, "")}${path}`;
   }
 
   if (isDev && mode !== "test") {
