@@ -3,6 +3,8 @@ import { Bell, Play, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import { isStrictYmdDate } from "@signal-console/domain";
+
 import { DivergenceMiniChart } from "../../components/DivergenceMiniChart";
 import { PageFrame } from "../../components/PageFrame";
 import { Panel } from "../../components/Primitives";
@@ -28,7 +30,7 @@ function localDateInputValue(date = new Date()) {
 }
 
 function isDateInputValue(value: string | null) {
-  return value != null && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return value != null && isStrictYmdDate(value);
 }
 
 function formatTimestamp(value?: string | null) {

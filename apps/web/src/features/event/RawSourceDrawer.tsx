@@ -7,6 +7,17 @@ import { formatOperatorDateTime } from "../../lib/time-format";
 
 const preferredSourceOrder = ["bet365", "kalshi", "polymarket", "nba"];
 
+function orderSourceIds(sourceIds: string[]) {
+  const uniqueSourceIds = [...new Set(sourceIds.filter(Boolean))];
+  const preferredSourceIds = preferredSourceOrder.filter((sourceId) =>
+    uniqueSourceIds.includes(sourceId)
+  );
+  const remainingSourceIds = uniqueSourceIds.filter(
+    (sourceId) => !preferredSourceOrder.includes(sourceId)
+  );
+  return [...preferredSourceIds, ...remainingSourceIds];
+}
+
 function toneForMapping(status?: string) {
   if (!status) {
     return "neutral" as const;
@@ -47,9 +58,7 @@ export function RawSourceDrawer({
   preferredSourceId?: string | null;
   sourceIds: string[];
 }) {
-  const orderedSourceIds = preferredSourceOrder.filter((sourceId) =>
-    sourceIds.includes(sourceId)
-  );
+  const orderedSourceIds = orderSourceIds(sourceIds);
   const [activeSourceId, setActiveSourceId] = useState(
     orderedSourceIds[0] ?? sourceIds[0] ?? "bet365"
   );

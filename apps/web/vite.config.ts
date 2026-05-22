@@ -2,8 +2,13 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 
+import {
+  defaultApiPort,
+  defaultWebPort,
+} from "../../packages/shared/src/ports";
+
 const apiTarget =
-  process.env.SIGNAL_CONSOLE_API_TARGET ?? "http://127.0.0.1:8787";
+  process.env.SIGNAL_CONSOLE_API_TARGET ?? `http://127.0.0.1:${defaultApiPort}`;
 
 export default defineConfig({
   plugins: [react()],
@@ -19,7 +24,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 4120,
+    port: defaultWebPort,
     proxy: {
       "/api": apiTarget,
       "/health": apiTarget,

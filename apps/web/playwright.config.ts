@@ -1,6 +1,11 @@
 import { defineConfig } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 
+import {
+  defaultE2eApiPort,
+  defaultWebPort,
+} from "../../packages/shared/src/ports";
+
 const appDir = fileURLToPath(new URL("./", import.meta.url));
 const e2eDbPath = fileURLToPath(
   new URL("../../data/signal-console.e2e.sqlite", import.meta.url)
@@ -10,7 +15,7 @@ export default defineConfig({
   testDir: "./tests",
   timeout: 30_000,
   use: {
-    baseURL: "http://127.0.0.1:4120",
+    baseURL: `http://127.0.0.1:${defaultWebPort}`,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",
@@ -22,7 +27,7 @@ export default defineConfig({
       env: {
         ...process.env,
         HOST: "127.0.0.1",
-        PORT: "8787",
+        PORT: String(defaultE2eApiPort),
         SIGNAL_CONSOLE_DB_PATH: e2eDbPath,
       },
       name: "api",
@@ -30,10 +35,10 @@ export default defineConfig({
       stderr: "pipe",
       stdout: "pipe",
       timeout: 120_000,
-      url: "http://127.0.0.1:8787/health/live",
+      url: `http://127.0.0.1:${defaultE2eApiPort}/health/live`,
     },
     {
-      command: "pnpm exec vite --host 127.0.0.1 --port 4120 --strictPort",
+      command: `pnpm exec vite --host 127.0.0.1 --port ${defaultWebPort} --strictPort`,
       cwd: appDir,
       env: {
         ...process.env,
@@ -43,7 +48,7 @@ export default defineConfig({
       stderr: "pipe",
       stdout: "pipe",
       timeout: 120_000,
-      url: "http://127.0.0.1:4120",
+      url: `http://127.0.0.1:${defaultWebPort}`,
     },
   ],
 });

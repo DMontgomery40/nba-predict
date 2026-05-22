@@ -132,6 +132,12 @@ describe("player prop alert playback", () => {
     ).toEqual(["2026-05-11T01:00:10.000Z", "2026-05-11T01:00:20.000Z"]);
   });
 
+  it("rejects impossible playback dates instead of normalizing them", () => {
+    expect(() => resolvePlayerPropAlertPlaybackDate("2026-02-31")).toThrow(
+      "Playback date must use YYYY-MM-DD format."
+    );
+  });
+
   it("treats zero and negative playback limits as empty result limits", () => {
     writePlayerPropAlertPlaybackFrame(
       sampleFrame("2026-05-11T01:00:00.000Z", [sampleAlert("alert-1")])

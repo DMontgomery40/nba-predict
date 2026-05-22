@@ -10,6 +10,8 @@ import type {
 
 export const INCIDENT_BURST_WINDOW_SECONDS = 120;
 
+import { isStrictYmdDate } from "@signal-console/domain";
+
 export type BoardAlertIncidentRow = {
   alert: BoardAnomalyAlertDto;
   pbp: BoardIncidentDto["playByPlay"] | null;
@@ -69,7 +71,7 @@ export function utcIsoDate(): string {
 }
 
 export function isDateInputValue(value: string | null): value is string {
-  return value != null && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return value != null && isStrictYmdDate(value);
 }
 
 export function displayBoardAlertEntity(entityKey: string): string {

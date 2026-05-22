@@ -18,6 +18,7 @@ import {
   sourceMarketSchema,
 } from "./live";
 import { marketAnomalyLabels } from "../live-types";
+import { isStrictIsoTimestamp, isStrictYmdDate } from "../time";
 
 const booleanQueryParamSchema = z.preprocess((value) => {
   if (typeof value === "string") {
@@ -40,6 +41,35 @@ const positiveIntegerQueryParamSchema = z.preprocess((value) => {
 
   return value;
 }, z.number().int().positive());
+
+const nonNegativeIntegerQueryParamSchema = z.preprocess((value) => {
+  if (typeof value === "string" && value.trim() !== "") {
+    return Number(value);
+  }
+
+  return value;
+}, z.number().int().nonnegative());
+
+const nonNegativeNumberQueryParamSchema = z.preprocess((value) => {
+  if (typeof value === "string" && value.trim() !== "") {
+    return Number(value);
+  }
+
+  return value;
+}, z.number().nonnegative());
+
+const isoTimestampQueryParamSchema = z
+  .string()
+  .min(1)
+  .refine((value) => isStrictIsoTimestamp(value), {
+    message: "Expected an ISO-8601 timestamp.",
+  });
+
+const ymdDateQueryParamSchema = z
+  .string()
+  .refine((value) => isStrictYmdDate(value), {
+    message: "Expected a real YYYY-MM-DD date.",
+  });
 
 export const coverageSummarySchema = z.object({
   activeSourceCount: z.number().int().nonnegative(),
@@ -478,7 +508,7 @@ export const instrumentTimelineQuerySchema = z.object({
 export const researchDivergenceQuerySchema = z.object({
   sport: z.string().optional(),
   league: z.string().optional(),
-  date: z.string().optional(),
+  date: ymdDateQueryParamSchema.optional(),
   family: marketFamilySchema.optional(),
   inPlay: booleanQueryParamSchema.optional(),
   sourceSet: z.string().optional(),
@@ -496,6 +526,39 @@ export const researchDivergenceQuerySchema = z.object({
     ])
     .optional(),
 });
+
+export const boardAlertIncidentsQuerySchema = z.object({
+  date: ymdDateQueryParamSchema,
+  gameId: z.string().optional(),
+  minGap: nonNegativeNumberQueryParamSchema.optional(),
+  limit: positiveIntegerQueryParamSchema.optional(),
+});
+
+export const boardAlertEventContextQuerySchema = z.object({
+  alertId: z.string().optional(),
+  at: isoTimestampQueryParamSchema,
+  gameId: z.string().min(1),
+  limit: positiveIntegerQueryParamSchema.optional(),
+  windowSecondsAfter: nonNegativeIntegerQueryParamSchema.optional(),
+  windowSecondsBefore: nonNegativeIntegerQueryParamSchema.optional(),
+});
+
+export const boardAlertReplayQuerySchema = z
+  .object({
+    gameId: z.string().min(1),
+    stepSeconds: positiveIntegerQueryParamSchema.optional(),
+    windowEnd: isoTimestampQueryParamSchema,
+    windowStart: isoTimestampQueryParamSchema,
+  })
+  .superRefine((value, context) => {
+    if (Date.parse(value.windowEnd) <= Date.parse(value.windowStart)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "windowEnd must be after windowStart.",
+        path: ["windowEnd"],
+      });
+    }
+  });
 
 export const mappingResolveBodySchema = z.object({
   sourceMarketId: z.string().min(1),

@@ -23,6 +23,8 @@ type HealthCheck = {
   summary: string;
 };
 
+const defaultReadinessTimeoutMs = 2_500;
+
 function buildBaseHealthMetadata() {
   return {
     generatedAt: new Date().toISOString(),
@@ -269,4 +271,70 @@ export async function buildReadinessPayload(context?: {
   logger.debug({ readiness: payload }, "Computed readiness payload.");
 
   return payload;
+}
+
+function buildTimedOutReadinessPayload(timeoutMs: number) {
+  return {
+    ...buildBaseHealthMetadata(),
+    checks: [
+      {
+        details: {
+          timeoutMs,
+        },
+        name: "readiness-timeout",
+        operatorHint:
+          "Inspect the readiness dependencies and the health timeout guard before trusting operator health.",
+        status: "error" as const,
+        summary: "Readiness checks timed out before they could return.",
+      },
+    ],
+    status: "error" as const,
+    summary: {
+      database: {
+        appStateKeys: [] as string[],
+        countAccuracy: "unknown",
+        counts: {
+          adminActionCount: null,
+          gameCount: null,
+          quoteTickCount: null,
+          rawPayloadCount: null,
+          sourceMarketCount: null,
+          watchlistCount: null,
+        },
+        path: null,
+        schemaVersion: null,
+        status: "error" as const,
+      },
+      ingest: {
+        games: null,
+        quoteTicks: null,
+        sourceMarkets: null,
+      },
+    },
+  };
+}
+
+export async function buildBoundedReadinessPayload(context?: {
+  logger?: HealthLogger;
+  timeoutMs?: number;
+}) {
+  const timeoutMs = context?.timeoutMs ?? defaultReadinessTimeoutMs;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      buildReadinessPayload({ logger: context?.logger }),
+      new Promise<Awaited<ReturnType<typeof buildReadinessPayload>>>(
+        (resolve) => {
+          timeoutId = setTimeout(() => {
+            resolve(buildTimedOutReadinessPayload(timeoutMs));
+          }, timeoutMs);
+        }
+      ),
+    ]);
+  } finally {
+    if (timeoutId != null) {
+      clearTimeout(timeoutId);
+    }
+  }
 }

@@ -5,6 +5,7 @@ import {
   type AdminRuntimeConfigItem,
 } from "@signal-console/domain";
 import {
+  defaultApiPort,
   enqueueCaptureRestart,
   enqueueBoardVolatilityBaselineRebuild,
   enqueueGameBackfill,
@@ -99,7 +100,7 @@ type RuntimeConfigDefinition = Omit<
 const runtimeConfigDefinitions: RuntimeConfigDefinition[] = [
   {
     category: "Runtime",
-    defaultValue: "8787",
+    defaultValue: String(defaultApiPort),
     description: "HTTP port for the Fastify API.",
     inputType: "number",
     key: "PORT",
@@ -532,7 +533,7 @@ const runtimeConfigDefinitions: RuntimeConfigDefinition[] = [
   },
   {
     category: "Temporary hosting",
-    defaultValue: "http://127.0.0.1:8787",
+    defaultValue: `http://127.0.0.1:${defaultApiPort}`,
     description: "API target proxied by the temporary host.",
     inputType: "url",
     key: "TEMP_HOST_API_TARGET",

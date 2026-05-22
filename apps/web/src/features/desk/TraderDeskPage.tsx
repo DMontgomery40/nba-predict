@@ -18,8 +18,8 @@ import {
   getGames,
   getInstrumentLeadLag,
   getInstrumentTimeline,
+  getLiveHealth,
   getMarketAnomalies,
-  getReadyHealth,
   getSignalQualityReport,
   isApiRequestError,
   type AdminCaptureRunsPayload,
@@ -527,14 +527,8 @@ export function TraderDeskPage() {
     staleTime: 4_000,
   });
   const marketAnomalies = useQuery({
-    queryKey: ["research-market-anomalies", "live"],
-    queryFn: () =>
-      getMarketAnomalies({
-        includeUnmapped: true,
-        limit: 12,
-        minConfidence: 0.45,
-        minScore: 45,
-      }),
+    queryKey: ["research-market-anomalies", "live", 12],
+    queryFn: () => getMarketAnomalies({ limit: 12 }),
     enabled: primarySurfacesReady,
     refetchInterval: 15_000,
     refetchIntervalInBackground: true,
@@ -617,10 +611,10 @@ export function TraderDeskPage() {
       isTransientDeskError(error) && failureCount < 1,
     retryDelay: deskRetryDelay,
   });
-  const readiness = useQuery({
+  const liveApiHealth = useQuery({
     enabled: diagnosticsQueriesEnabled,
-    queryKey: ["health-ready"],
-    queryFn: getReadyHealth,
+    queryKey: ["health-live"],
+    queryFn: getLiveHealth,
     retry: (failureCount, error) =>
       isTransientDeskError(error) && failureCount < 1,
     retryDelay: deskRetryDelay,
@@ -789,13 +783,13 @@ export function TraderDeskPage() {
     1,
     ...storageRows.map((row) => row.quoteTicks)
   );
-  const readinessLabel = readiness.isLoading
+  const liveApiLabel = liveApiHealth.isLoading
     ? "loading"
-    : readiness.fetchStatus === "idle" && readiness.data == null
+    : liveApiHealth.fetchStatus === "idle" && liveApiHealth.data == null
       ? "warming up"
-      : readiness.isError
+      : liveApiHealth.isError
         ? "error"
-        : (readiness.data?.status ?? "unknown");
+        : (liveApiHealth.data?.status ?? "unknown");
   const primaryRefreshErrors = [
     {
       error: games.error,
@@ -818,7 +812,7 @@ export function TraderDeskPage() {
     sourceHealth,
     captureRuns,
     storageCoverage,
-    readiness,
+    liveApiHealth,
   ].filter((query) => query.isError).length;
 
   return (
@@ -947,7 +941,8 @@ export function TraderDeskPage() {
           <Panel className="desk-panel desk-warning ops-warning">
             {supportingErrorCount} supporting desk feed
             {supportingErrorCount === 1 ? "" : "s"} failed. The ranked queue is
-            visible, but source health, history, or readiness may be incomplete.
+            visible, but source health, history, or API liveness may be
+            incomplete.
           </Panel>
         ) : null}
 
@@ -1777,7 +1772,7 @@ export function TraderDeskPage() {
           <span>Unmapped games: {formatCount(unmappedCoverageRows)}</span>
           <span>Line mismatches: {formatCount(lineMismatchRows)}</span>
           <span>Source markets: {formatCount(totalSourceMarkets)}</span>
-          <span>Readiness: {readinessLabel}</span>
+          <span>API live: {liveApiLabel}</span>
         </footer>
       </div>
     </PageFrame>

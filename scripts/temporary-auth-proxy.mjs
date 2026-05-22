@@ -11,7 +11,7 @@ const webRoot = resolve(
     fileURLToPath(new URL("../apps/web/dist", import.meta.url))
 );
 const apiTarget = new URL(
-  process.env.TEMP_HOST_API_TARGET ?? "http://127.0.0.1:8787"
+  process.env.TEMP_HOST_API_TARGET ?? "http://127.0.0.1:8788"
 );
 const username =
   process.env.BASIC_AUTH_USERNAME ?? process.env.TEMP_HOST_USERNAME;
